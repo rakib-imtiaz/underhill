@@ -1,0 +1,146 @@
+/* ==========================================================================
+   404 PAGE — "off the grid" (scoped: .nf-*)
+   GPU-safe: transform/opacity only; reduced-motion guards at the end.
+   ========================================================================== */
+
+.nf {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  background: var(--navy);
+  color: var(--white);
+  padding: calc(var(--head-h) + 60px) 0 90px;
+  overflow: hidden;
+}
+/* blueprint grid backdrop */
+.nf::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 130, 202, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 130, 202, 0.14) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse at 50% 42%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 42%, #000 20%, transparent 78%);
+}
+.nf .container { position: relative; z-index: 2; text-align: center; }
+
+.nf .mark {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(120px, 22vw, 250px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: transparent;
+  -webkit-text-stroke: 2px rgba(0, 130, 202, 0.85);
+  user-select: none;
+}
+/* crosshairs bracketing the 404 like survey ticks */
+.nf .mark::before,
+.nf .mark::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin-top: -17px;
+  background:
+    linear-gradient(var(--lime), var(--lime)) center / 100% 2px no-repeat,
+    linear-gradient(var(--lime), var(--lime)) center / 2px 100% no-repeat;
+  opacity: 0.9;
+  animation: nf-pulse 2.6s var(--ease) infinite;
+}
+.nf .mark::before { left: -64px; }
+.nf .mark::after { right: -64px; animation-delay: 1.3s; }
+@keyframes nf-pulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.82); }
+}
+
+.nf .kicker { justify-content: center; color: var(--lime); }
+.nf .kicker::before { background: var(--lime); }
+.nf h1 {
+  color: var(--white);
+  font-size: clamp(30px, 4vw, 48px);
+  margin: 18px 0 0;
+}
+.nf .lead {
+  margin: 18px auto 0;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 52ch;
+}
+.nf .actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 34px;
+}
+
+.nf-links {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 64px;
+  text-align: left;
+}
+.nf-links a {
+  position: relative;
+  display: block;
+  padding: 20px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--white);
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  transition: border-color 0.3s var(--ease), background 0.3s var(--ease), transform 0.3s var(--ease);
+}
+.nf-links a::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--blue);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s var(--ease);
+}
+.nf-links a:hover {
+  border-color: rgba(0, 130, 202, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-3px);
+}
+.nf-links a:hover::before { transform: scaleX(1); }
+.nf-links a .d {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.nf-links a:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
+@media (max-width: 860px) {
+  .nf-links { grid-template-columns: 1fr 1fr; }
+  .nf .mark::before { left: -44px; }
+  .nf .mark::after { right: -44px; }
+}
+@media (max-width: 560px) {
+  .nf-links { grid-template-columns: 1fr; }
+  .nf .mark::before, .nf .mark::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf .mark::before, .nf .mark::after { animation: none; }
+  .nf-links a, .nf-links a::before { transition: none !important; transform: none !important; }
+  .nf-links a::before { transform: scaleX(1); }
+}
