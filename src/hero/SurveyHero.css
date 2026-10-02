@@ -360,3 +360,26 @@
 .sh-office { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: #ffffff; border-left: 3px solid #e8ff8a; }
 .sh-site { font-size: 12.5px; font-weight: 600; color: #ffffff; border-left-color: #5cc0f5; }
 .sh-root.is-compact .sh-office, .sh-root.is-compact .sh-region { text-shadow: none; padding: 3px 5px 3px 6px; }
+
+/* touch screens: sideways swipes change chapter; the page keeps its own vertical scroll */
+.sh-root.is-stepper.is-compact .sh-stage, .sh-root.is-stepper.is-tablet .sh-stage { touch-action: pan-y; }
+/* ‹ SWIPE › at the bottom: says how to move on, and the chevrons are tappable too */
+.sh-swipe {
+  position: absolute; z-index: 6; display: flex; align-items: center;
+  left: calc(var(--sh-gutter) - 11px); bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  font: 500 10px/1 var(--sh-mono); letter-spacing: 0.2em; text-transform: uppercase; color: rgba(214, 228, 238, 0.6);
+}
+.sh-swipe button {
+  all: unset; width: 36px; height: 36px; display: grid; place-items: center; cursor: pointer;
+  color: rgba(238, 244, 248, 0.9); -webkit-tap-highlight-color: transparent; transition: opacity 0.3s ease;
+}
+.sh-swipe button svg { width: 14px; height: 14px; }
+.sh-swipe button:focus-visible { outline: 1px solid var(--sh-accent-soft); outline-offset: -4px; border-radius: 50%; }
+.sh-swipe[data-at='first'] .sh-swipe-prev, .sh-swipe[data-at='last'] .sh-swipe-next { opacity: 0.22; pointer-events: none; }
+/* until the first swipe, the forward chevron nudges the way to go */
+.sh-swipe:not(.is-used) .sh-swipe-next svg { animation: sh-nudge 1.8s ease-in-out infinite; }
+@keyframes sh-nudge { 0%, 55%, 100% { transform: none; } 25% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .sh-swipe .sh-swipe-next svg { animation: none; } }
+.sh-root.is-tablet .sh-swipe { left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); font-size: 11px; }
+.sh-root.is-tablet .sh-swipe button { width: 44px; height: 44px; }
+.sh-root.is-tablet .sh-swipe button svg { width: 16px; height: 16px; }

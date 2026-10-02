@@ -87,7 +87,7 @@ export default function IntroVideo({ base = '/intro' }: { base?: string }) {
 
   if (state === 'done') return null
   return (
-    <div className={`uh-intro${state === 'leaving' ? ' is-leaving' : ''}${deviceTier() === 'tablet' ? ' is-tablet' : ''}`} role="dialog" aria-label="Underhill intro">
+    <div className={`uh-intro${state === 'leaving' ? ' is-leaving' : ''}${deviceTier() === 'tablet' ? ' is-tablet' : deviceTier() === 'phone' ? ' is-phone' : ''}`} role="dialog" aria-label="Underhill intro">
       <video ref={video} src={src} poster={poster} muted playsInline preload="auto" onEnded={finish} onLoadedMetadata={onMeta} aria-hidden="true" />
       <button type="button" className="uh-intro-skip" onClick={finish}>Skip intro <span aria-hidden="true">→</span></button>
       <style>{`
@@ -103,6 +103,15 @@ export default function IntroVideo({ base = '/intro' }: { base?: string }) {
         }
         .uh-intro-skip:hover { background: #1196e0; transform: translateY(-1px); }
         .uh-intro-skip:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+        /* phones: a quiet text link in the corner, like the hero's, not a button over the film */
+        .uh-intro.is-phone .uh-intro-skip {
+          bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: 8px; padding: 10px;
+          background: none; border: 0; border-radius: 0; box-shadow: none;
+          font-size: 10px; font-weight: 500; letter-spacing: 0.18em; color: rgba(214, 228, 238, 0.6);
+          -webkit-tap-highlight-color: transparent;
+        }
+        .uh-intro.is-phone .uh-intro-skip::after { display: none; }
+        .uh-intro.is-phone .uh-intro-skip:hover, .uh-intro.is-phone .uh-intro-skip:active { background: none; color: #eef4f8; transform: none; }
         .uh-intro.is-tablet .uh-intro-skip { min-height: 44px; padding: 0 22px; bottom: calc(clamp(20px, 4vh, 40px) + env(safe-area-inset-bottom, 0px)); }
         .uh-intro-skip::after {
           content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;

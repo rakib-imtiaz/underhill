@@ -117,6 +117,7 @@ export default function SurveyHero({ chapters = DEFAULT_CHAPTERS, posterSrc, pos
   /** the chapter the next gesture counts from: where a running step is heading, else where we rest */
   const baseChapter = () => (steppingRef.current ? targetRef.current : chapterRef.current)
   const last = useRef({ rail: -1 })
+  const swipeRef = useRef<HTMLDivElement>(null) // touch screens: the ‹ swipe › control at the bottom
 
   /* ---------------- labels: first free spot around each anchor ---------------- */
   const tabletRef = useRef(tablet)
@@ -186,6 +187,7 @@ export default function SurveyHero({ chapters = DEFAULT_CHAPTERS, posterSrc, pos
       last.current.rail = rail
       railRefs.current.forEach((b, i) => b?.setAttribute('aria-current', i === rail ? 'step' : 'false'))
       if (numRef.current) numRef.current.textContent = pad2(rail + 1)
+      swipeRef.current?.setAttribute('data-at', rail <= 0 ? 'first' : rail >= LAST ? 'last' : '')
     }
     // artwork plates: where they cover the frame, the GL draw is skipped and scene labels step aside
     if (debugFrame !== null) (window as unknown as { __alt: number[] }).__alt = [s.sp, s.alt, s.site.x, s.site.y, s.site.a]
@@ -450,30 +452,30 @@ export default function SurveyHero({ chapters = DEFAULT_CHAPTERS, posterSrc, pos
     const engaged = () => Math.abs(rootRef.current!.getBoundingClientRect().top) <= 2
     const releases = (dir: number) => (dir > 0 && chapterRef.current >= LAST) || (dir < 0 && chapterRef.current <= 0)
 
-    let x0 = 0, y0 = 0, lastX = 0, kind: 'none' | 'step' | 'orbit' | 'native' = 'none'
+    // touch: a sideways swipe on the hero moves between chapters, like a carousel (left → next, right → previous);
+    // an up/down swipe is left to the browser, so the page scrolls on past the hero as any page would
+    let x0 = 0, y0 = 0, fired = false, kind: 'none' | 'step' | 'native' = 'none'
     const onStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return
-      x0 = lastX = e.touches[0].clientX; y0 = e.touches[0].clientY; kind = 'none'
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; kind = 'none'; fired = false
     }
     const onMove = (e: TouchEvent) => {
       if (e.touches.length !== 1 || kind === 'native') return
-      const x = e.touches[0].clientX, y = e.touches[0].clientY
-      const dx = x - x0, dy = y0 - y // dy > 0: finger moved up → next chapter
+      const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0
       if (kind === 'none') {
         if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
-        if (!engaged()) { kind = 'native'; return }
-        if (Math.abs(dx) > Math.abs(dy) * 1.2 && stageRef.current!.contains(e.target as Node)) kind = 'orbit'
-        else if (releases(Math.sign(dy)) && !steppingRef.current) { kind = 'native'; return }
-        else kind = 'step'
+        const onStage = stageRef.current!.contains(e.target as Node) && !(e.target as Element).closest?.('.sh-ui')
+        kind = onStage && Math.abs(dx) > Math.abs(dy) * 1.2 ? 'step' : 'native'
+        if (kind === 'native') return
       }
       e.preventDefault()
-      if (kind === 'orbit') { engineRef.current?.dragBy(x - lastX); lastX = x; return }
-      if (Math.abs(dy) > 28 && performance.now() - stepEnd.current > 120) {
-        stepTo(baseChapter() + Math.sign(dy))
-        y0 = -1e6 // one step per gesture
+      if (!fired && Math.abs(dx) > 40 && performance.now() - stepEnd.current > 120) {
+        fired = true // one step per gesture
+        stepTo(baseChapter() + (dx < 0 ? 1 : -1))
+        swipeRef.current?.classList.add('is-used')
       }
     }
-    const onEnd = () => { if (kind === 'orbit') engineRef.current?.dragEnd(); kind = 'none' }
+    const onEnd = () => { kind = 'none' }
 
     // wheel/trackpad: one gesture = one step; a new gesture mid-step moves on at once (its inertia tail is ignored)
     let acc = 0, lastWheel = 0, blocked = false
@@ -640,6 +642,17 @@ export default function SurveyHero({ chapters = DEFAULT_CHAPTERS, posterSrc, pos
             ))}
 
             <div className="sh-stepbar" aria-hidden="true"><div ref={stepBarRef} /></div>
+            {(compact || tablet) && (
+              <div ref={swipeRef} className="sh-swipe sh-ui" data-at="first">
+                <button type="button" className="sh-swipe-prev" aria-label="Previous chapter" onClick={() => stepTo(baseChapter() - 1)}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 L5 8 L10 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+                <span className="sh-swipe-hint" aria-hidden="true">Swipe</span>
+                <button type="button" className="sh-swipe-next" aria-label="Next chapter" onClick={() => { swipeRef.current?.classList.add('is-used'); stepTo(baseChapter() + 1) }}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3 L11 8 L6 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              </div>
+            )}
             {touring && mode === 'step' && (
               <button type="button" className="sh-skip sh-ui" onClick={skipTour}>Skip intro <span aria-hidden="true">→</span></button>
             )}
