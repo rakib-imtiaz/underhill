@@ -4,12 +4,12 @@
   Cache-Control: public, max-age=31536000, immutable
 /assets/*.css
   Cache-Control: public, max-age=31536000, immutable
-# Hero media and site photos: not hashed, so a week, revalidated after.
+# Hero media and site photos: not hashed, so an hour fresh, then served while refreshing in the background.
 /plates/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, max-age=3600, stale-while-revalidate=604800
 /models/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, max-age=3600, stale-while-revalidate=604800
 /intro-*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, max-age=3600, stale-while-revalidate=604800
 /assets/uploads/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, max-age=3600, stale-while-revalidate=604800
