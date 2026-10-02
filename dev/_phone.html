@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>phone harness</title>
+<style>
+  html,body{margin:0;background:#222;height:100%;overflow:hidden}
+  #wrap{position:absolute;left:12px;top:12px;box-shadow:0 0 0 1px #555;transform-origin:0 0}
+  iframe{display:block;border:0;background:#000}
+  #lbl{position:absolute;left:12px;bottom:6px;color:#9aa;font:12px monospace}
+</style>
+<div id="wrap"><iframe id="f"></iframe></div>
+<div id="lbl"></div>
+<script>
+  // dev-only: ?w=390&h=844&s=1&path=/&frame=0.5  -> shows path in a w×h iframe, scaled by s
+  const q = new URLSearchParams(location.search);
+  const w = +q.get("w") || 390, h = +q.get("h") || 844, s = +q.get("s") || 1;
+  const f = document.getElementById("f");
+  f.width = w; f.height = h;
+  document.getElementById("wrap").style.transform = "scale(" + s + ")";
+  const inner = new URLSearchParams();
+  for (const [k, v] of q) if (k !== "w" && k !== "h" && k !== "s" && k !== "path") inner.set(k, v);
+  const src = (q.get("path") || "/") + (inner.toString() ? "?" + inner.toString() : "");
+  f.src = src;
+  document.getElementById("lbl").textContent = w + "x" + h + " @" + s + "  " + src;
+  window.phone = () => f.contentWindow;
+</script>

@@ -36,7 +36,9 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html {
+  /* fixed header: anchor jumps and scroll-into-view land clear of it */
+  scroll-padding-top: 92px; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
@@ -823,6 +825,36 @@ h1, h2, h3, h4 {
      preview, so the HUD kept rendering on top of the chapter CTA there. */
   .reticle, .hotspot-tip, .scene-hud { display: none; }
 }
+
+/* ---------------------------------------------------------------- stepped
+   Checkpoint mode (phones + tablets, set by terrain.js): the hero is one
+   viewport tall and swipes step between chapter anchors. Captions are
+   class-driven: cut out the instant a step starts, fade up on arrival. */
+.journey.stepped .journey-track { height: 100vh; }
+@supports (height: 100svh) { .journey.stepped .journey-track { height: 100svh; } }
+.journey.stepped .journey-stage { position: relative; touch-action: none; }
+.journey.stepped .chapter {
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.14s ease, visibility 0s linear 0.14s;
+}
+.journey.stepped .chapter.on {
+  opacity: 1; visibility: visible;
+  transition: opacity 0.34s ease 0.10s, visibility 0s;
+}
+.journey.stepped .chapter .container,
+.journey.stepped .chapter.right .container {
+  filter: none;
+  transform: translate3d(0, 14px, 0);
+  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1) 0.10s;
+}
+.journey.stepped .chapter.on .container,
+.journey.stepped .chapter.right.on .container { transform: none; }
+/* the "Scroll" cue is hidden under 860px; in stepped mode it is the only
+   hint that the hero wants a swipe, so bring it back */
+.journey.stepped .scroll-cue { display: block; }
+.scroll-cue .cue-swipe { display: none; }
+.journey.stepped .scroll-cue .cue-scroll { display: none; }
+.journey.stepped .scroll-cue .cue-swipe { display: inline; }
 
 /* touch devices: pointer-driven chrome has no meaning and gets stuck "on" */
 @media (hover: none), (pointer: coarse) {

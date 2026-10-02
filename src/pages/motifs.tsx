@@ -56,8 +56,8 @@ const UX_CSS = `
 }
 .ux-leader:hover { transform: translateY(-6px); box-shadow: 0 30px 64px rgba(18, 26, 38, 0.2); }
 .ux-leader:hover::before { transform: scaleX(1); }
-.ux-leader .ph { position: relative; min-height: 100%; }
-.ux-leader .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ux-leader .ph { position: relative; min-height: 100%; max-height: 440px; }
+.ux-leader .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
 .ux-leader .meta { padding: 30px 32px 34px; }
 .ux-leader h3 { margin: 0; font-size: 23px; }
 .ux-leader .role {
@@ -73,10 +73,34 @@ const UX_CSS = `
 }
 .ux-leader p { font-size: 14px; color: var(--grey-600); margin-bottom: 12px; }
 .ux-leader p:last-child { margin-bottom: 0; }
-@media (max-width: 1080px) { .ux-leaders { grid-template-columns: 1fr; } }
+@media (max-width: 1080px) { .ux-leaders { grid-template-columns: 1fr; gap: 22px; } }
+/* tablet: the photo column no longer stretches to the length of the bio --
+   the president has the longest bio and was getting a 240 x 900 crop */
+@media (max-width: 1080px) {
+  .ux-leader { grid-template-columns: 220px 1fr; align-items: start; }
+  .ux-leader .ph { min-height: 0; aspect-ratio: 4 / 5; max-height: none; }
+}
+/* phone: profile header (photo beside name + role), bio flows underneath.
+   Reads as a profile card instead of a full-bleed poster with text below. */
 @media (max-width: 620px) {
-  .ux-leader { grid-template-columns: 1fr; }
-  .ux-leader .ph { min-height: 300px; }
+  /* .meta dissolves into the grid so the name, role and credentials can sit
+     BESIDE the photo while the bio paragraphs span the full card width */
+  .ux-leader {
+    grid-template-columns: 104px 1fr; column-gap: 16px; row-gap: 0;
+    align-items: start; padding: 20px 20px 24px;
+  }
+  .ux-leader .ph {
+    aspect-ratio: auto; min-height: 0; max-height: none;
+    grid-column: 1; grid-row: 1 / span 3;
+    width: 104px; height: 124px; border-radius: 6px; overflow: hidden;
+  }
+  .ux-leader .meta { display: contents; }
+  .ux-leader h3 { grid-column: 2; font-size: 19px; line-height: 1.2; margin-top: 4px; }
+  .ux-leader .role { grid-column: 2; margin: 6px 0 0; }
+  .ux-leader .creds { grid-column: 2; margin: 8px 0 0; align-self: start; }
+  .ux-leader p { grid-column: 1 / -1; font-size: 14.5px; line-height: 1.6; margin: 0; }
+  .ux-leader p:first-of-type { margin-top: 18px; }
+  .ux-leader p + p { margin-top: 10px; }
 }
 
 /* job opening rows (Careers) — hover lift + left border sweep */

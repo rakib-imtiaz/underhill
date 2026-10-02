@@ -33,12 +33,12 @@ export const PRIMARY_NAV: NavGroup[] = [
     children: [
       { label: "Our Approach", href: "/our-approach/" },
       { label: "Our Team", href: "/our-team/" },
-      { label: "Industries", href: "/about-underhill-geomatics/land-surveyors/", unported: true },
+      { label: "Industries", href: "/about-underhill-geomatics/land-surveyors/" },
       { label: "Careers", href: CAREERS_HREF },
       { label: "Our History", href: STORY_HREF },
-      { label: "Health and Safety", href: "/about-underhill-geomatics/health-safety/", unported: true },
-      { label: "Affiliations", href: "/about-underhill-geomatics/affiliations/", unported: true },
-      { label: "Underhill Brand", href: "/about-underhill-geomatics/underhill-brand/", unported: true },
+      { label: "Health and Safety", href: "/about-underhill-geomatics/health-safety/" },
+      { label: "Affiliations", href: "/about-underhill-geomatics/affiliations/" },
+      { label: "Underhill Brand", href: "/about-underhill-geomatics/underhill-brand/" },
     ],
   },
   {

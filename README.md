@@ -70,15 +70,20 @@ runtime console errors.
 | `/our-approach` | `pages/Approach` |
 | `/careers`, `/about-underhill-geomatics/careers` | `pages/Careers` |
 | `/story`, `/history-of-underhill-geomatics` | `pages/Story` |
+| `/about-underhill-geomatics/land-surveyors` | `pages/Industries` |
+| `/about-underhill-geomatics/health-safety` | `pages/HealthSafety` |
+| `/about-underhill-geomatics/affiliations` | `pages/Affiliations` |
+| `/about-underhill-geomatics/underhill-brand` | `pages/UnderhillBrand` |
 | `/vancouver-land-surveyors` | `pages/ContactPage` |
 | `/vancouver-island-land-surveyors` | `pages/ContactPage` |
 | `/kamloops-land-surveyors` | `pages/ContactPage` |
 | `/whitehorse-land-surveyors` | `pages/ContactPage` |
 | `*` | `pages/NotFound` |
 
-**32 routes.** The eleven service detail pages, the seven project-category
-pages, careers and the company history were added after the first pass; the
-original port covered only the ten top-level pages.
+**36 routes.** The eleven service detail pages, the seven project-category
+pages, careers, the company history and the four About sub-pages (Industries,
+Health and Safety, Affiliations, Underhill Brand) were added after the first
+pass; the original port covered only the ten top-level pages.
 
 Route paths are declared without a trailing slash; React Router v6 matches the
 source site's trailing-slash URLs against them, so every link in the ported
@@ -191,6 +196,130 @@ the ported markup keeps its original `/assets/uploads/…` path.
 
 ---
 
+## Total station model (v2, rebuilt)
+
+`src/three/instrument.js` was rebuilt from scratch. The v1 model was a stack
+of sharp boxes in near-black paint (`0x15171c`, envMapIntensity 0.9); under
+a rig that lights the valley from 15 units out it rendered as a silhouette
+with no readable form. v1 is kept at `.backup/instrument-v1/` alongside the
+`terrain.js` / `core.js` of the same moment.
+
+The contract is unchanged — `makeKit(env)`, `buildTotalStation(kit) ->
+{ root, parts, pad }`, `layoutAssembly`, `InstrumentScene`; the telescope
+axis stays at y = 1.37 because `terrain.js` builds the EDM beam and the
+prism from that datum. Every kit material name survives (the prism and the
+monuments use them). What changed:
+
+- **Identity features.** Two rounded standards carrying the telescope on a
+  visible trunnion axle; a carrying handle arched between them (TubeGeometry
+  on a CatmullRom curve, bossed at both ends); a tilted display with an
+  emissive screen and a 12-key instanced keypad; a fat telescope with
+  sunshade, focus ring, objective glass, EDM dot and eyepiece cup; a
+  triangular tribrach (Shape extrude) with three vertical knurled foot screws
+  and a circular bubble; a wooden tripod — two hardwood slats per leg, a
+  blue clamp bracket with wing screw, aluminium inner leg, steel shoe and
+  foot-step plate.
+- **Chamfers everywhere.** `chamferBox()` (ExtrudeGeometry with bevel)
+  replaces BoxGeometry on every casting; the bevel is where the rim light
+  lands. `knurledKnob()` builds a smooth core plus one InstancedMesh of ribs.
+- **Materials lifted out of black.** `paintSatin` 0x2b2f37 with a light
+  clearcoat, envMapIntensity 1.5, new `wood` / `keyCap` / `screen` /
+  `laserRed` entries.
+- **Its own lights.** Two SpotLights parented to the station in
+  `terrain.js` (`stationKey` warm from upper front-left, `stationRim` cool
+  from behind), no shadows — the contact sprite does that job.
+- **Desktop macro framing** (chapter 2) tightened from radius 2.1 to 1.55,
+  and the ENGAGE ripples now fade out over p 0.20–0.27 (was 0.28–0.40) so
+  the close-up is not shot through a wall of rings. These are the only
+  desktop-visible changes.
+- **Desktop render quality.** Desktop `dprCap` 1.0 → 1.5 (Windows display
+  scaling at 125–150% made the 1.0 cap a visible blur-up on every hard
+  edge), the EffectComposer now renders into a **4× MSAA** target on desktop
+  (`makePost({ samples })`; the canvas itself has `antialias:false` under a
+  post chain, so edges had no AA at all), and the quality governor's floor is
+  raised 0.55 → 0.8 — below that the scene is pixelated, which is worse than
+  a dropped frame. Phones keep native DPR with no MSAA.
+- The assembly groups `tribrach` / `alidade` / `telescope` are now actually
+  registered in `parts`; v1 registered only the pad and the legs, so the
+  services-page assembly animation only ever exploded the tripod.
+
+---
+
+## Checkpoint mode (phones and tablets)
+
+On touch devices and any viewport 1024 px wide or narrower, the hero no longer
+scrubs with the finger. `terrain.js` sets `this.stepped`, adds
+`.journey.stepped`, and the track collapses to one viewport:
+
+- **One swipe = one chapter.** A vertical swipe (or a wheel burst) calls
+  `stepTo(k)`, which tweens `progress` from anchor `k/7` to the next over
+  ~1.1 s. The camera follows the same authored path desktop takes, on the clock
+  instead of the scroll position, so the only frames a user can *rest* on are
+  the eight anchor frames. Horizontal drags still orbit.
+- **Engaged only at the top of the page.** `touch-action` is `none` while
+  `scrollY <= 4` and `pan-y` otherwise; a swipe past the last chapter
+  (`exitDown`) smooth-scrolls into the page and hands control back to the
+  browser. Scrolling back to the top re-engages at whatever chapter was last
+  shown.
+- **Captions are class-driven** (`.chapter.on`): cut out the instant a step
+  starts, fade up on arrival. The scroll-fraction fade that produced half-faded
+  ghosts and a blank beat at chapter 4 on the recording is desktop-only now.
+- **Rail dots and arrow keys** route through `stepTo` as well.
+- **Stepped devices render at native density** (`dprCap` 2.0, i.e. min(DPR, 2))
+  at 24 fps idle / 48 fps active, on a 104² grid. The 0.85x / 20 fps / 88²
+  phone budget that the free-scrub build used was tuned for a desktop iGPU;
+  on a 3x retina phone it rendered every ring and edge as a pixel stair. A
+  step only runs hot for ~1 s, and the viewport is a quarter of a desktop's,
+  so the budget holds.
+
+### Portrait composition
+
+`fitDistance()` fits the subject to the *narrower* field of view, which in a
+tall frame is the horizontal one: every shot backed off until the instrument
+was a speck, except the globe legs, whose subject radius overran the frame.
+`PORTRAIT_OVERRIDES` gives each chapter its own `radius` / `target` / `pad` /
+`pitch` when `stepped && camera.aspect < 0.95`; `PORTRAIT` is the merged
+table and `apply()` picks it without allocating. All eight anchors and all
+seven mid-leg frames were checked at 360x780 and 820x1180.
+
+Portrait also gets a small polish pass, all gated on `usePortrait`: the
+horizon haze quad is hidden (its bottom edge read as a hard seam above the
+valley), the ENGAGE ripples fade out before the INSTRUMENT macro instead of
+sitting behind it, a point light (`portraitFill`) rides just off the camera
+during the macro so the instrument is lit rather than silhouetted, and the
+grade vignette is capped at 0.95. Steps take 1.25 s (`STEP_MS`). The globe's
+footprint cues (Canada highlight, office markers, pulses) ramp earlier in
+portrait so they are already on at the REACH anchor -- on the free scrub they
+belong to the last leg, on a stepped phone that anchor is the whole chapter.
+
+The REACH anchor (chapter 6) is the "national footprint" frame in portrait,
+so its cues are retimed there: Canada highlight ramps over p 0.76-0.85 (desktop
+0.84-0.96), office markers 0.79-0.86 (desktop 0.88-0.97), pulses 0.80-0.90.
+On the free scrub those land late in the last leg; on a step they must already
+be up when the anchor frame is the one the user rests on. The shot itself
+looks straight down the BC axis (`dir [0.04, 0.93, 0.37]`, radius 50) so
+Canada sits centred in the clear band above the caption.
+
+Portrait also drives three uniforms from `apply()`: `uSizeMul` (0.7) and
+`uSizeMax` (10 px) keep the close-range terrain sprites reading as a scan
+rather than bokeh, and the valley fog is halved so the plan view can be shot
+from far enough out for the parcel drawing to keep its shape. On desktop the
+same uniforms resolve to 1.0 / 16 px / fog x1 -- the previous values.
+
+Desktop (`stepped === false`) is byte-for-byte the previous behaviour: free
+scrub on the 800vh track, `CHAPTERS` table, scroll-fraction captions.
+
+`dev/_phone.html` is a dev-only harness (`/dev/_phone.html?w=360&h=780&frame=0.5`
+under `npm run dev`) that loads the site in a phone-sized iframe; it is
+outside `public/` on purpose and never ships.
+
+The team page got a related fix: the leader photo column no longer stretches
+to the length of the bio (the president's was a 240 x ~900 crop on tablets).
+Tablet uses a fixed 4:5 portrait beside the text; phones use a profile header
+(photo beside name, role and credentials) with the bio full-width beneath.
+
+---
+
 ## Performance work
 
 The scene was pinning an integrated GPU (Ryzen 7 5700G) at ~90% utilisation.
@@ -213,7 +342,7 @@ or a `EXT_disjoint_timer_query_webgl2` harness, neither of which was run.
 | Starfield (`atmos.js` via `terrain.js`) | 1 400 | **800** |
 | **Hero total** | **127 500** | **36 900** (−71%) |
 
-Phone/small tier falls from 49 550 to 20 164: grid 130² → 88², globe 32 000 →
+Phone/small tier falls from 49 550 to 23 236: grid 130² → 104², globe 32 000 →
 12 000, stars 650 → 420. `globe.js` also carries a hard `MAX_LAND_POINTS =
 24 000` ceiling, so no caller can ask for more regardless of what it passes.
 

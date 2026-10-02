@@ -1,0 +1,32 @@
+/* The survey hero inside the Underhill site: undo the site's global element rules where they would
+   reach into the scene, and seat the hero's own UI beneath the fixed site header. */
+
+/* the site's `img, video { max-width: 100% }` would shrink the oversized, pushed-in plates */
+.sh-root img, .sh-root video, .sh-root canvas, .uh-intro video { max-width: none; }
+/* the site's heading colour (navy) and link hover colour would land dark-on-dark */
+.sh-root h1, .sh-root h2, .sh-root h3, .sh-root h4 { color: inherit; }
+.sh-root .sh-cta:hover { color: var(--sh-ink); }
+
+/* the site header carries the logo and nav over the hero: drop the hero's own wordmark and start
+   its counter, captions and side cards below the header */
+.sh-root { --sh-top: calc(var(--head-h) + clamp(10px, 2.4vh, 26px)); }
+/* floating scene cards are pushed below this line (a plain px value: it is read from script) */
+.sh-root { --sh-clear-top: 92px; }
+.sh-root .sh-mark { display: none; }
+@media (max-width: 1024px), (pointer: coarse) {
+  .sh-root .sh-skip { top: calc(env(safe-area-inset-top, 0px) + var(--head-h) + 10px); }
+}
+
+/* phones: the counter sits just under the site header (the hero's own phone rule put it at the very
+   top, behind the logo) */
+.sh-root.is-compact .sh-head { top: calc(var(--head-h) + 16px); }
+/* phones: Skip is a quiet text link in the bottom-right corner, under the caption, not a button */
+.sh-root.is-compact .sh-skip {
+  top: auto; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); right: calc(var(--sh-gutter) - 8px);
+  padding: 8px; background: none; border: 0; border-radius: 0; box-shadow: none; backdrop-filter: none;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.18em; color: rgba(214, 228, 238, 0.62);
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-root.is-compact .sh-skip::after { display: none; }
+.sh-root.is-compact .sh-captions { bottom: calc(44px + env(safe-area-inset-bottom, 0px)); } /* room for the link */
+.sh-root.is-compact .sh-skip:hover, .sh-root.is-compact .sh-skip:active { background: none; color: #eef4f8; transform: none; }

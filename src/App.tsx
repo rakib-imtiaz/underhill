@@ -8,6 +8,10 @@ import Team from "./pages/Team";
 import Approach from "./pages/Approach";
 import Careers from "./pages/Careers";
 import Story from "./pages/Story";
+import Industries from "./pages/Industries";
+import HealthSafety from "./pages/HealthSafety";
+import Affiliations from "./pages/Affiliations";
+import UnderhillBrand from "./pages/UnderhillBrand";
 import ContactPage from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 
@@ -122,6 +126,23 @@ export default function App() {
         <Route path="/our-approach" element={<Approach />} />
         <Route path="/careers" element={<Careers />} />
         <Route path="/story" element={<Story />} />
+        {/* About sub-pages */}
+        <Route
+          path="/about-underhill-geomatics/land-surveyors"
+          element={<Industries />}
+        />
+        <Route
+          path="/about-underhill-geomatics/health-safety"
+          element={<HealthSafety />}
+        />
+        <Route
+          path="/about-underhill-geomatics/affiliations"
+          element={<Affiliations />}
+        />
+        <Route
+          path="/about-underhill-geomatics/underhill-brand"
+          element={<UnderhillBrand />}
+        />
         {/* legacy source-site URLs keep working */}
         <Route path="/about-underhill-geomatics/careers" element={<Careers />} />
         <Route path="/history-of-underhill-geomatics" element={<Story />} />

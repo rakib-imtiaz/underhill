@@ -263,12 +263,19 @@ const GradeShader = {
  * Returns { composer, bloom, grade } — assign composer to scene.composer.
  */
 export function makePost(renderer, scene, camera, {
+  samples = 0,
   bloomStrength = 0.62, bloomRadius = 0.55, bloomThreshold = 0.52,
 } = {}) {
   const size = new THREE.Vector2();
   renderer.getSize(size);
 
-  const composer = new EffectComposer(renderer);
+  /* MSAA lives on the composer's own target: the main canvas has
+     antialias:false under a post chain (see core.js), so without this every
+     hard edge -- the instrument, the ridge lines -- ships aliased. */
+  const rt = samples > 0
+    ? new THREE.WebGLRenderTarget(1, 1, { samples, type: THREE.HalfFloatType })
+    : undefined;
+  const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
 
   /* Bloom is the fill-rate hog of this chain (a 5-mip stack of separable

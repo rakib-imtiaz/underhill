@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import HeroJourney from "../components/HeroJourney";
+import SurveyHero from "../hero/SurveyHero";
+import IntroVideo from "../hero/IntroVideo";
+import "../hero/hero-in-site.css";
 import ProjectsMap from "../components/ProjectsMap";
 import CtaBand from "../components/CtaBand";
 import SmartLink from "../components/SmartLink";
@@ -286,8 +289,14 @@ export default function Home() {
     <main id="main" className="pg-home">
       <style>{CSS}</style>
 
-      {/* Cinematic 3D scroll journey — owned by the scenes agent, untouched */}
-      <HeroJourney />
+      {/* Brand intro (portalled to <body>: the page-shell fade would otherwise
+          trap a position:fixed overlay inside its transform), then the
+          chapter-stepped survey hero. */}
+      {createPortal(<IntroVideo />, document.body)}
+      <SurveyHero
+        posterSrc="/plates/field_photo.jpg"
+        posterAlt="A survey instrument on a tripod above a mountain valley at dusk"
+      />
 
       {/* Heritage statement — the first beat after the journey */}
       <section className="section" aria-labelledby="home-statement">

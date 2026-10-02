@@ -1,0 +1,362 @@
+/* SurveyHero — scoped under .sh-root. Layout follows the approved storyboard. */
+.sh-root {
+  --sh-bg: #04070c;
+  --sh-ink: #eef4f8;
+  --sh-dim: rgba(214, 228, 238, 0.7);
+  --sh-faint: rgba(190, 214, 230, 0.42);
+  --sh-accent: #0082ca; /* Underhill blue: data */
+  --sh-accent-soft: #5cc0f5;
+  --sh-accent-rgb: 0, 130, 202;
+  --sh-orange: #ff8a3d; /* control, boundary, the instrument's action — sparingly */
+  --sh-display: 'Funnel Display', 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --sh-sans: 'Archivo', 'Helvetica Neue', Arial, system-ui, sans-serif;
+  --sh-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --sh-gutter: clamp(16px, 3.4vw, 56px);
+  --sh-top: clamp(20px, 4.2vh, 44px);
+
+  position: relative;
+  background: var(--sh-bg);
+  color: var(--sh-ink);
+  font-family: var(--sh-sans);
+  -webkit-font-smoothing: antialiased;
+}
+.sh-root *, .sh-root *::before, .sh-root *::after { box-sizing: border-box; }
+
+/* ---------- pinning ---------- */
+.sh-stage { position: relative; height: 100vh; overflow: hidden; outline: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.sh-root.is-scrub { height: calc(var(--sh-chapters) * 100vh); }
+.sh-root.is-scrub .sh-stage { position: sticky; top: 0; }
+.sh-root.is-stepper, .sh-root.is-stepper .sh-stage { height: 100vh; height: 100svh; }
+.sh-stage.is-dragging { cursor: grabbing; }
+.sh-stage:focus-visible { box-shadow: inset 0 0 0 2px var(--sh-accent); }
+
+/* ---------- scene layers ---------- */
+.sh-poster, .sh-host { position: absolute; inset: 0; }
+.sh-poster { background: linear-gradient(180deg, #060c16 0%, #0d1824 60%, #04070c 100%); transition: opacity 0.7s ease; }
+.sh-poster img { width: 100%; height: 100%; object-fit: cover; object-position: 31% 61%; display: block; }
+/* with plates the poster is the opening plate itself: it stays under everything instead of fading */
+.sh-root.has-plates.is-live .sh-poster { opacity: 1; }
+.sh-root.is-live .sh-poster { opacity: 0; pointer-events: none; }
+.sh-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 0.7s ease; }
+.sh-root.is-live .sh-canvas { opacity: 1; }
+.sh-shade {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(4, 7, 12, 0.72) 0%, rgba(4, 7, 12, 0.18) 26%, transparent 42%),
+    linear-gradient(0deg, rgba(4, 7, 12, 0.55) 0%, transparent 16%);
+}
+
+/* ---------- header: chapter number + progress dashes ---------- */
+.sh-head { position: absolute; top: var(--sh-top); left: var(--sh-gutter); }
+.sh-count { display: flex; align-items: center; gap: 14px; }
+.sh-num { font: 500 13px/1 var(--sh-mono); letter-spacing: 0.12em; color: var(--sh-accent-soft); min-width: 2ch; }
+.sh-rail { display: flex; gap: 6px; }
+.sh-rail button { all: unset; cursor: pointer; width: 16px; height: 14px; display: flex; align-items: center; }
+.sh-rail button::before { content: ''; width: 100%; height: 2px; background: rgba(190, 214, 230, 0.28); transition: background 0.3s; }
+.sh-rail button[aria-current='step']::before { background: var(--sh-accent-soft); }
+.sh-rail button:hover::before { background: var(--sh-ink); }
+.sh-rail button:focus-visible { outline: 1px solid var(--sh-accent-soft); outline-offset: 3px; }
+
+/* ---------- captions ---------- */
+.sh-captions { position: absolute; top: calc(var(--sh-top) + 30px); left: var(--sh-gutter); width: min(560px, 46vw); }
+.sh-caption { position: absolute; top: 0; left: 0; width: 100%; opacity: 0; visibility: hidden; }
+.sh-headline {
+  margin: 0;
+  font-family: var(--sh-display);
+  font-weight: 500;
+  font-size: clamp(30px, 3vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.sh-body { margin: 12px 0 0; max-width: 36ch; font-size: clamp(15px, 1.05vw, 17px); line-height: 1.5; color: var(--sh-dim); }
+.sh-body span { display: block; }
+.sh-cta {
+  display: inline-flex; align-items: center; gap: 12px; margin-top: 22px;
+  padding: 12px 18px 12px 20px; border: 1px solid rgba(var(--sh-accent-rgb), 0.9); border-radius: 999px;
+  color: var(--sh-ink); text-decoration: none; font: 500 12px/1 var(--sh-mono); letter-spacing: 0.14em; text-transform: uppercase;
+  background: rgba(var(--sh-accent-rgb), 0.22); transition: background 0.2s ease; cursor: pointer;
+}
+.sh-cta:hover { background: rgba(var(--sh-accent-rgb), 0.45); }
+.sh-cta:focus-visible { outline: 2px solid var(--sh-accent-soft); outline-offset: 3px; }
+.sh-cta span { color: var(--sh-accent-soft); }
+
+/* wordmark */
+.sh-mark {
+  position: absolute; top: var(--sh-top); right: var(--sh-gutter);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  font: 600 14px/1 var(--sh-sans); letter-spacing: 0.32em; text-transform: uppercase;
+  pointer-events: none;
+}
+.sh-mark-word { padding: 0 0 8px 0.32em; border-bottom: 2px solid var(--sh-accent); } /* left pad balances the tracking after the last letter, so the word and icon share a centre */
+/* the Underhill mark under the wordmark */
+.sh-mark-icon { display: block; width: 46px; height: auto; }
+
+/* per-chapter small print, bottom corners */
+.sh-foot { position: absolute; left: var(--sh-gutter); right: var(--sh-gutter); bottom: clamp(20px, 4vh, 40px); opacity: 0; visibility: hidden; pointer-events: none; }
+.sh-foot > span { font: 500 11px/1.5 var(--sh-mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--sh-dim); white-space: pre; }
+.sh-foot-l { position: absolute; left: 0; bottom: 0; }
+.sh-foot-r { position: absolute; right: 0; bottom: 0; text-align: right; }
+.sh-foot-r span { display: block; }
+
+/* checkpoint mode: out instantly, fade in on arrival */
+.sh-root.is-stepper .sh-caption, .sh-root.is-stepper .sh-foot { transition: none; transform: translate3d(0, 6px, 0); }
+.sh-root.is-stepper .sh-caption.is-in, .sh-root.is-stepper .sh-foot.is-in {
+  opacity: 1; visibility: visible; transform: none;
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ---------- labels projected from the scene (positioned by the layout pass) ---------- */
+.sh-tag, .sh-region, .sh-office {
+  position: absolute; left: 0; top: 0; will-change: transform;
+  opacity: 0; visibility: hidden; pointer-events: none; white-space: nowrap;
+  text-shadow: 0 0 8px #04070c, 0 0 2px #04070c;
+}
+.sh-tag {
+  font: 500 11.5px/1.5 var(--sh-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--sh-dim);
+  /* a quiet plate so a label always reads over a busy point cloud */
+  padding: 6px 10px 6px 9px; border-left: 2px solid var(--sh-accent-soft); border-radius: 0 3px 3px 0;
+  background: rgba(4, 9, 16, 0.66); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  text-shadow: none;
+}
+.sh-tag span { display: block; }
+.sh-tag span:first-child { color: var(--sh-ink); font-weight: 600; }
+.sh-tag.is-coords { font-size: 12.5px; letter-spacing: 0.06em; text-transform: none; border-left-color: #7fd0ff; }
+.sh-tag.is-coords span { color: var(--sh-ink); font-weight: 500; }
+.sh-tag.is-contour span { font-size: 12px; letter-spacing: 0.04em; color: var(--sh-ink); }
+.sh-region { font: 600 11px/1 var(--sh-mono); letter-spacing: 0.2em; text-transform: uppercase; color: rgba(214, 238, 252, 0.95); }
+.sh-office { font: 500 10px/1 var(--sh-mono); letter-spacing: 0.12em; text-transform: uppercase; color: #d8f0ff; }
+
+/* ---------- swipe playback bar ---------- */
+.sh-stepbar { display: none; }
+.sh-root.is-stepper .sh-stepbar { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(160, 205, 225, 0.08); pointer-events: none; }
+.sh-stepbar div { height: 100%; background: var(--sh-accent-soft); transform-origin: 0 50%; transform: scaleX(0); opacity: 0; transition: opacity 0.3s; }
+.sh-stepbar div.is-on { opacity: 1; }
+
+/* ---------- phones & tablets: caption band at the bottom ---------- */
+.sh-root.is-compact .sh-stage { cursor: default; }
+.sh-root.is-compact .sh-shade {
+  background:
+    linear-gradient(0deg, rgba(4, 7, 12, 0.95) 0%, rgba(4, 7, 12, 0.82) 26%, rgba(4, 7, 12, 0) 44%),
+    linear-gradient(180deg, rgba(4, 7, 12, 0.6) 0%, transparent 14%);
+}
+.sh-root.is-compact .sh-head { top: calc(18px + env(safe-area-inset-top)); }
+.sh-root.is-compact .sh-rail { gap: 4px; }
+.sh-root.is-compact .sh-rail button { width: 12px; }
+.sh-root.is-compact .sh-mark { top: calc(18px + env(safe-area-inset-top)); font-size: 11px; gap: 10px; }
+.sh-root.is-compact .sh-mark-word { padding-bottom: 6px; }
+.sh-root.is-compact .sh-mark-icon { width: 34px; }
+.sh-root.is-compact .sh-captions { top: auto; bottom: calc(34px + env(safe-area-inset-bottom)); right: var(--sh-gutter); width: auto; }
+.sh-root.is-compact .sh-caption { top: auto; bottom: 0; }
+.sh-root.is-compact .sh-headline { font-size: clamp(28px, 7.6vw, 40px); }
+.sh-root.is-compact .sh-body { margin-top: 10px; font-size: 15px; }
+.sh-root.is-compact .sh-foot { display: none; }
+.sh-root.is-compact .sh-tag { font-size: 10px; }
+
+/* ---------- reduced motion / no WebGL: a still frame, then the story as plain content ---------- */
+.sh-root.is-static .sh-stage { height: min(100vh, 900px); cursor: default; }
+.sh-root.is-static .sh-shade { background: linear-gradient(0deg, var(--sh-bg) 0%, transparent 30%); }
+.sh-stack { display: grid; gap: clamp(40px, 7vh, 72px); padding: clamp(32px, 6vh, 64px) var(--sh-gutter) clamp(64px, 10vh, 120px); max-width: 760px; }
+.sh-caption.is-stacked { position: static; opacity: 1; visibility: visible; }
+.sh-eyebrow { margin: 0 0 12px; font: 500 12px/1 var(--sh-mono); letter-spacing: 0.2em; color: var(--sh-accent-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-root *, .sh-root *::before, .sh-root *::after { animation: none !important; transition: none !important; }
+}
+
+/* scene-label accents: orange for the control point, a lighter plate for contour values */
+.sh-tag.is-control { border-left-color: var(--sh-orange); }
+.sh-tag.is-contour { padding: 3px 7px; border-left: 0; border-radius: 3px; background: rgba(4, 9, 16, 0.5); }
+
+/* ---------- artwork plates (PlateStage): generated images with live layers on top ---------- */
+.pl-root { position: absolute; inset: 0; pointer-events: none; }
+.pl-scene { position: absolute; inset: 0; overflow: hidden; visibility: hidden; }
+.pl-box { position: absolute; left: 0; top: 0; transform-origin: 0 0; --pl-k: 1; }
+.pl-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pl-mask {
+  -webkit-mask-image: linear-gradient(transparent, transparent); mask-image: linear-gradient(transparent, transparent);
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+.pl-fog { mix-blend-mode: screen; opacity: 0.3; }
+.pl-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.pl-cut { position: absolute; display: block; filter: drop-shadow(0 0 1px rgba(160, 205, 225, 0.35)); }
+.pl-drone { left: 0; top: 0; transform-origin: 0 0; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); }
+/* the cut-outs are lit for daylight: sit them in the dusk, with a warm rim from the sun on the right */
+.pl-inst { filter: brightness(0.74) saturate(0.85) drop-shadow(1.5px 0 1.5px rgba(255, 150, 80, 0.45)) drop-shadow(0 0 1px rgba(160, 205, 225, 0.3)); }
+/* labels: plate pixels, counter-scaled by --pl-k so they read at one size on every plate */
+.pl-note {
+  position: absolute; font: 500 calc(12px * var(--pl-k)) / 1.55 var(--sh-mono); letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(214, 228, 238, 0.82); padding-left: 1em; border-left: calc(1px * var(--pl-k)) solid rgba(214, 228, 238, 0.45);
+  text-shadow: 0 0 10px #04070c;
+}
+.pl-note span { display: block; }
+.pl-note span:first-child { color: #eef4f8; }
+.pl-tag {
+  position: absolute; left: 0; top: 0; visibility: hidden; white-space: nowrap;
+  font: 500 calc(11.5px * var(--pl-k)) / 1.5 var(--sh-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--sh-dim);
+  padding: 0.5em 0.85em 0.5em 0.8em; border-left: calc(2px * var(--pl-k)) solid var(--sh-accent-soft); border-radius: 0 0.25em 0.25em 0;
+  background: rgba(4, 9, 16, 0.66);
+}
+.pl-tag span { display: block; }
+.pl-tag span:first-child { color: var(--sh-ink); font-weight: 600; }
+.pl-tag-coords { text-transform: none; letter-spacing: 0.06em; }
+.pl-tag-coords span, .pl-tag-coords span:first-child { color: var(--sh-ink); font-weight: 500; }
+.sh-host.is-covered { visibility: hidden; } /* a plate covers the frame: the GL canvas steps out entirely */
+
+/* ---------- information cards: plate-anchored (counter-scaled) or screen-anchored ---------- */
+.pl-card {
+  --pl-accent: var(--sh-accent-soft);
+  position: absolute; left: 0; top: 0; min-width: calc(236px * var(--pl-k, 1)); pointer-events: none;
+  font: 400 calc(14px * var(--pl-k, 1)) / 1.45 var(--sh-sans); color: rgba(226, 236, 244, 0.9);
+  padding: 0.95em 1.15em 1em; border-radius: 0.35em;
+  background: linear-gradient(180deg, rgba(8, 16, 26, 0.78), rgba(4, 9, 16, 0.7));
+  border: calc(1px * var(--pl-k, 1)) solid rgba(160, 205, 225, 0.16);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: 0 0.8em 2.4em rgba(0, 0, 0, 0.35);
+  opacity: 0; visibility: hidden; margin-top: 0.6em;
+  transition: opacity 0.25s ease, margin-top 0.25s ease, visibility 0s linear 0.25s;
+}
+.pl-card.is-in { opacity: 1; visibility: visible; margin-top: 0; transition: opacity 0.5s ease var(--d), margin-top 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d), visibility 0s var(--d); }
+.pl-card-title {
+  font: 600 1.02em/1.2 var(--sh-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--sh-ink);
+  padding-left: 0.8em; border-left: calc(2px * var(--pl-k, 1)) solid var(--pl-accent);
+}
+.pl-card-kicker { margin: 0.35em 0 0.55em 1em; font: 500 0.78em/1.3 var(--sh-mono); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(160, 205, 225, 0.72); }
+.pl-card-row {
+  padding: 0.5em 0 0.45em 1em; border-top: calc(1px * var(--pl-k, 1)) solid rgba(160, 205, 225, 0.12);
+  opacity: 0; transform: translateX(-0.5em); transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.pl-card.is-in .pl-card-row {
+  opacity: 1; transform: none;
+  transition: opacity 0.45s ease calc(var(--d) + 0.18s + var(--i) * 0.11s), transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--d) + 0.18s + var(--i) * 0.11s);
+}
+.pl-card-coords .pl-card-row { font-family: var(--sh-mono); letter-spacing: 0.04em; color: var(--sh-ink); }
+/* the heritage card sits in screen space, under the wordmark */
+.pl-card-fixed { left: auto; top: calc(var(--sh-top) + 104px); right: var(--sh-gutter); }
+.sh-root.is-compact .pl-card-fixed { display: none; }
+/* cut-outs in the night-time scan world: darker, cooler, lit by the data around them */
+.pl-night { filter: brightness(0.62) saturate(0.7) contrast(1.05) drop-shadow(0 0 1.5px rgba(92, 192, 245, 0.55)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55)); }
+
+
+/* the dark between two images of a move (the WebGL world stays hidden there) */
+.pl-void { background: radial-gradient(ellipse at 50% 60%, #0a1422 0%, #04070c 70%); }
+
+/* leaders: a pin on the target, a line that draws itself into the card, a slow pulse on the pin */
+.pl-leads { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.pl-lead { --d: 0s; }
+.pl-lead polyline {
+  fill: none; stroke: rgba(214, 238, 252, 0.75); stroke-width: 1.2; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 0.25s ease;
+}
+.pl-lead circle { fill: #eef8ff; opacity: 0; transition: opacity 0.2s ease; filter: drop-shadow(0 0 4px #5cc0f5); }
+.pl-lead .pl-lead-ring { fill: none; stroke: #7fd0ff; stroke-width: 1.2; filter: none; transform-box: fill-box; transform-origin: center; }
+.pl-lead.is-in polyline { stroke-dashoffset: 0; transition: stroke-dashoffset 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d); }
+.pl-lead.is-in circle { opacity: 1; transition: opacity 0.3s ease var(--d); }
+.pl-lead.is-in .pl-lead-ring { animation: pl-pin 2.2s ease-out var(--d) infinite; }
+@keyframes pl-pin { 0% { transform: scale(1); opacity: 0.9; } 100% { transform: scale(4.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .pl-lead.is-in .pl-lead-ring { animation: none; opacity: 0; } }
+
+/* REACH: northern project sites, quieter than the offices */
+.sh-site { font-size: 9.5px; color: rgba(159, 220, 255, 0.85); letter-spacing: 0.14em; }
+
+/* chapter 4 → 5: the aerial plate is scanned in by a line of light */
+.pl-scanline {
+  position: absolute; left: 0; right: 0; top: 0; height: 2px; opacity: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #bfeaff 12%, #ffffff 50%, #bfeaff 88%, transparent);
+  box-shadow: 0 0 18px 4px rgba(92, 192, 245, 0.75), 0 -40px 60px -20px rgba(92, 192, 245, 0.35);
+}
+
+/* hover x-ray lens: a survey reticle marking where the LiDAR twin shows through */
+.pl-lens {
+  position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; opacity: 0;
+  border: calc(1.2px * var(--pl-k, 1)) solid rgba(143, 216, 255, 0.75);
+  box-shadow: 0 0 calc(18px * var(--pl-k, 1)) rgba(92, 192, 245, 0.45), inset 0 0 calc(24px * var(--pl-k, 1)) rgba(92, 192, 245, 0.25);
+}
+.pl-lens::before, .pl-lens::after { content: ''; position: absolute; background: rgba(191, 234, 255, 0.8); }
+.pl-lens::before { left: 50%; top: -6%; width: calc(1px * var(--pl-k, 1)); height: 12%; }
+.pl-lens::after { top: 50%; right: -6%; height: calc(1px * var(--pl-k, 1)); width: 12%; }
+.pl-lens span {
+  position: absolute; left: 50%; bottom: calc(100% + 8px * var(--pl-k, 1)); transform: translateX(-50%); white-space: nowrap;
+  font: 500 calc(10.5px * var(--pl-k, 1)) / 1 var(--sh-mono); letter-spacing: 0.2em; text-transform: uppercase; color: #bfeaff;
+  text-shadow: 0 0 8px #04070c;
+}
+
+/* ---------- phones: cards become compact chips, secondary cards step aside ---------- */
+.sh-root.is-compact .pl-card { min-width: 0; padding: 0.7em 0.9em 0.75em; }
+.sh-root.is-compact .pl-card-row { display: none; }
+.sh-root.is-compact .pl-card-kicker { margin-bottom: 0; }
+.sh-root.is-compact .pl-card.is-secondary { display: none; }
+.sh-root.is-compact .pl-lens span { display: none; }
+
+/* strips the UAV has mapped light up on the dimmed LiDAR land */
+.pl-mapped { filter: brightness(1.45) saturate(1.25) contrast(1.08); }
+.sh-root.is-compact .sh-mark-icon { display: none; }
+
+/* phones: floating cards and labels are small chips */
+.sh-root.is-compact .pl-card { font-size: calc(10px * var(--pl-k, 1)); padding: 0.55em 0.75em 0.6em; border-radius: 0.3em; }
+.sh-root.is-compact .pl-card-title { letter-spacing: 0.1em; padding-left: 0.6em; }
+.sh-root.is-compact .pl-card-kicker { margin: 0.25em 0 0 0.75em; font-size: 0.72em; }
+.sh-root.is-compact .pl-tag { font-size: calc(9px * var(--pl-k, 1)); padding: 0.4em 0.65em; }
+.sh-root.is-compact .sh-tag { font-size: 9px; }
+/* phones: map names must read over the grid — larger, bolder, with a soft dark halo */
+.sh-root.is-compact .sh-office, .sh-root.is-compact .sh-region {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #f2f9ff;
+  text-shadow: 0 0 3px #04070c, 0 0 6px #04070c, 0 0 12px #04070c, 0 1px 2px #000;
+}
+.sh-root.is-compact .sh-region { font-size: 12px; color: #bfeaff; letter-spacing: 0.16em; }
+/* phones: the globe keeps only the labels that fit — Arctic sites stay as markers, Vancouver Island steps aside */
+.sh-root.is-compact .sh-site, .sh-root.is-compact .sh-office.is-minor { display: none; }
+
+/* FIELD → CONTROL: the survey scan pass */
+.pl-wipeline {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px; opacity: 0; pointer-events: none; z-index: 4;
+  background: linear-gradient(180deg, transparent, #e6f7ff 18%, #ffffff 50%, #e6f7ff 82%, transparent);
+  box-shadow: 0 0 16px 3px rgba(92, 192, 245, 0.8), -60px 0 80px -30px rgba(92, 192, 245, 0.35);
+}
+
+
+
+
+
+/* auto tour: skip to the last chapter */
+.sh-skip {
+  position: absolute; right: clamp(16px, 3.4vw, 56px); bottom: clamp(20px, 4vh, 40px); z-index: 6;
+  font: 600 12px/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: 0.2em; text-transform: uppercase;
+  color: #fff; background: #0082ca; border: 1px solid rgba(143, 216, 242, 0.75);
+  border-radius: 999px; padding: 12px 20px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); transition: background 0.2s ease, transform 0.2s ease;
+}
+.sh-skip:hover { background: #1196e0; transform: translateY(-1px); }
+.sh-skip:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* a thin ring slips out of it now and then: findable at a glance, never a blob */
+.sh-skip::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  border: 1.5px solid rgba(143, 216, 242, 0.9); animation: sh-skip-ring 2.8s ease-out infinite;
+}
+@keyframes sh-skip-ring {
+  0% { transform: scale(1); opacity: 0.9; }
+  60%, 100% { transform: scale(1.12, 1.4); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .sh-skip::after { animation: none; opacity: 0; } }
+@media (max-width: 1024px), (pointer: coarse) {
+  .sh-skip { top: calc(env(safe-area-inset-top, 0px) + 58px); bottom: auto; right: 16px; padding: 10px 14px; font-size: 11px; }
+}
+
+/* the UAV's spec callouts: above the close-up */
+.pl-spec-leads { z-index: 6; }
+.pl-card-spec { z-index: 7; min-width: 220px; }
+.pl-spec-leads .pl-lead { --d: 0s; }
+.pl-spec-leads .pl-lead:nth-child(2) { --d: 0.35s; }
+.pl-spec-leads .pl-lead:nth-child(3) { --d: 0.7s; }
+
+/* map names (region, offices, northern sites): each on a quiet dark plate so it reads over the dotted
+   land, the grid and the coastlines alike */
+.sh-region, .sh-office {
+  padding: 5px 9px 5px 10px; border-radius: 4px; text-shadow: none;
+  background: rgba(3, 7, 13, 0.9); border: 1px solid rgba(160, 205, 225, 0.28);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+.sh-region { font-size: 14px; font-weight: 600; letter-spacing: 0.16em; color: #ffffff; border-left: 3px solid #c8f56a; }
+.sh-office { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: #ffffff; border-left: 3px solid #e8ff8a; }
+.sh-site { font-size: 12.5px; font-weight: 600; color: #ffffff; border-left-color: #5cc0f5; }
+.sh-root.is-compact .sh-office, .sh-root.is-compact .sh-region { text-shadow: none; padding: 3px 5px 3px 6px; }

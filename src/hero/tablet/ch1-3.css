@@ -1,0 +1,41 @@
+/* Tablet tier (.sh-root.is-tablet) for ch1-3 and the hero's chrome in every chapter. See ../device.ts. */
+
+/* floating cards keep clear of the Skip button under the site header (a plain px value: read from script) */
+.sh-root.is-tablet { --sh-clear-top: 140px; }
+.sh-root.is-tablet .sh-stage { cursor: default; }
+
+/* a little more shade where the caption sits: it can run a quarter of the way down a portrait screen */
+.sh-root.is-tablet .sh-shade {
+  background:
+    linear-gradient(180deg, rgba(4, 7, 12, 0.74) 0%, rgba(4, 7, 12, 0.34) 22%, transparent 40%),
+    linear-gradient(0deg, rgba(4, 7, 12, 0.6) 0%, transparent 15%);
+}
+
+/* ---------- counter + rail: each dash is a 44 px touch target, the row keeps its height ---------- */
+.sh-root.is-tablet .sh-count { gap: 10px; }
+.sh-root.is-tablet .sh-num { font-size: 14px; }
+.sh-root.is-tablet .sh-rail { gap: 0; margin: -15px 0; }
+.sh-root.is-tablet .sh-rail button { box-sizing: border-box; width: 44px; height: 44px; padding: 0 5px; -webkit-tap-highlight-color: transparent; }
+.sh-root.is-tablet .sh-rail button::before { height: 3px; border-radius: 2px; }
+
+/* ---------- captions: sized for arm's length, and held off the plates' brightest skies ---------- */
+.sh-root.is-tablet .sh-captions { width: min(600px, 58vw); }
+@media (orientation: landscape) { .sh-root.is-tablet .sh-captions { width: min(560px, 46vw); } }
+.sh-root.is-tablet .sh-headline { font-size: clamp(34px, 4vw, 50px); text-shadow: 0 1px 18px rgba(4, 7, 12, 0.55); }
+.sh-root.is-tablet .sh-body {
+  margin-top: 14px; max-width: 34ch; font-size: clamp(17px, 0.9vw + 9px, 20px); color: rgba(226, 236, 244, 0.84);
+  text-shadow: 0 1px 12px rgba(4, 7, 12, 0.7);
+}
+.sh-root.is-tablet .sh-body span { text-wrap: balance; }
+.sh-root.is-tablet .sh-cta { min-height: 48px; padding: 0 20px 0 24px; margin-top: 26px; font-size: 13px; -webkit-tap-highlight-color: transparent; }
+
+/* ---------- small print: clear of the home indicator ---------- */
+.sh-root.is-tablet .sh-foot { bottom: calc(clamp(20px, 3.2vh, 36px) + env(safe-area-inset-bottom, 0px)); }
+.sh-root.is-tablet .sh-foot > span { font-size: 12px; }
+
+/* ---------- Skip intro: a 44 px pill on the counter's row, under the site header ---------- */
+.sh-root.is-tablet .sh-skip {
+  top: calc(var(--sh-top) - 15px); bottom: auto; right: var(--sh-gutter);
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; font-size: 12px;
+  -webkit-tap-highlight-color: transparent;
+}

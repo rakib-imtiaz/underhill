@@ -1,0 +1,9 @@
+/* Tablet tier (.sh-root.is-tablet) for ch4-5. See ../device.ts. */
+
+/* METHODS, CAPTURE and MODEL cards and the UAV's spec cards: a step up from desktop for arm's-length reading.
+   Plate cards stay counter-scaled (--pl-k); the spec cards live in screen space. */
+.sh-root.is-tablet .pl-ch45, .sh-root.is-tablet .pl-card-spec { font-size: calc(15px * var(--pl-k, 1)); }
+.sh-root.is-tablet .pl-card-spec { min-width: 236px; }
+.sh-root.is-tablet .pl-ch45 .pl-card-kicker, .sh-root.is-tablet .pl-card-spec .pl-card-kicker { font-size: 0.8em; }
+/* the UAV's in-flight tag (pass count) */
+.sh-root.is-tablet .pl-tag { font-size: calc(12.5px * var(--pl-k)); }

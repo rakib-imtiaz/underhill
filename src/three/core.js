@@ -307,8 +307,10 @@ export class SceneBase {
     p.ema += (dt * 1000 - p.ema) * 0.06;
     const now = performance.now();
     if (now < p.cooldown) return;
-    if (p.ema > budget * 1.26 && this.qualityScale > 0.55) {
-      this.qualityScale = Math.max(0.55, this.qualityScale * 0.85);
+    /* floor raised 0.55 -> 0.8: below that the scene is visibly pixelated,
+       which is worse than a dropped frame */
+    if (p.ema > budget * 1.26 && this.qualityScale > 0.8) {
+      this.qualityScale = Math.max(0.8, this.qualityScale * 0.9);
       this.applyPixelRatio();
       p.cooldown = now + 1500;
     } else if (p.ema < budget * 1.04 && this.qualityScale < 1) {

@@ -146,7 +146,7 @@ function HeroJourney() {
         start: () => void;
       };
       sc.idleFps = Math.min(sc.idleFps ?? 24, 24);
-      sc.activeFps = Math.min(sc.activeFps ?? 40, 40);
+      sc.activeFps = Math.min(sc.activeFps ?? 40, 48);
       if (sc.raf) sc.start();
     }
     return () => {
@@ -246,7 +246,7 @@ function HeroJourney() {
             ))}
           </nav>
 
-          <div className="scroll-cue">Scroll</div>
+          <div className="scroll-cue"><span className="cue-scroll">Scroll</span><span className="cue-swipe">Swipe</span></div>
         </div>
       </div>
     </div>

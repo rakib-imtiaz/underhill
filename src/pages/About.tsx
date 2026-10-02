@@ -370,7 +370,7 @@ export default function About() {
             ))}
           </div>
           <div className="reveal" style={{ marginTop: 30 }}>
-            <SmartLink to="/about-underhill-geomatics/health-safety/" unported>
+            <SmartLink to="/about-underhill-geomatics/health-safety/">
               Health &amp; Safety at Underhill →
             </SmartLink>
           </div>

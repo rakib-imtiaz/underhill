@@ -86,7 +86,7 @@ const CHAPTERS = [
   /* 1 ENGAGE — in on the station as the ripples go out */
   { dir: [0.55, 0.28, 0.95], target: [STATION.x - 1.2, STATION.h + 0.6, STATION.z - 0.6], radius: 6.6, pad: 1.10, roll: 0.022 },
   /* 2 INSTRUMENT — macro */
-  { dir: [0.75, 0.32, 0.60], target: [STATION.x, STATION.h + 1.1, STATION.z], radius: 2.1, pad: 1.25, roll: -0.014 },
+  { dir: [0.75, 0.30, 0.60], target: [STATION.x, STATION.h + 1.08, STATION.z], radius: 1.55, pad: 1.18, roll: -0.014 },
   /* 3 CAPTURE — raised, watching the sweep paint the valley */
   { dir: [0.62, 0.62, 0.48], target: [STATION.x - 2.0, STATION.h + 0.4, STATION.z - 1.0], radius: 9.5, pad: 1.06, roll: -0.026 },
   /* 4 RESOLVE — plan view, the drawing */
@@ -102,6 +102,32 @@ const CHAPTERS = [
 ];
 const N_CH = CHAPTERS.length;
 const PHASES = ["IDLE", "ENGAGE", "INSTRUMENT", "CAPTURE", "RESOLVE", "PULL BACK", "REACH", "FOCUS"];
+
+/* PORTRAIT COMPOSITION (phones / tablets held upright).
+   fitDistance() fits the subject to the NARROWER field of view. In a tall
+   frame that is the horizontal one, so every shot backs off until the
+   instrument is a speck -- except the globe legs, whose subject radius is so
+   large the planet overruns the frame instead. Each chapter therefore gets
+   its own portrait framing: subject in the upper ~55% of the frame, caption
+   in the clear band below. `pitch` tilts the camera down to lift the subject.
+   Merged once here so apply() stays allocation-free. */
+const PORTRAIT_OVERRIDES = [
+  /* 0 IDLE */       { radius: 6.6,  target: [0, 1.4, 0],                                        pitch: -0.17 },
+  /* 1 ENGAGE */     { radius: 3.6,  target: [STATION.x - 0.7, STATION.h + 0.9, STATION.z - 0.3],  pitch: -0.12 },
+  /* 2 INSTRUMENT */ { dir: [0.62, 0.26, 0.74], radius: 1.22, target: [STATION.x, STATION.h + 1.02, STATION.z], pad: 1.08, pitch: -0.07 },
+  /* 3 CAPTURE */    { radius: 6.6,  target: [STATION.x - 1.6, STATION.h + 0.6, STATION.z - 0.8],  pitch: -0.14 },
+  /* 4 RESOLVE */    { dir: [0.42, 0.60, 0.68], target: [STATION.x - 1.6, 0.7, STATION.z - 1.2], radius: 8.4, pad: 1.0, pitch: -0.10 }, // portrait: three-quarter aerial of the drawing draped on the ground, not the flat plan
+  /* 5 PULL BACK */  { radius: 25.0,                                                              pitch: -0.14 },
+  /* 6 REACH */      { dir: [0.04, 0.93, 0.37], radius: 50.0, pad: 1.0,                           pitch: 0.03 },  // Canada centred in the clear band, offices readable
+  /* 7 FOCUS */      { radius: 68.0, target: [0, -GLOBE_R * 0.5, 0], pad: 1.0,                    pitch: -0.21 },
+];
+const PORTRAIT = CHAPTERS.map((c, i) => ({ pitch: -0.13, ...c, ...PORTRAIT_OVERRIDES[i] }));
+CHAPTERS.forEach((c) => { if (c.pitch === undefined) c.pitch = 0; });
+
+/* Stepped (checkpoint) mode: one swipe = one chapter; the scene plays the
+   authored camera path between two anchors on the clock instead of the
+   finger. Every frame the user can rest on is an anchor frame. */
+const STEP_MS = 1250;
 
 /* dwell easing: park on each key, then move decisively between them */
 function legEase(t) {
@@ -134,11 +160,16 @@ export class TerrainScene extends SceneBase {
        rather than shipping the desktop budget everywhere. */
     this.coarse = window.matchMedia("(pointer: coarse)").matches;
     this.small = this.coarse || Math.min(window.innerWidth, window.innerHeight) < 700;
-    this.grid = this.small ? 88 : GRID;      // phones: 88² = 7.7k points
+    this.grid = this.small ? 104 : GRID;     // phones: 104² = 10.8k points (88² read as a halftone up close)
     /* frame caps read by SceneBase.start() — see the adaptive cap there.
        Emergency thermal budget: never above 40 fps active / 24 fps idle. */
     this.idleFps = this.small ? 20 : 24;
     this.activeFps = this.small ? 32 : 40;
+    /* Checkpoint mode for touch devices and anything tablet-width or below.
+       Desktop keeps the free scrub. A step is ~1 s of motion, so the active
+       cap can afford a touch more on phones without changing the idle cost. */
+    this.stepped = this.coarse || window.innerWidth <= 1024;
+    if (this.stepped) { this.idleFps = 24; this.activeFps = 48; }  // a step is ~1 s; it must be smooth
 
     const env = studioEnv(this.renderer);
     this.scene.environment = env;
@@ -152,6 +183,9 @@ export class TerrainScene extends SceneBase {
     lightRig(this.scene, {
       keyPos: [10, 14, 8], rimPos: [-12, 9, -10], target: [0, 1, 0],
     });
+    this.fillLight = new THREE.PointLight(0xdfeeff, 0, 9, 1.8);
+    this.fillLight.name = "portraitFill";
+    this.scene.add(this.fillLight);
 
     const kit = makeKit(env);
     this.kit = kit;
@@ -188,9 +222,15 @@ export class TerrainScene extends SceneBase {
        dprCap is the dynamic-resolution CEILING (core.js renders below it
        whenever the GPU falls behind); 1.25 is indistinguishable from 1.5
        once the grade pass adds grain, and it is ~30% fewer pixels. */
-    this.dprCap = this.small ? 0.85 : 1.0;
+    /* Stepped devices render at native density (capped at 2x): the phone
+       viewport is small, the scene only runs hot for ~1 s per step, and at
+       0.85x a 3x retina screen showed every ring and edge as a pixel stair. */
+    /* Desktop renders at up to 1.5x device pixels: on a 125-150% Windows
+       scale the 1.0 cap was a visible blur-up on every hard edge. */
+    this.dprCap = this.stepped ? 2.0 : (this.small ? 0.85 : 1.5);
     const post = makePost(this.renderer, this.scene, this.camera, {
       bloomStrength: 0.50, bloomRadius: 0.55, bloomThreshold: 0.66,
+      samples: this.stepped ? 0 : 4,   // 4x MSAA on desktop; phones already run native DPR
     });
     this.composer = post.composer;
     this.bloom = post.bloom;
@@ -287,9 +327,15 @@ export class TerrainScene extends SceneBase {
       }
     });
 
-    /* scroll driver — SUPPRESSED under ?frame= and reduced-motion */
+    /* scroll driver — SUPPRESSED under ?frame= and reduced-motion.
+       Stepped devices get the checkpoint engine instead. */
     this.track = document.querySelector(".journey-track");
-    if (!this.reduced && DEBUG_FRAME === null && this.track) {
+    /* the stepped layout/caption CSS applies whenever the device is stepped,
+       including ?frame= review shots (the engine itself stays off there) */
+    if (this.stepped) document.querySelector(".journey")?.classList.add("stepped");
+    if (this.stepped && !this.reduced && DEBUG_FRAME === null) {
+      this.wireStepping(stage);
+    } else if (!this.reduced && DEBUG_FRAME === null && this.track) {
       this.scrollDriver = () => {
         const r = this.track.getBoundingClientRect();
         const vh = window.innerHeight;
@@ -301,7 +347,105 @@ export class TerrainScene extends SceneBase {
     }
   }
 
+  /* ------------------------------------------------ checkpoint engine */
+  wireStepping(stage) {
+    const journey = document.querySelector(".journey");
+    if (journey) journey.classList.add("stepped");
+    this.chapter = 0;
+    this.stepAnim = 0;
+    this.apply(0);
+    this.setCaption(0);
+
+    /* The stepped hero is the first thing on the page, so "engaged" is
+       simply "the page is at the top". Below that the page scrolls
+       natively; touch-action is flipped on scroll so the browser knows
+       which mode the NEXT gesture starts in. */
+    const engaged = () => window.scrollY <= 4;
+    const syncTouchAction = () => { stage.style.touchAction = engaged() ? "none" : "pan-y"; };
+    syncTouchAction();
+    this.listen(window, "scroll", syncTouchAction, { passive: true });
+
+    const step = (dir) => {
+      if (this.stepAnim) return;                       // mid-step: swallow
+      const k = this.chapter + dir;
+      if (k > N_CH - 1) { this.exitDown(journey); return; }
+      if (k < 0) return;
+      this.stepTo(k);
+    };
+
+    /* touch: vertical swipes step, horizontal drags still orbit (pointer
+       handlers above). Non-passive so the vertical pan never reaches the
+       browser while engaged. */
+    let y0 = null, x0 = 0;
+    this.listen(stage, "touchstart", (e) => {
+      if (!engaged()) return;
+      y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
+    }, { passive: true });
+    this.listen(stage, "touchmove", (e) => {
+      if (y0 === null || !engaged()) return;
+      const dy = e.touches[0].clientY - y0;
+      const dx = e.touches[0].clientX - x0;
+      if (Math.abs(dx) > Math.abs(dy)) return;
+      e.preventDefault();
+      if (Math.abs(dy) > 36) { step(dy < 0 ? 1 : -1); y0 = null; }
+    }, { passive: false });
+    const endTouch = () => { y0 = null; };
+    this.listen(stage, "touchend", endTouch);
+    this.listen(stage, "touchcancel", endTouch);
+
+    /* wheel / trackpad (tablets with a keyboard, narrow desktop windows):
+       one step per burst */
+    let wheelLock = 0;
+    this.listen(stage, "wheel", (e) => {
+      if (!engaged()) return;
+      e.preventDefault();
+      const now = performance.now();
+      if (now < wheelLock || Math.abs(e.deltaY) < 8) return;
+      wheelLock = now + 700;
+      step(e.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
+  }
+
+  /** animate progress to chapter k along the authored path */
+  stepTo(k) {
+    k = Math.max(0, Math.min(N_CH - 1, Math.round(k)));
+    if (this.stepAnim) cancelAnimationFrame(this.stepAnim);
+    const from = this.progress;
+    const to = k / (N_CH - 1);
+    const legs = Math.max(1, Math.abs(k - this.chapter));
+    const dur = Math.min(2200, STEP_MS * Math.pow(legs, 0.6));
+    this.chapter = k;
+    this.setCaption(-1);                              // hard cut out
+    const t0 = performance.now();
+    const tick = (now) => {
+      const u = Math.min(1, (now - t0) / dur);
+      /* linear in p: legEase() inside apply() already shapes each leg
+         (dwell at both anchors, decisive move between) */
+      this.apply(from + (to - from) * u);
+      this.pointerMoved = true;                       // keep the cap active
+      if (u < 1) { this.stepAnim = requestAnimationFrame(tick); return; }
+      this.stepAnim = 0;
+      this.setCaption(k);
+    };
+    this.stepAnim = requestAnimationFrame(tick);
+  }
+
+  /** stepped captions: class-driven so CSS owns the timing; -1 hides all */
+  setCaption(k) {
+    if (!this.chaptersEls) return;
+    this.chaptersEls.forEach((el, i) => el.classList.toggle("on", i === k));
+  }
+
+  /** last chapter, swipe on: hand the page back to native scrolling */
+  exitDown(journey) {
+    const el = journey || this.host;
+    const top = window.scrollY + el.getBoundingClientRect().bottom;
+    this.host.style.touchAction = "pan-y";
+    window.scrollTo({ top, behavior: "smooth" });
+  }
+
   scrollToChapter(k) {
+    if (this.stepped) { this.stepTo(k); return; }
     if (!this.track) return;
     const r = this.track.getBoundingClientRect();
     const span = Math.max(1, this.track.offsetHeight - window.innerHeight);
@@ -352,6 +496,8 @@ export class TerrainScene extends SceneBase {
 
     this.pointUniforms = {
       uSize: { value: 2.1 },
+      uSizeMul: { value: 1.0 },   // portrait: the camera is closer, sprites must shrink to stay a scan, not bokeh
+      uSizeMax: { value: 16.0 },  // portrait 10 px; desktop keeps its 16 px cap
       uGlow: { value: 0.9 },
       uBreath: { value: 0 },
       uIdleT: { value: 0 },
@@ -374,7 +520,7 @@ export class TerrainScene extends SceneBase {
         attribute vec3 aColor;
         attribute float aSeed;
         attribute float aAngle;
-        uniform float uSize, uGlow, uBreath;
+        uniform float uSize, uSizeMul, uSizeMax, uGlow, uBreath;
         uniform float uIdleT, uIdle;
         uniform float uScanAngle, uScanMix;
         uniform float uCurve, uGlobeR, uPatch, uFeather;
@@ -439,7 +585,7 @@ export class TerrainScene extends SceneBase {
           vDepth = -mv.z;
           /* capped: an uncapped sprite is ~70px wide in the close chapters,
              and 22.5k of those is pure overdraw on an integrated GPU */
-          gl_PointSize = min((uSize + sweep * 1.6 + idle * 0.9) * (140.0 / -mv.z), 16.0);
+          gl_PointSize = min((uSize + sweep * 1.6 + idle * 0.9) * uSizeMul * (140.0 / -mv.z), uSizeMax);
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */`
@@ -654,6 +800,20 @@ export class TerrainScene extends SceneBase {
     this.props.add(root);
     this.station = root;
     this.stationParts = parts;
+    /* The scene rig sits 15 units out and lights the valley; the instrument
+       needs its own key + rim or its dark castings read as a silhouette.
+       Local to the station, no shadows (contact sprite does that job). */
+    const key = new THREE.SpotLight(0xfff0dc, 16, 6, 0.6, 0.6, 1.6);
+    key.position.set(1.4, 2.4, 1.9);
+    key.target.position.set(0, 1.25, 0);
+    key.name = "stationKey";
+    root.add(key, key.target);
+    const rim = new THREE.SpotLight(0x9fd0ff, 22, 6, 0.55, 0.6, 1.6);
+    rim.position.set(-1.3, 2.0, -1.7);
+    rim.target.position.set(0, 1.3, 0);
+    rim.name = "stationRim";
+    root.add(rim, rim.target);
+    this.stationLights = [key, rim];
     /* head datum: where the telescope actually sits, in world space */
     this.headY = STATION.h + 1.02 + 0.35;
     /* contact shadow under the pad */
@@ -832,7 +992,9 @@ export class TerrainScene extends SceneBase {
     const sp = clamp01(p) * (N_CH - 1);
     const i = Math.min(Math.floor(sp), N_CH - 2);
     const t = legEase(sp - i);
-    const A = CHAPTERS[i], B = CHAPTERS[i + 1];
+    const usePortrait = this.stepped && this.camera.aspect < 0.95;
+    const CH = usePortrait ? PORTRAIT : CHAPTERS;
+    const A = CH[i], B = CH[i + 1];
     /* scalar lerp only: apply() runs on EVERY scroll event, so closures,
        arrays and Vector3s allocated here are pure GC churn (CPU heat) */
     const dx = A.dir[0] + (B.dir[0] - A.dir[0]) * t;
@@ -856,7 +1018,9 @@ export class TerrainScene extends SceneBase {
        the frame, so pitch the camera down a touch to lift the subject into
        the clear upper part rather than letting the scrim bury it. Pure
        function of aspect, so it stays deterministic under ?frame=. */
-    this.pitchOffset = this.camera.aspect < 0.95 ? -0.13 : 0;
+    this.pitchOffset = usePortrait
+      ? A.pitch + (B.pitch - A.pitch) * t
+      : (this.camera.aspect < 0.95 ? -0.13 : 0);
     this.camera.position.copy(this.baseCamPos);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.baseTarget);
@@ -877,8 +1041,25 @@ export class TerrainScene extends SceneBase {
     this.pointUniforms.uIdle.value = 1 - window01(p, 0.10, 0.26);
     /* fog is a valley-floor effect; it cannot survive orbit */
     const fogK = 1 - window01(p, 0.56, 0.70);
-    this.pointUniforms.uFogDensity.value = FOG_DENSITY * fogK;
-    this.scene.fog.density = FOG_DENSITY * fogK;
+    /* portrait shots sit closer AND look down more, so the same fog that
+       reads as valley haze on desktop turns the plan view black */
+    const fogMul = usePortrait ? 0.5 : 1.0;
+    if (this.haze) this.haze.group.visible = !usePortrait;
+    /* portrait fill: a soft light riding just off the camera lifts the
+       instrument out of silhouette for the macro chapter */
+    if (this.fillLight) {
+      const macro = window01(p, 0.19, 0.27) * (1 - window01(p, 0.33, 0.42));
+      this.fillLight.intensity = usePortrait ? 22 * macro : 0;
+      if (this.fillLight.intensity > 0) {
+        this.fillLight.position.copy(this.camera.position);
+        this.fillLight.position.y += 0.9;
+        this.fillLight.position.x += 0.6;
+      }
+    }
+    this.pointUniforms.uFogDensity.value = FOG_DENSITY * fogK * fogMul;
+    this.scene.fog.density = FOG_DENSITY * fogK * fogMul;
+    this.pointUniforms.uSizeMul.value = usePortrait ? 0.7 : 1.0;
+    this.pointUniforms.uSizeMax.value = usePortrait ? 10.0 : 16.0;
 
     /* the sampled area recedes to a marker once the planet carries the frame,
        then comes back up as the shot returns to BC */
@@ -906,11 +1087,14 @@ export class TerrainScene extends SceneBase {
          so it strengthens rather than staying at its arrival level */
       G.gratMat.opacity = 0.20 * window01(p, 0.62, 0.78)
                         + 0.16 * window01(p, 0.88, 1.0);
-      G.uniforms.uHighlight.value = window01(p, 0.84, 0.96);
-      G.bodyUniforms.uHighlight.value = window01(p, 0.84, 0.96);
-      G.markerUniforms.uOpacity.value = window01(p, 0.88, 0.97);
+      /* portrait: the REACH anchor IS the 'national footprint' frame, so
+         Canada is lit and the office markers are up by the time it lands */
+      const hi = usePortrait ? window01(p, 0.76, 0.85) : window01(p, 0.84, 0.96);
+      G.uniforms.uHighlight.value = hi;
+      G.bodyUniforms.uHighlight.value = hi;
+      G.markerUniforms.uOpacity.value = usePortrait ? window01(p, 0.79, 0.86) : window01(p, 0.88, 0.97);
       G.beamMat.opacity = 0.45 * window01(p, 0.90, 1.0);
-      const gp = window01(p, 0.88, 1.0);
+      const gp = usePortrait ? window01(p, 0.80, 0.90) : window01(p, 0.88, 1.0);
       G.pulseMats.forEach((m) => { m.uniforms.uOpacity.value = 0.55 * gp; });
       /* the closing beat: arcs draw out to the six offices */
       const arcDraw = window01(p, 0.90, 1.0);
@@ -949,7 +1133,8 @@ export class TerrainScene extends SceneBase {
     const beamOn = window01(p, 0.09, 0.15) * (1 - window01(p, 0.17, 0.24));
     this.beamMat.opacity = 0.55 * beamOn * groundK;
     this.beamPulseMat.opacity = 0.9 * beamOn * groundK;
-    this.rippleBase = window01(p, 0.06, 0.14) * (1 - window01(p, 0.28, 0.40));
+    this.rippleBase = window01(p, 0.06, 0.14)
+      * (1 - (usePortrait ? window01(p, 0.17, 0.25) : window01(p, 0.20, 0.27)));
 
     /* 5. CAPTURE: the sweep */
     /* fully out before the RESOLVE plan view at p=4/7, where a lit sweep
@@ -984,14 +1169,17 @@ export class TerrainScene extends SceneBase {
     }
     if (this.grade) {
       /* tighten the vignette on the macro, open it back up in orbit */
-      this.grade.uniforms.uVignette.value =
-        0.85 + 0.35 * window01(p, 0.14, 0.30) - 0.30 * window01(p, 0.62, 0.82);
+      this.grade.uniforms.uVignette.value = Math.min(usePortrait ? 0.95 : 9,
+        0.85 + 0.35 * window01(p, 0.14, 0.30) - 0.30 * window01(p, 0.62, 0.82));
     }
 
     /* 8. DOM captions — updated INSIDE apply() so ?frame= seeks are correct.
        hold/ramp are tuned so only ONE chapter is ever on screen. */
     if (this.chaptersEls && this.chaptersEls.length) {
-      this.chaptersEls.forEach((el, k) => {
+      /* stepped mode: captions are class-driven (setCaption) -- cut out at
+         step start, fade in on arrival -- never a half-faded ghost */
+      if (this.stepped && DEBUG_FRAME !== null) this.setCaption(Math.round(sp));
+      if (!this.stepped) this.chaptersEls.forEach((el, k) => {
         const f = chapterFade(sp, k, 0.30, 0.20);
         el.style.opacity = f.toFixed(3);
         el.style.setProperty("--enter", (1 - f).toFixed(3));
