@@ -383,3 +383,8 @@
 .sh-root.is-tablet .sh-swipe { left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); font-size: 11px; }
 .sh-root.is-tablet .sh-swipe button { width: 44px; height: 44px; }
 .sh-root.is-tablet .sh-swipe button svg { width: 16px; height: 16px; }
+
+/* phones: no backdrop blur behind cards and tags (a per-frame blur of what's under each one); a denser plate instead */
+.sh-root.is-compact .pl-card, .sh-root.is-compact .sh-tag {
+  -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(4, 9, 16, 0.86);
+}

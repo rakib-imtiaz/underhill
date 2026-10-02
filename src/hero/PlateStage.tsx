@@ -278,6 +278,9 @@ function clearTop(root: HTMLElement) {
 }
 /** the iPad / tablet tier (see device.ts): chapter blocks branch on it for their tablet framing */
 export const isTabletTier = () => deviceTier() === 'tablet'
+/** phones: full-screen CSS blur re-rasterises a screen-sized layer every frame, so it's skipped there */
+let blurOkCache: boolean | null = null
+const blurPx = (px: number) => ((blurOkCache ??= deviceTier() !== 'phone') && px > 0.01 ? `blur(${px.toFixed(2)}px)` : '')
 /** the depth point clouds are retired (both draw at alpha 0); kept switchable, off so their images never load */
 const DEPTH_CLOUDS = false
 /** place a card at plate px (x, y) — `anchor` picks which corner sits there — and switch it on/off */
@@ -456,7 +459,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       if (fCloudCanvas.current) fCloud.current = new DepthCloud(fCloudCanvas.current, { photo: '/plates/field_photo.webp', scan: '/plates/field_scan.webp', depth: '/plates/field_depth.jpg' },
         FIELD.size.w / FIELD.size.h, 4, () => onReady?.())
       const { w, h } = cloudCss.current
-      if (w) cloud.current.setSize(w, h, Math.min(1.5, devicePixelRatio || 1))
+      if (w) cloud.current.setSize(w, h, Math.min(deviceTier() === 'phone' ? 1.25 : 1.5, devicePixelRatio || 1))
     }).catch((e) => console.warn('[PlateStage] depth cloud unavailable:', e))
     return () => { gone = true; cloud.current?.dispose(); cloud.current = null; fCloud.current?.dispose(); fCloud.current = null }
   }, [enabled]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -553,7 +556,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       if (outer && b) {
         const s = Math.max(outer.clientWidth / CONTROL.size.w, outer.clientHeight / CONTROL.size.h)
         cloudCss.current = { w: CONTROL.size.w * s, h: CONTROL.size.h * s }
-        cloud.current?.setSize(cloudCss.current.w, cloudCss.current.h, Math.min(1.5, devicePixelRatio || 1))
+        cloud.current?.setSize(cloudCss.current.w, cloudCss.current.h, Math.min(deviceTier() === 'phone' ? 1.25 : 1.5, devicePixelRatio || 1))
       }
     },
     update(sp: number, _site?: { x: number; y: number; a: number }) {
@@ -622,7 +625,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       const sizeTo = (c: DepthCloud, outer: HTMLDivElement | null, size: { w: number; h: number }) => {
         if (!outer) return
         const k = Math.max(outer.clientWidth / size.w, outer.clientHeight / size.h)
-        c.setSize(size.w * k, size.h * k, Math.min(1.5, devicePixelRatio || 1))
+        c.setSize(size.w * k, size.h * k, Math.min(deviceTier() === 'phone' ? 1.25 : 1.5, devicePixelRatio || 1))
       }
       {
         const c = fCloud.current
@@ -672,7 +675,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
           const outer = cloudScene.current
           if (outer) {
             const s = Math.max(outer.clientWidth / CONTROL.size.w, outer.clientHeight / CONTROL.size.h)
-            c.setSize(CONTROL.size.w * s, CONTROL.size.h * s, Math.min(1.5, devicePixelRatio || 1))
+            c.setSize(CONTROL.size.w * s, CONTROL.size.h * s, Math.min(deviceTier() === 'phone' ? 1.25 : 1.5, devicePixelRatio || 1))
           }
           // the cloud shares the control plate's framing and settle push, so the hand-over is seamless
           if (cloudBox.current) cloudBox.current.style.transform = `${bases.current.control} translate(${CONTROL.scope.x}px, ${CONTROL.scope.y}px) scale(${(1.06 - 0.06 * easeOut(win(sp, T.controlSettle[0], T.controlSettle[1]))).toFixed(4)}) translate(${-CONTROL.scope.x}px, ${-CONTROL.scope.y}px)`
@@ -700,7 +703,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
         const go = win(sp, XF[0], XF[1]), goE = go * go * (3 - 2 * go)
         if (go > 0) push('control', CONTROL.target, 1 + 0.3 * goE) // leaves by pushing into the measured point
         else push('control', CONTROL.scope, 1.12 - 0.12 * easeOut(win(sp, WIPE[0], 1.0))) // arrives mid-move and settles
-        if (boxControl.current) boxControl.current.style.filter = go > 0.15 ? `blur(${(6 * sstep(0.15, 0.9, go)).toFixed(2)}px)` : ''
+        if (boxControl.current) boxControl.current.style.filter = go > 0.15 ? blurPx(6 * sstep(0.15, 0.9, go)) : ''
         // the beacon: a line of light rising from the hilltop, with orange rings on the ground
         const bA = bell(sp, T.beacon[0], T.beacon[1], T.beacon[2], T.beacon[3])
         const rise = easeOut(win(sp, T.beacon[0], T.beacon[1] + 0.1))
@@ -754,7 +757,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
         else push('methods', mFocus, 1.14 - 0.14 * easeOut(win(sp, T.methodsIn[0], 2.95)))
         if (methodsClean.current) methodsClean.current.style.opacity = sp >= LIFT && flyDrone.current ? '1' : '0'
         const focusIn = 1 - easeOut(win(sp, T.methodsIn[0], 2.62)) // arrives soft and racks into focus
-        if (boxMethods.current) boxMethods.current.style.filter = up > 0 ? `blur(${(upE * 6).toFixed(2)}px)` : focusIn > 0.01 ? `blur(${(6 * focusIn).toFixed(2)}px)` : ''
+        if (boxMethods.current) boxMethods.current.style.filter = up > 0 ? blurPx(upE * 6) : focusIn > 0.01 ? blurPx(6 * focusIn) : ''
         const kA = easeOut(win(sp, T.kit[0], T.kit[1]))
         show(kit.current, kA)
         pulse(kitRings.current, time, 0.3, 1, 1, 3.4, 0.75 * kA)
@@ -802,7 +805,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
         const ln = captureScan.current
         if (ln && ln.style.opacity !== '0') ln.style.opacity = '0'
         const soft = 1 - easeOut(win(sp, T.captureIn[0], 3.4))
-        if (boxAerial.current) boxAerial.current.style.filter = soft > 0.01 && sp < 3.5 ? `blur(${(6 * soft).toFixed(2)}px)` : ''
+        if (boxAerial.current) boxAerial.current.style.filter = soft > 0.01 && sp < 3.5 ? blurPx(6 * soft) : ''
         if (aAerial > 0) {
           push('aerial', hover, 1.18 - 0.18 * easeOut(win(sp, T.captureIn[0], 3.55)))
           const lidarOn = sp > T.cLidar[0] && sp < (tab45 ? 3.82 : T.cLidar[1])
@@ -871,7 +874,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
         const droneA = 1 - leave
         if (d3 && cv) {
           const b = boxAerial.current?.getBoundingClientRect()
-          if (b) d3.setSize(b.width, b.height, Math.min(1.5, devicePixelRatio || 1))
+          if (b) d3.setSize(b.width, b.height, Math.min(deviceTier() === 'phone' ? 1.25 : 1.5, devicePixelRatio || 1))
           // propellers spin up as it comes alive (they idle slowly before)
           d3.render({ x: dx, y: dy, width: w, yaw: hd, bank, pitch: -0.16 * approach * (1 - settle), spin: propAngle.current, alpha: droneA, tilt: AERIAL_TILT })
           cv.style.visibility = droneA > 0.001 && (sp >= LAND || !flyDrone.current) ? 'visible' : 'hidden'
@@ -928,12 +931,12 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
             bA.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${S.toFixed(5)})`
             // shallow depth of field while it's all about the UAV
             const dof = sstep(4.03, 4.12, sp) * (1 - sstep(CINE.show[1] - 0.02, T.approach[1], sp))
-            bA.style.filter = dof > 0.01 ? `blur(${(4 * dof).toFixed(2)}px) brightness(${(1 - 0.25 * dof).toFixed(3)})` : ''
+            bA.style.filter = dof > 0.01 ? `${blurPx(4 * dof)} brightness(${(1 - 0.25 * dof).toFixed(3)})`.trim() : ''
             // the UAV itself is drawn sharp in screen space, orbited from above to underneath
             const fd = flyDrone.current, fc = flyCanvas.current
             if (fd && fc) {
               fd.setView(W, Hh)
-              fd.setSize(W, Hh, Math.min(1.5, devicePixelRatio || 1))
+              fd.setSize(W, Hh, Math.min(deviceTier() === 'phone' ? 1.25 : 1.5, devicePixelRatio || 1))
               // the UAV holds level; the camera goes once round it, rising a little over the top of the arc
               const tilt = AERIAL_TILT + 0.22 * Math.sin(Math.PI * orbE)
               // phones: the parcel-scaled UAV would be a speck in the close-up; while it's the subject it fills ~60% of the
@@ -1032,7 +1035,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
         if (on && fd && fc && root0) {
           const R = root0.getBoundingClientRect()
           fd.setView(R.width, R.height)
-          fd.setSize(R.width, R.height, Math.min(1.5, devicePixelRatio || 1))
+          fd.setSize(R.width, R.height, Math.min(deviceTier() === 'phone' ? 1.25 : 1.5, devicePixelRatio || 1))
           const bm = boxMethods.current!.getBoundingClientRect(), km = bm.width / METHODS.size.w
           const ba = boxAerial.current!.getBoundingClientRect(), ka = ba.width / AERIAL.size.w
           const sx = bm.left - R.left + METHODS.drone.x * km, sy = bm.top - R.top + METHODS.drone.y * km, sw = METHODS.drone.w * 0.78 * km

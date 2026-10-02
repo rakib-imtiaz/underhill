@@ -102,7 +102,7 @@ export class HeroEngine {
   private swath: ReturnType<typeof buildSwath>
   private droneHalo: ReturnType<typeof buildMarkers>
   private setup: ReturnType<typeof buildSetupRing>
-  private lines: TerrainLines
+  private lines: TerrainLines | null = null // the opt-in line ground (?ground=lines): ~40% of the build, so only then
   private controlRings = buildAnchorRings(CONTROL_POINT, '#ff8a3d')
   private targetRings = buildAnchorRings(TARGET_POINT, '#7fd0ff', 30, 14)
   private lineGround: boolean
@@ -162,7 +162,7 @@ export class HeroEngine {
     this.canvas.className = 'sh-canvas'
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      antialias: opts.quality !== 'low', // low-end phones: MSAA costs more than it shows at their pixel density
       alpha: false,
       powerPreference: 'high-performance',
       preserveDrawingBuffer: this.frozenTime !== null, // lets review tooling read the canvas
@@ -172,7 +172,7 @@ export class HeroEngine {
     this.renderer.toneMappingExposure = 1.05
     this.renderer.localClippingEnabled = true
     const coarse = matchMedia('(pointer: coarse)').matches
-    this.maxDpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 1.75)
+    this.maxDpr = Math.min(window.devicePixelRatio || 1, opts.quality === 'low' ? 1 : coarse ? 1.5 : 1.75)
     this.minDpr = this.maxDpr >= 1.5 ? 1 : Math.max(0.85, this.maxDpr * 0.85)
     host.appendChild(this.canvas)
 
@@ -181,7 +181,7 @@ export class HeroEngine {
     this.terrain = buildTerrain(DENSITY[opts.quality], this.mask.isLand)
     // the ground is the point cloud; the scan-line ground is an opt-in experiment (?ground=lines)
     this.lineGround = new URLSearchParams(location.search).get('ground') === 'lines'
-    {
+    if (this.lineGround) {
       const u = this.terrain.material.uniforms
       this.lines = buildTerrainLines({ uTime: u.uTime, uFlow: u.uFlow, uFocus: u.uFocus, uFog: u.uFog, uFogDensity: u.uFogDensity,
         uFogColor: u.uFogColor, uRing: u.uRing, uRingCol: u.uRingCol, uPond: u.uPond })
@@ -261,7 +261,8 @@ export class HeroEngine {
       this.model.boundaryData.mesh, this.model.boundaryLegal.mesh,
     )
     this.scene.add(this.patch.points)
-    this.scene.add(this.sky.mesh, this.globe.mesh, this.terrain.points, this.lines.depth, this.lines.lines, this.controlRings.lines, this.targetRings.lines, this.ground,
+    if (this.lines) this.scene.add(this.lines.depth, this.lines.lines)
+    this.scene.add(this.sky.mesh, this.globe.mesh, this.terrain.points, this.controlRings.lines, this.targetRings.lines, this.ground,
       this.net.arcLines.mesh, this.net.offices.points, this.net.siteMarker.points, this.net.projects.points)
 
     this.state = {
@@ -452,8 +453,10 @@ export class HeroEngine {
     this.terrain.points.visible = fx.terrainAlpha > 0.001
     // scan lines on the ground; they hand over to the point cloud as the camera rises for the capture
     const lg = this.lineGround ? fx.human * (1 - sstep(3.0, 3.3, sp)) : 0
-    this.lines.lines.visible = this.lines.depth.visible = lg > 0.001
-    this.lines.material.uniforms.uLineAlpha.value = lg
+    if (this.lines) {
+      this.lines.lines.visible = this.lines.depth.visible = lg > 0.001
+      this.lines.material.uniforms.uLineAlpha.value = lg
+    }
     // concentric rings draped on the hill around the control point and the observed point
     const onLines = this.lineGround ? 1 : 0 // the draped hairline rings belong to the line ground
     const ctrlA = fx.control * (1 - fx.aim * 0.75) * (1 - sstep(2.95, 3.15, sp)) * fx.human * onLines, tgtA = fx.hit * (1 - sstep(2.35, 2.6, sp)) * fx.human * onLines

@@ -39,7 +39,8 @@ function detectQuality(): Quality {
   const coarse = matchMedia('(pointer: coarse)').matches
   const cores = navigator.hardwareConcurrency || 4
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8
-  if (coarse && (Math.min(screen.width, screen.height) < 700 || cores <= 4 || mem <= 3)) return 'low'
+  // low = genuinely weak hardware (few cores or little memory), not just a small screen: a recent phone stays sharp
+  if (coarse && (cores <= 4 || mem <= 4)) return 'low'
   if (coarse || cores <= 4 || mem <= 4) return 'mid'
   return 'high'
 }
@@ -355,7 +356,14 @@ export default function SurveyHero({ chapters = DEFAULT_CHAPTERS, posterSrc, pos
   useEffect(() => {
     let disposed = false
     const cleanups: (() => void)[] = []
-    import('./engine/Engine').then(({ HeroEngine }) => {
+    // the engine's build is one long main-thread task (seconds on a low-end phone): let the poster, the first
+    // plate and the intro film get going first, then build it when the browser is idle
+    const idle = () => new Promise<void>((res) => {
+      if (debugFrame !== null) return res()
+      const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+      requestAnimationFrame(() => (ric ? ric(() => res(), { timeout: 1500 }) : setTimeout(res, 300)))
+    })
+    idle().then(() => import('./engine/Engine')).then(({ HeroEngine }) => {
       if (disposed || !hostRef.current) return
       let eng: HeroEngine
       try {
