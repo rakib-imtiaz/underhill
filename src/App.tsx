@@ -1,43 +1,47 @@
+import { lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
-import Services from "./pages/Services";
-import Projects from "./pages/Projects";
-import About from "./pages/About";
-import Team from "./pages/Team";
-import Approach from "./pages/Approach";
-import Careers from "./pages/Careers";
-import Story from "./pages/Story";
-import Industries from "./pages/Industries";
-import HealthSafety from "./pages/HealthSafety";
-import Affiliations from "./pages/Affiliations";
-import UnderhillBrand from "./pages/UnderhillBrand";
-import ContactPage from "./pages/ContactPage";
-import NotFound from "./pages/NotFound";
+const Services = lazy(() => import("./pages/Services"));
+const Projects = lazy(() => import("./pages/Projects"));
+const About = lazy(() => import("./pages/About"));
+const Team = lazy(() => import("./pages/Team"));
+const Approach = lazy(() => import("./pages/Approach"));
+const Careers = lazy(() => import("./pages/Careers"));
+const Story = lazy(() => import("./pages/Story"));
+const Industries = lazy(() => import("./pages/Industries"));
+const HealthSafety = lazy(() => import("./pages/HealthSafety"));
+const Affiliations = lazy(() => import("./pages/Affiliations"));
+const UnderhillBrand = lazy(() => import("./pages/UnderhillBrand"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 /* Service detail pages — one per service line. */
-import AerialSurveying from "./pages/services/AerialSurveying";
-import ConstructionSurveying from "./pages/services/ConstructionSurveying";
-import DeformationMonitoring from "./pages/services/DeformationMonitoring";
-import HydrographicSurveying from "./pages/services/HydrographicSurveying";
-import LaserScanning from "./pages/services/LaserScanning";
-import CadastralSurveying from "./pages/services/CadastralSurveying";
-import FirstNationsSurveying from "./pages/services/FirstNationsSurveying";
-import RailwaySurveying from "./pages/services/RailwaySurveying";
-import TopographicSurveying from "./pages/services/TopographicSurveying";
-import BomaSurveying from "./pages/services/BomaSurveying";
-import BimModelling from "./pages/services/BimModelling";
+const AerialSurveying = lazy(() => import("./pages/services/AerialSurveying"));
+const ConstructionSurveying = lazy(() => import("./pages/services/ConstructionSurveying"));
+const DeformationMonitoring = lazy(() => import("./pages/services/DeformationMonitoring"));
+const HydrographicSurveying = lazy(() => import("./pages/services/HydrographicSurveying"));
+const LaserScanning = lazy(() => import("./pages/services/LaserScanning"));
+const CadastralSurveying = lazy(() => import("./pages/services/CadastralSurveying"));
+const FirstNationsSurveying = lazy(() => import("./pages/services/FirstNationsSurveying"));
+const RailwaySurveying = lazy(() => import("./pages/services/RailwaySurveying"));
+const TopographicSurveying = lazy(() => import("./pages/services/TopographicSurveying"));
+const BomaSurveying = lazy(() => import("./pages/services/BomaSurveying"));
+const BimModelling = lazy(() => import("./pages/services/BimModelling"));
 
 /* Project category listing pages. */
-import CategoryConstruction from "./pages/projects/Construction";
-import CategoryEnvironmental from "./pages/projects/Environmental";
-import CategoryFirstNations from "./pages/projects/FirstNations";
-import CategoryHistorical from "./pages/projects/Historical";
-import CategoryInfrastructure from "./pages/projects/Infrastructure";
-import CategoryMining from "./pages/projects/Mining";
-import CategoryEnergy from "./pages/projects/Energy";
+const CategoryConstruction = lazy(() => import("./pages/projects/Construction"));
+const CategoryEnvironmental = lazy(() => import("./pages/projects/Environmental"));
+const CategoryFirstNations = lazy(() => import("./pages/projects/FirstNations"));
+const CategoryHistorical = lazy(() => import("./pages/projects/Historical"));
+const CategoryInfrastructure = lazy(() => import("./pages/projects/Infrastructure"));
+const CategoryMining = lazy(() => import("./pages/projects/Mining"));
+const CategoryEnergy = lazy(() => import("./pages/projects/Energy"));
 
-/* Paths are declared without the trailing slash; React Router v6 matches the
+/* Every page but Home is split into its own chunk (React.lazy): the home page — and its hero —
+   no longer waits for the other pages' code and their three.js scenes. Layout suspends the outlet.
+
+   Paths are declared without the trailing slash; React Router v6 matches the
    source site's trailing-slash URLs (`/our-team/`) against them, so every link
    keeps the exact href it had in the static clone. */
 export default function App() {

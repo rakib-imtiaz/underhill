@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header";
 import MobileNav from "./MobileNav";
@@ -58,7 +58,10 @@ export default function Layout() {
       {/* keying on pathname remounts each route and replays the .page-shell
           fade (CSS animation, transform+opacity only, reduced-motion safe) */}
       <div className="page-shell" key={pathname}>
-        <Outlet />
+        {/* lazily loaded pages: keep the header and footer up while a page's chunk arrives */}
+        <Suspense fallback={<div style={{ minHeight: "100vh" }} />}>
+          <Outlet />
+        </Suspense>
       </div>
       <Footer onSent={showToast} />
       <Toast show={toast} />

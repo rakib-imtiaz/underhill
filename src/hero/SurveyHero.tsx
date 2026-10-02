@@ -16,10 +16,10 @@ import './tablet/ch4-5.css'
 import './tablet/ch6-7.css'
 import { DEFAULT_CHAPTERS, MERGED_CAPTURE_MODEL, REGION_LABELS, REGION_LABELS_SHORT, SCENE_LABELS, type ChapterCopy } from './content'
 import type { FrameState, HeroEngine, Quality } from './engine/Engine'
-import { CHAPTER_COUNT, STEP_SECONDS_MAX, STEP_SECONDS_MIN, STEP_SECONDS_PER_CHAPTER, STEP_WEIGHTS, STOPS, stopAt, chapterToProgress as chapterPosToProgress } from './engine/choreo'
+import { CHAPTER_COUNT, STEP_SECONDS_MAX, STEP_SECONDS_MIN, STEP_SECONDS_PER_CHAPTER, STEP_WEIGHTS, STOPS, stopAt, chapterToProgress as chapterPosToProgress } from './engine/timeline'
 /** progress of a stop (the stepper's chapters are STOPS, not every chapter position) */
 const chapterToProgress = (k: number) => chapterPosToProgress(STOPS[Math.min(STOPS.length - 1, Math.max(0, Math.round(k)))])
-import { NORTH_SITES, OFFICES } from './engine/geo'
+import { NORTH_SITES, OFFICES } from './engine/places'
 
 export type SurveyHeroProps = {
   chapters?: ChapterCopy[]

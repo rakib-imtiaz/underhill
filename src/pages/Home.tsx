@@ -294,7 +294,7 @@ export default function Home() {
           chapter-stepped survey hero. */}
       {createPortal(<IntroVideo />, document.body)}
       <SurveyHero
-        posterSrc="/plates/field_photo.jpg"
+        posterSrc="/plates/field_photo.webp"
         posterAlt="A survey instrument on a tripod above a mountain valley at dusk"
       />
 

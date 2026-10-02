@@ -44,9 +44,9 @@ export default function IntroVideo({ base = '/intro' }: { base?: string }) {
     document.documentElement.style.overflow = 'hidden' // the hero waits underneath
     const v = video.current
     v?.play().catch(finish) // autoplay blocked → straight to the site
-    // never trap a visitor: if the film hasn't actually started within 4 s (slow network, stalled
+    // never trap a visitor: if the film hasn't actually started within 7 s (slow network, stalled
     // decode, background tab), go straight to the site
-    const watchdog = setTimeout(() => { if (!v || v.currentTime < 0.1) finish() }, 4000)
+    const watchdog = setTimeout(() => { if (!v || v.currentTime < 0.1) finish() }, 7000)
     const onKey = (e: KeyboardEvent) => { if (['Escape', 'Enter', ' '].includes(e.key)) { e.preventDefault(); finish() } }
     // a scroll or swipe during the intro means "skip" — and must not also step the hero underneath
     const onGesture = (e: Event) => { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); finish() }

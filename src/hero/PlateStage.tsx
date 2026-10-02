@@ -278,6 +278,8 @@ function clearTop(root: HTMLElement) {
 }
 /** the iPad / tablet tier (see device.ts): chapter blocks branch on it for their tablet framing */
 export const isTabletTier = () => deviceTier() === 'tablet'
+/** the depth point clouds are retired (both draw at alpha 0); kept switchable, off so their images never load */
+const DEPTH_CLOUDS = false
 /** place a card at plate px (x, y) — `anchor` picks which corner sits there — and switch it on/off */
 function placeCard(el: HTMLDivElement | null, x: number, y: number, on: boolean, anchor: 'tl' | 'bl' | 'tr' | 'br' = 'tl') {
   if (!el) return
@@ -426,10 +428,13 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
   const methodsClean = useRef<HTMLImageElement>(null)
   const drone3d = useRef<DroneOverlay | null>(null)
   // the real UAV model over the MODEL plate (three.js comes with it, so it loads on demand)
+  // its model waits until the opening plates are in (the intro film and chapter 1 get the bandwidth first)
+  const earlyPlates = useRef<{ done: Promise<void>; resolve: () => void } | null>(null)
+  if (!earlyPlates.current) { let resolve = () => {}; earlyPlates.current = { done: new Promise<void>((r) => { resolve = r }), resolve } }
   useEffect(() => {
     if (!enabled) return
     let gone = false
-    import('./DroneOverlay').then(({ DroneOverlay }) => {
+    earlyPlates.current!.done.then(() => import('./DroneOverlay')).then(({ DroneOverlay }) => {
       if (gone || !droneCanvas.current) return
       drone3d.current = new DroneOverlay(droneCanvas.current, AERIAL.size.w, AERIAL.size.h)
       // the UAV that leaves the METHODS photo and flies to the aerial scene, in screen space
@@ -442,13 +447,13 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
   const cloudCss = useRef({ w: 0, h: 0 })
   // the control plate as a depth point cloud (three.js comes with it, so it loads on demand)
   useEffect(() => {
-    if (!enabled || !cloudCanvas.current) return
+    if (!enabled || !DEPTH_CLOUDS || !cloudCanvas.current) return
     let gone = false
     import('./DepthCloud').then(({ DepthCloud }) => {
       if (gone || !cloudCanvas.current) return
-      cloud.current = new DepthCloud(cloudCanvas.current, { photo: '/plates/control_photo.jpg', scan: '/plates/control_scan.jpg', depth: '/plates/control_depth.jpg' },
+      cloud.current = new DepthCloud(cloudCanvas.current, { photo: '/plates/control_photo.webp', scan: '/plates/control_scan.webp', depth: '/plates/control_depth.jpg' },
         CONTROL.size.w / CONTROL.size.h, 4, () => onReady?.())
-      if (fCloudCanvas.current) fCloud.current = new DepthCloud(fCloudCanvas.current, { photo: '/plates/field_photo.jpg', scan: '/plates/field_scan.jpg', depth: '/plates/field_depth.jpg' },
+      if (fCloudCanvas.current) fCloud.current = new DepthCloud(fCloudCanvas.current, { photo: '/plates/field_photo.webp', scan: '/plates/field_scan.webp', depth: '/plates/field_depth.jpg' },
         FIELD.size.w / FIELD.size.h, 4, () => onReady?.())
       const { w, h } = cloudCss.current
       if (w) cloud.current.setSize(w, h, Math.min(1.5, devicePixelRatio || 1))
@@ -465,12 +470,22 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       : new Promise<void>((res, rej) => { i.addEventListener('load', () => res(), { once: true }); i.addEventListener('error', () => rej(new Error(i.src)), { once: true }) }))
     // decoding first avoids a hitch, but decode() never settles in a background tab: cap it
     const settle = (i: HTMLImageElement) => loaded(i).then(() => Promise.race([i.decode().catch(() => {}), new Promise((res) => setTimeout(res, 1500))]))
-    for (const key of KEYS) {
-      const imgs = [...(scene[key].current?.querySelectorAll('img') ?? [])]
-      Promise.all(imgs.map(settle))
-        .then(() => { ready.current[key] = true; onReady?.() })
-        .catch((e) => console.warn(`[PlateStage] ${key} plate failed to load, keeping the WebGL scene:`, e))
-    }
+    // one scene at a time, in chapter order: the opening plate gets the whole connection, and each later
+    // plate (held back in data-src) is in long before anyone can step to it
+    let gone = false
+    ;(async () => {
+      for (const key of KEYS) {
+        if (gone) return
+        const imgs = [...(scene[key].current?.querySelectorAll('img') ?? [])]
+        for (const i of imgs) if (i.dataset.src && !i.getAttribute('src')) i.src = i.dataset.src
+        await Promise.all(imgs.map(settle))
+          .then(() => { ready.current[key] = true; onReady?.() })
+          .catch((e) => console.warn(`[PlateStage] ${key} plate failed to load, keeping the WebGL scene:`, e))
+        if (key === 'control') earlyPlates.current?.resolve()
+      }
+      earlyPlates.current?.resolve()
+    })()
+    return () => { gone = true }
   }, [enabled]) // eslint-disable-line react-hooks/exhaustive-deps -- refs and onReady are read once
 
   // fit the plates to the stage ourselves (and again on every size change), so they never sit at raw size
@@ -1127,9 +1142,9 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       {/* FIELD */}
       <div ref={sceneField} className="pl-scene">
         <div ref={boxField} className="pl-box" style={boxStyle(FIELD.size)}>
-          <img className="pl-img" src="/plates/field_photo.jpg" alt="" decoding="async" />
-          <img ref={fieldScan} className="pl-img pl-mask" src="/plates/field_scan.jpg" alt="" decoding="async" />
-          <img ref={fog} className="pl-img pl-fog" src="/plates/field_fog.png" alt="" decoding="async" />
+          <img className="pl-img" src="/plates/field_photo.webp" alt="" decoding="async" />
+          <img ref={fieldScan} className="pl-img pl-mask" src="/plates/field_scan.webp" alt="" decoding="async" />
+          <img ref={fog} className="pl-img pl-fog" src="/plates/field_fog.webp" alt="" decoding="async" />
           <svg className="pl-svg" viewBox={`0 0 ${FIELD.size.w} ${FIELD.size.h}`}>
             <defs><radialGradient id="pl-contact"><stop offset="0" stopColor="#000" stopOpacity="0.75" /><stop offset="1" stopColor="#000" stopOpacity="0" /></radialGradient></defs>
           </svg>
@@ -1147,8 +1162,8 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       {/* CONTROL + MEASURE */}
       <div ref={sceneControl} className="pl-scene">
         <div ref={boxControl} className="pl-box" style={boxStyle(CONTROL.size)}>
-          <img className="pl-img" src="/plates/control_photo.jpg" alt="" decoding="async" />
-          <img ref={controlScan} className="pl-img pl-mask" src="/plates/control_scan.jpg" alt="" decoding="async" />
+          <img className="pl-img" data-src="/plates/control_photo.webp" alt="" decoding="async" />
+          <img ref={controlScan} className="pl-img pl-mask" data-src="/plates/control_scan.webp" alt="" decoding="async" />
           <svg className="pl-svg" viewBox={`0 0 ${CONTROL.size.w} ${CONTROL.size.h}`}>
             <g ref={beacon} style={{ visibility: 'hidden' }}>
               <mask id="pl-ridge" maskUnits="userSpaceOnUse" x={0} y={0} width={CONTROL.size.w} height={CONTROL.size.h}>
@@ -1169,7 +1184,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
               <circle cx={CONTROL.target.x} cy={CONTROL.target.y} r={7} fill="#e6f7ff" style={{ filter: 'drop-shadow(0 0 10px #5cc0f5)' }} />
             </g>
           </svg>
-          <img ref={ctrlInst} className="pl-cut" src="/plates/control_instrument.webp" alt="" decoding="async"
+          <img ref={ctrlInst} className="pl-cut" data-src="/plates/control_instrument.webp" alt="" decoding="async"
             style={{ left: CONTROL.cut.x, top: CONTROL.cut.y, width: CONTROL.cut.w, height: CONTROL.cut.h, filter: 'none', visibility: 'hidden' }} />
           <Card ref={beaconTag} {...CARDS.control} />
           <Card ref={coordsTag} title="Observed point" kicker="Scene coordinates" rows={coords.length ? coords : ['N 5 652 882.17', 'E 414 913.84', 'Z 466.69']} accent="#7fd0ff" className="pl-card-coords" />
@@ -1181,8 +1196,8 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       {/* METHODS */}
       <div ref={sceneMethods} className="pl-scene">
         <div ref={boxMethods} className="pl-box" style={boxStyle(METHODS.size)}>
-          <img className="pl-img" src="/plates/methods_photo.jpg" alt="" decoding="async" />
-          <img ref={methodsClean} className="pl-img" src="/plates/methods_photo_clean.jpg" alt="" decoding="async" style={{ opacity: 0 }} />
+          <img className="pl-img" data-src="/plates/methods_photo.webp" alt="" decoding="async" />
+          <img ref={methodsClean} className="pl-img" data-src="/plates/methods_photo_clean.webp" alt="" decoding="async" style={{ opacity: 0 }} />
           <div ref={kit} style={{ position: 'absolute', inset: 0, visibility: 'hidden' }}>
             <svg className="pl-svg" viewBox={`0 0 ${M.size.w} ${M.size.h}`}>
               <mask id="pl-legs" maskUnits="userSpaceOnUse" x={0} y={0} width={M.size.w} height={M.size.h}>
@@ -1217,9 +1232,9 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
       {/* CAPTURE + MODEL: the aerial photo turns to LiDAR and the UAV maps the parcel */}
       <div ref={sceneAerial} className="pl-scene">
         <div ref={boxAerial} className="pl-box" style={boxStyle(AERIAL.size)}>
-          <img className="pl-img" src="/plates/aerial_photo_clean.jpg" alt="" decoding="async" />
-          <img ref={aerialScan} className="pl-img" src="/plates/aerial_scan_clean.jpg" alt="" decoding="async" style={{ opacity: 0 }} />
-          <img ref={mapped} className="pl-img pl-mapped" src="/plates/aerial_scan_clean.jpg" alt="" decoding="async" style={{ clipPath: EMPTY }} />
+          <img className="pl-img" data-src="/plates/aerial_photo_clean.webp" alt="" decoding="async" />
+          <img ref={aerialScan} className="pl-img" data-src="/plates/aerial_scan_clean.webp" alt="" decoding="async" style={{ opacity: 0 }} />
+          <img ref={mapped} className="pl-img pl-mapped" data-src="/plates/aerial_scan_clean.webp" alt="" decoding="async" style={{ clipPath: EMPTY }} />
           <svg className="pl-svg" viewBox={`0 0 ${AERIAL.size.w} ${AERIAL.size.h}`}>
             <defs>
               <linearGradient id="pl-beam" x1="0" y1="0" x2="0" y2="1">
@@ -1232,7 +1247,7 @@ const PlateStage = forwardRef<PlateHandle, Props>(function PlateStage({ enabled,
             <polygon ref={fan} points="0,0 0,0 0,0" fill="url(#pl-beam)" style={{ mixBlendMode: 'screen', opacity: 0 }} />
             <line ref={sweep} stroke="#f2fbff" strokeWidth={4} strokeLinecap="round" style={{ opacity: 0, filter: 'drop-shadow(0 0 8px #5cc0f5) drop-shadow(0 0 3px #bfeaff)' }} />
           </svg>
-          <img ref={drone} className="pl-cut pl-drone" src="/plates/drone.png" alt="" decoding="async" />
+          <img ref={drone} className="pl-cut pl-drone" data-src="/plates/drone.webp" alt="" decoding="async" />
           <canvas ref={droneCanvas} className="pl-img" style={{ visibility: 'hidden', pointerEvents: 'none' }} />
           <Tag ref={droneTag} lines={['Air', 'LiDAR']} />
           <Card ref={cLidar} {...CARDS.lidar} className="pl-ch45" />
