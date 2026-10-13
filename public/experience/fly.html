@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Fly the drone — Underhill Geomatics</title>
+  <meta name="description" content="Fly Underhill's survey drone yourself over a BC valley site: RTK, gimbal camera, LiDAR, a mapping mission and return-to-home, drawn live with three.js.">
+  <meta name="theme-color" content="#0a1b2e">
+  <link rel="preload" href="./vendor/fonts/ibm-plex-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./vendor/fonts/funnel-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="./media/underhill-icon.png">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/fly.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "./vendor/three/build/three.module.min.js",
+      "three/addons/": "./vendor/three/examples/jsm/",
+      "three/examples/jsm/": "./vendor/three/examples/jsm/",
+      "3d-tiles-renderer": "./vendor/3d-tiles-renderer/0.4.9/src/index.js",
+      "3d-tiles-renderer/plugins": "./vendor/3d-tiles-renderer/0.4.9/src/plugins/index.js"
+    } }
+  </script>
+</head>
+<body class="fly is-booting view-chase">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-photo" viewBox="0 0 24 24"><path d="M4 8h3.2L9 5.6h6L16.8 8H20v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></symbol>
+    <symbol id="i-lidar" viewBox="0 0 24 24"><circle cx="12" cy="7" r="2.6"/><path d="M12 9.6 5 20M12 9.6 9.4 20M12 9.6l2.6 10.4M12 9.6 19 20M3.5 20h17"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5M6.5 10v9h11v-9"/><path d="M10.2 19v-4.6h3.6V19"/></symbol>
+    <symbol id="i-view" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12"/><path d="M8 18v2h8v-2M3.5 10h3M17.5 10h3"/><circle cx="12" cy="12" r="2.4"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M3.5 6.5 9 4.5l6 2 5.5-2v13l-5.5 2-6-2-5.5 2zM9 4.5v13M15 6.5v13"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6M6.5 11.5 12 6l5.5 5.5"/><path d="M5 21h14"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v13M6.5 11.5 12 17l5.5-5.5"/><path d="M5 21h14"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-go" viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  </svg>
+
+  <div id="uh-header"></div>
+
+  <main class="fly-app" id="app">
+    <canvas id="fly-canvas" class="fly-canvas" role="img" aria-label="Live 3D view of the survey site and the drone"></canvas>
+    <canvas id="map-overlay" class="map-overlay" aria-hidden="true"></canvas>
+    <div class="fly-tags" id="tags"></div>
+    <div class="fly-flash" id="flash" aria-hidden="true"></div>
+    <div class="fly-reticle" id="reticle" aria-hidden="true"><i></i></div>
+
+    <section class="hud" id="hud" aria-label="Flight display">
+      <div class="hud-top">
+        <div class="tele" role="group" aria-label="Telemetry">
+          <div class="tele__row"><span class="k">AGL</span><b id="t-agl">0.0</b><i>m</i><span class="k">ASL</span><b id="t-asl">412.0</b><i>m</i></div>
+          <div class="tele__row"><span class="k">H.S</span><b id="t-hs">0.0</b><i>m/s</i><span class="k">V.S</span><b id="t-vs">0.0</b><i>m/s</i></div>
+          <div class="tele__row"><span class="k">D⌂</span><b id="t-dist">0</b><i>m</i><span class="k">Time</span><b id="t-ft">00:00</b></div>
+          <button type="button" class="tele__pos" id="t-pos" title="Tap: UTM 11N ↔ latitude / longitude"><span id="t-pos1">E —</span><span id="t-pos2">N —</span></button>
+          <div class="tele__x"><button type="button" class="tele__pl" id="btn-payload-c" aria-label="Payload (tap to change)"><b id="payload-name-c">L2 LiDAR</b><i aria-hidden="true">▾</i></button><span class="tele__xt" id="t-xtra"></span></div>
+        </div>
+        <div class="compass" aria-label="Heading">
+          <div class="compass__win"><div class="compass__tape" id="compass-tape"></div><div class="compass__home" id="compass-home">H</div></div>
+          <span class="compass__hdg" id="t-hdg">000°</span>
+        </div>
+        <div class="stat" role="group" aria-label="Aircraft status">
+          <div class="stat__row batt" id="batt"><span class="batt__bar"><i id="batt-fill"></i></span><b id="t-batt">100%</b><span class="dim" id="t-rem">12:00</span></div>
+          <div class="stat__row rtk" id="rtk" data-state="off"><span class="rtk__dot"></span><b id="t-rtk">RTK —</b></div>
+          <div class="stat__row dim"><span id="t-rtkp"></span><span id="t-sats">0 sats</span></div>
+          <div class="stat__row dim wind"><span id="t-wind">Wind —</span></div>
+        </div>
+      </div>
+
+      <div class="hud-l">
+        <button type="button" class="chip payload-chip" id="btn-payload" aria-label="Payload (tap to change)"><span class="chip__k">Payload</span><b id="payload-name">L2 LiDAR</b></button>
+        <canvas class="minimap" id="minimap" width="120" height="120" role="img" aria-label="Site map: tap to fly there"></canvas>
+        <div class="subbar" id="subbar">
+          <div class="lidar-stats readout" id="lidar-stats" hidden></div>
+          <div class="zoom" id="zoom" hidden><button type="button" class="ib" id="zoom-out" aria-label="Zoom out">−</button><b id="zoom-v">1.0×</b><button type="button" class="ib" id="zoom-in" aria-label="Zoom in">+</button></div>
+          <button type="button" class="chip thermal-chip" id="btn-thermal" hidden><span class="chip__k">Thermal</span><b id="thermal-name">Off</b></button>
+          <div class="mission-chip readout" id="mission-chip" hidden></div>
+        </div>
+      </div>
+
+      <div class="hud-c">
+        <div class="mode-chip" id="mode-chip">P-GPS · Parked</div>
+        <div class="warn" id="warn" role="alert"></div>
+        <div class="toasts" id="toasts" aria-live="polite"></div>
+        <div class="checklist readout" id="checklist" aria-label="Pre-flight checklist">
+          <span class="readout__k">Pre-flight</span>
+          <ul>
+            <li data-ck="power">Power <b>…</b></li>
+            <li data-ck="arms">Arms <b>…</b></li>
+            <li data-ck="props">Props <b>…</b></li>
+            <li data-ck="battery">Battery <b>…</b></li>
+            <li data-ck="compass">Compass / IMU <b>…</b></li>
+            <li data-ck="rtk">RTK <b>…</b></li>
+          </ul>
+        </div>
+        <div class="range-card readout" id="range-card" hidden></div>
+      </div>
+
+      <nav class="actions" id="actions" aria-label="Flight controls">
+        <button type="button" class="act" id="btn-photo" title="Photo (C)"><svg><use href="#i-photo"/></svg><span>Photo</span></button>
+        <button type="button" class="act" id="btn-lidar" title="LiDAR (L)" aria-pressed="false"><svg><use href="#i-lidar"/></svg><span>LiDAR</span></button>
+        <button type="button" class="act" id="btn-rth" title="Return to home (H)"><svg><use href="#i-home"/></svg><span>RTH</span></button>
+        <button type="button" class="act" id="btn-view" title="Camera view (1 / 2)"><svg><use href="#i-view"/></svg><span id="view-name">Gimbal</span></button>
+        <button type="button" class="act" id="btn-map" title="Map (M)" aria-pressed="false"><svg><use href="#i-map"/></svg><span>Map</span></button>
+      </nav>
+
+      <div class="gimbal" id="gimbal" aria-label="Gimbal pitch">
+        <span class="gimbal__k">Gimbal</span>
+        <div class="gimbal__track" id="gimbal-track" role="slider" aria-valuemin="-90" aria-valuemax="30" aria-valuenow="0" tabindex="0"><i class="gimbal__zero"></i><b class="gimbal__thumb" id="gimbal-thumb"></b></div>
+        <span class="gimbal__v" id="gimbal-v">0°</span>
+      </div>
+
+      <div class="stick stick--l" id="stick-l" aria-label="Left stick: climb, descend and turn"><span class="stick__lab">Climb · Turn</span><div class="stick__knob"></div></div>
+      <div class="stick stick--r" id="stick-r" aria-label="Right stick: move"><span class="stick__lab">Move</span><div class="stick__knob"></div></div>
+
+      <button type="button" class="hold" id="btn-hold" aria-label="Hold to take off">
+        <svg class="hold__ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/><circle class="hold__p" cx="22" cy="22" r="20"/></svg>
+        <svg class="hold__ic"><use href="#i-up"/></svg>
+        <span class="hold__t" id="hold-text">Pre-flight…</span>
+      </button>
+
+      <button type="button" class="last-photo" id="btn-roll" aria-label="Photo roll (O)"><img alt=""><span id="roll-count">0</span></button>
+    </section>
+
+    <aside class="sheet map-sheet" id="map-sheet" aria-label="Map tools">
+      <div class="sheet__head"><span class="readout__k">Fly to</span><button type="button" class="ib" id="map-follow" aria-pressed="true" title="Follow the drone">◎</button><button type="button" class="ib" id="map-zin" aria-label="Zoom in">+</button><button type="button" class="ib" id="map-zout" aria-label="Zoom out">−</button><button type="button" class="ib" id="map-fold" aria-expanded="true" aria-label="Fold the map tools">▾</button></div>
+      <div class="chips" id="vp-chips"></div>
+      <div class="plan" id="plan">
+        <button type="button" class="btn small" id="btn-plan">Plan a mapping mission</button>
+        <p class="plan__hint" id="plan-hint" hidden>Drag on the map to draw the area, or tap its four corners.</p>
+        <div class="plan__form" id="plan-form" hidden>
+          <div class="plan__row"><span class="readout__k">Height</span><div class="seg" id="seg-alt"></div></div>
+          <div class="plan__row"><span class="readout__k">Overlap</span><div class="seg" id="seg-ov"></div></div>
+          <dl class="plan__stats" id="plan-stats"></dl>
+          <div class="plan__btns"><button type="button" class="btn small" id="btn-fly-mission">Fly mission</button><button type="button" class="btn small ghost" id="btn-clear-mission">Clear</button></div>
+        </div>
+      </div>
+    </aside>
+
+    <aside class="sheet roll" id="roll" aria-label="Photo roll" hidden>
+      <div class="sheet__head"><span class="readout__k">Photo roll</span><button type="button" class="ib" id="roll-close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
+      <ul class="roll__list" id="roll-list"></ul>
+      <p class="roll__empty">No photos yet. Press <b>Photo</b> (or C).</p>
+    </aside>
+
+    <aside class="sheet more" id="more-sheet" aria-label="Settings" hidden>
+      <div class="sheet__head"><span class="readout__k">Settings</span><button type="button" class="ib" id="more-close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
+      <div class="more__grid">
+        <button type="button" class="tog" id="tog-sport" aria-pressed="false"><span>Sport mode</span><b>21 m/s</b></button>
+        <button type="button" class="tog" id="tog-sound" aria-pressed="true"><span>Sound</span><b>On</b></button>
+        <button type="button" class="tog" id="tog-lidar-mode"><span>LiDAR colours</span><b id="lidar-mode-name">Elevation</b></button>
+        <button type="button" class="tog" id="tog-world" hidden><span>World</span><b id="world-name">Site</b></button>
+        <div class="tog tog--seg"><span>Quality</span><div class="seg" id="seg-quality"></div></div>
+        <button type="button" class="tog" id="tog-help"><span>Keys and controls</span><b>?</b></button>
+        <button type="button" class="tog" id="tog-coach"><span>Show the tips again</span><b>↺</b></button>
+      </div>
+      <p class="more__q" id="quality-note"></p>
+    </aside>
+
+    <div class="help" id="help" hidden role="dialog" aria-label="Keys and controls">
+      <div class="help__card readout">
+        <div class="sheet__head"><span class="readout__k">Keys and controls</span><button type="button" class="ib" id="help-close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
+        <dl>
+          <dt>W S / A D</dt><dd>Forward, back / slide left, right</dd>
+          <dt>Q E</dt><dd>Turn left, right</dd>
+          <dt>Space / Shift</dt><dd>Climb / descend</dd>
+          <dt>↑ ↓ or ] [</dt><dd>Gimbal up, down</dd>
+          <dt>Z / X</dt><dd>Zoom out / in (gimbal view, or the wheel)</dd>
+          <dt>T (hold)</dt><dd>Take off / land</dd>
+          <dt>C · L · H</dt><dd>Photo · LiDAR · Return home</dd>
+          <dt>1 2 3 · M</dt><dd>Chase · gimbal · map views · map</dd>
+          <dt>P · F · I · K</dt><dd>Payload · Sport · Thermal · LiDAR colours</dd>
+          <dt>O · ?</dt><dd>Photo roll · this help</dd>
+          <dt>Mouse</dt><dd>Drag to look around, double-click the ground to fly there</dd>
+          <dt>Gamepad</dt><dd>Sticks (Mode 2), RT / LT gimbal, RB / LB zoom, A photo, B home, X LiDAR, Y view, Start (hold) take off</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="coach" id="coach" hidden role="dialog" aria-label="How to fly">
+      <div class="coach__card readout">
+        <span class="readout__k" id="coach-step">1 / 3</span>
+        <p class="coach__t" id="coach-text"></p>
+        <div class="coach__btns"><button type="button" class="btn small ghost" id="coach-skip">Skip</button><button type="button" class="btn small" id="coach-next">Next</button></div>
+      </div>
+      <div class="coach__ring" id="coach-ring"></div>
+    </div>
+
+    <div class="attrib" id="attrib" hidden></div>
+    <div class="boot" id="boot"><span class="boot__k">Underhill · Fly</span><span class="boot__t" id="boot-t">Preparing the site…</span></div>
+    <p class="fallback" id="fallback" hidden></p>
+  </main>
+
+  <script type="module" src="./js/fly/main.js"></script>
+</body>
+</html>

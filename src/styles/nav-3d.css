@@ -1,0 +1,14 @@
+/* The "In 3D" group in the Services dropdown and the phone menu's tagged 3D rows (data/nav.ts IN_3D).
+   Home's header variant restyles both in pages/landing/landing.css. */
+.drop li.is-sep { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(60, 57, 80, 0.1); }
+.drop li.is-sep::before {
+  content: attr(data-sep); display: block; padding: 4px 22px 6px 34px;
+  font: 500 12px/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.18em; text-transform: uppercase; color: #5b6672;
+}
+.mnav > ul > li.is-3d > a::before { color: #5cc0f5; }
+.mnav > ul > li.is-3d:first-of-type, .mnav > ul > li:not(.is-3d) + li.is-3d { margin-top: 12px; }
+.mnav > ul > li.is-3d > a { font-size: 21px; }
+.mnav-tag {
+  margin-left: auto; align-self: center;
+  font: 500 12px/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.16em; text-transform: uppercase; color: #5cc0f5;
+}

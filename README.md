@@ -464,3 +464,41 @@ the three porting changes (the `atmos.js` imports, the `core.js` lifecycle
 additions, `terrain.js`'s nine `addEventListener` → `this.listen`
 substitutions) **and** everything under *Performance work* above. Diffing the
 two trees first is the safer route.
+
+---
+
+## Home landing and the 3D links
+
+`/` is the photo-first landing (the approved mockup), ported from
+`../drafts/film-fly-gear/showcase-v2/index.html` into `src/pages/Home.tsx` and `src/pages/landing/`:
+
+- `landing.css`: the prototype's `landing.css`, scoped. `body.ld-body` (set while Home is mounted) holds the
+  tokens and the header variant. Every content rule is prefixed with `.ld` (the Home `<main>`).
+- `useLandingMotion.ts`: entrances (`[data-in]` → `.is-in`), line masks, wipes, count-ups
+  (`[data-ld-count]`), loops and scroll drift. Reduced motion is honoured. `?motion=0` shows the final state
+  and `?reduced=1` forces reduced motion.
+- `daylight.ts`: the light/dark switch in the header (`localStorage 'gt-daylight'`, shared with the 3D
+  pages). `?day=0|1` overrides it for one load. Home defaults to light.
+- `Kit.tsx` + `kit-data.ts`: the tools rail. `Experience.tsx` + `quality.ts`: the 3D film teaser and device badge.
+- Header and MobileNav have a `variant="landing"` (search, daylight, "Let's talk"). Footer has `band={false}`
+  on Home. The brand intro (`IntroVideo`, once per session) still plays first, and the hero starts as it leaves.
+- Photos are in `public/landing/photos/`.
+
+**The 3D pages (film, fly mode, gear playground) are part of the site, in `public/experience/`.** This folder
+is the master copy: edit the 3D pages here, not in `../drafts/film-fly-gear/showcase-v2` (that is the old
+working copy, kept for its review harness and history; see its `MOVED-TO-SITE.md`).
+
+- They are plain static pages, not React: `film.html`, `fly.html`, `gear.html` with their own `js/`, `css/`,
+  `models/`, `media/` and `vendor/` (three.js and 3d-tiles-renderer behind an import map). Vite serves
+  `public/` as-is, so they load at `/experience/film.html`, `/experience/fly.html` and
+  `/experience/gear.html?g=<id>` in `npm run dev`, in `npm run build` (copied to `dist/experience/`) and in
+  `vite preview`. No proxy and no :4300 server.
+- `lib/total-station/totalStation.js` and `lib/gnss/createGnssTripodModel.js` are the two procedural models the
+  film's adapters (`js/adapters/`) import. They were copied from `../drafts/film-fly-gear/img2threejs/` and
+  `../drafts/film-fly-gear/threejs-object-sculptor/`; only the module files, not those work folders.
+- Their logo, Exit and "Back to Underhill" links go to the site's `/`.
+- Links from the React pages are built in `src/pages/landing/urls.ts` (default `/experience`).
+  `VITE_EXPERIENCE_URL` (no trailing slash) can point them at another host; leave it unset normally.
+
+The previous Home (SurveyHero + project map) is saved in `../drafts/old-home/` with restore steps. The
+SurveyHero code is still in `src/hero/`.

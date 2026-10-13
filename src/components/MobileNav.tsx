@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import SmartLink from "./SmartLink";
-import { PRIMARY_NAV, CAREERS_HREF } from "../data/nav";
+import { PRIMARY_NAV, CAREERS_HREF, IN_3D } from "../data/nav";
 
 type Props = {
   open: boolean;
   onClose: () => void;
+  /** "landing" (Home): the call to action is "Let's talk" (the Let's Talk panel) instead of careers */
+  variant?: "default" | "landing";
 };
 
 /** Replaces the mobile-menu half of the static site's js/main.js */
-export default function MobileNav({ open, onClose }: Props) {
+export default function MobileNav({ open, onClose, variant = "default" }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   /* body scroll lock, exactly as the static site did it */
@@ -54,7 +56,8 @@ export default function MobileNav({ open, onClose }: Props) {
               </SmartLink>
               {group.children ? (
                 <ul className="sub">
-                  {group.children.map((child) => (
+                  {/* the 3D pages get their own tagged rows below, so skip them in the sub-list */}
+                  {group.children.filter((child) => !IN_3D.some((l) => l.href === child.href)).map((child) => (
                     <li key={child.href + child.label}>
                       <SmartLink to={child.href} unported={child.unported} onClick={onClose}>
                         {child.label}
@@ -66,10 +69,24 @@ export default function MobileNav({ open, onClose }: Props) {
             </li>
           );
         })}
+        {IN_3D.map((l) => (
+          <li key={l.href} className="is-3d">
+            <a href={l.href} onClick={onClose}>
+              {l.label}
+              <span className="mnav-tag">{l.tag}</span>
+            </a>
+          </li>
+        ))}
       </ul>
-      <SmartLink className="btn" to={CAREERS_HREF} onClick={onClose}>
-        Join The Team
-      </SmartLink>
+      {variant === "landing" ? (
+        <a className="btn" href="#lets-talk" onClick={onClose}>
+          Let's talk <span aria-hidden="true">→</span>
+        </a>
+      ) : (
+        <SmartLink className="btn" to={CAREERS_HREF} onClick={onClose}>
+          Join The Team
+        </SmartLink>
+      )}
       <p className="mnav-foot">
         Est. <b>1913</b> — Vancouver · Kamloops · Vancouver Island · Whitehorse
       </p>

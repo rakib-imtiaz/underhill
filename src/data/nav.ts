@@ -9,11 +9,17 @@
    (`/about-underhill-geomatics/careers/`, `/history-of-underhill-geomatics/`)
    still resolve — App.tsx aliases them to the same components. */
 
+import { FILM_URL, FLY_URL, GEAR_URL } from "../pages/landing/urls";
+
 export type NavLink = {
   label: string;
   href: string;
   /** true when no React route exists for this URL in the port */
   unported?: boolean;
+  /** a group heading drawn above this item in a dropdown (e.g. "In 3D") */
+  sep?: string;
+  /** a short tag shown beside the item in the phone menu */
+  tag?: string;
 };
 
 export type NavGroup = {
@@ -25,6 +31,16 @@ export type NavGroup = {
 
 export const CAREERS_HREF = "/careers/";
 export const STORY_HREF = "/story/";
+
+/* The 3D pages (the film, fly mode, the gear playground). They live in drafts and are served by the
+   drafts server; see pages/landing/urls.ts for how the URLs resolve. Plain anchors (unported):
+   they are not React routes. Shown at the foot of the Services dropdown under "In 3D", and as tagged
+   rows in the phone menu. */
+export const IN_3D: NavLink[] = [
+  { label: "The 3D Experience", href: FILM_URL, unported: true, tag: "3D film" },
+  { label: "Fly the drone", href: FLY_URL, unported: true, tag: "Fly mode" },
+  { label: "The Kit", href: GEAR_URL, unported: true, tag: "Try it" },
+];
 
 export const PRIMARY_NAV: NavGroup[] = [
   {
@@ -54,6 +70,7 @@ export const PRIMARY_NAV: NavGroup[] = [
       { label: "First Nations Surveying", href: "/geospatial-services/first-nations-land-claims-surveying/" },
       { label: "Railway Surveying", href: "/geospatial-services/railway-surveying/" },
       { label: "Topographic Surveying", href: "/geospatial-services/topographic-surveying/" },
+      ...IN_3D.map((l, i) => (i === 0 ? { ...l, sep: "In 3D" } : l)),
     ],
   },
   {

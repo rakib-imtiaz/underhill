@@ -13,6 +13,9 @@ export default function Layout() {
   const { pathname, hash } = useLocation();
 
   useReveal(pathname);
+  /* Home is the photo-first landing: its own header variant, and no survey band in the footer (the
+     landing closes on its own purpose band, which carries the same message) */
+  const landing = pathname === "/";
 
   /* A client-side navigation must land at the top of the new page, otherwise
      the sticky 800vh hero track leaves you mid-document. A hash target gets
@@ -53,8 +56,8 @@ export default function Layout() {
       <a className="skip" href="#main">
         Skip to main content
       </a>
-      <Header menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((v) => !v)} />
-      <MobileNav open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <Header variant={landing ? "landing" : "default"} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((v) => !v)} />
+      <MobileNav variant={landing ? "landing" : "default"} open={menuOpen} onClose={() => setMenuOpen(false)} />
       {/* keying on pathname remounts each route and replays the .page-shell
           fade (CSS animation, transform+opacity only, reduced-motion safe) */}
       <div className="page-shell" key={pathname}>
@@ -63,7 +66,7 @@ export default function Layout() {
           <Outlet />
         </Suspense>
       </div>
-      <Footer onSent={showToast} />
+      <Footer onSent={showToast} band={!landing} />
       <Toast show={toast} />
     </>
   );

@@ -7,6 +7,9 @@ export default defineConfig({
   server: {
     port: 5180,
     strictPort: true,
+    /* The 3D pages (film, fly mode, gear playground) are plain static files in public/experience/, served
+       as-is at /experience/*.html in dev, build and preview alike (no proxy, no drafts server needed).
+       They are not part of the React bundle: they carry their own import map and vendored three.js. */
   },
   preview: {
     port: 5180,

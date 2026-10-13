@@ -1,0 +1,97 @@
+/* =============================================================== Home: the continuous loops
+   (imported after landing.css; the JS side is loops.tsx, Experience.tsx and Kit.tsx)
+   Every loop animates transform / opacity / clip-path only. Each one plays only while its [data-loop]
+   block is on screen (.is-live → --ld-play: running) and the tab is visible (.ld-tab-hidden pauses all).
+   .ld-lite (lite tier) keeps the crossfades and readouts and drops the Ken Burns drifts, sweeps and scans.
+   Reduced motion and ?motion=0 stop everything (landing.css: `.ld.ld-reduced *` / `.ld.ld-still *`). */
+.ld [data-loop] { --ld-play: paused; }
+.ld [data-loop].is-live { --ld-play: running; }
+.ld.ld-tab-hidden [data-loop] { --ld-play: paused; }
+
+/* ---- hero: photo crossfade + Ken Burns + progress ticks; the last headline line rotates */
+.ld .ld-hero__slides { position: absolute; inset: 0; }
+.ld .ld-slide { position: absolute; inset: 0; opacity: 0; }
+.ld .ld-slide.is-prev { opacity: 1; z-index: 1; }
+.ld .ld-slide.is-on { opacity: 1; z-index: 2; transition: opacity 1.8s cubic-bezier(0.45, 0, 0.25, 1); }
+.ld .ld-hero__img.is-alt { object-position: var(--op); }
+.ld .ld-hero__slides img { will-change: transform; }
+@keyframes ld-kb { from { transform: none; } to { transform: scale(var(--kz, 1.07)) translate3d(var(--kx, -1.5%), var(--ky, -1%), 0); } }
+.ld .ld-hero.is-in .ld-slide.is-on img, .ld .ld-hero.is-in .ld-slide.is-prev img { animation: ld-kb calc(var(--hold, 6500ms) + 4.2s) linear both; animation-play-state: var(--ld-play, paused); }
+.ld .ld-hero__ticks { position: absolute; left: var(--ld-gut); bottom: 14px; z-index: 3; display: flex; gap: 6px; pointer-events: none; }
+.ld .ld-tick { position: relative; display: block; width: 26px; height: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.42); box-shadow: 0 0 6px rgba(4, 14, 26, 0.35); }
+.ld .ld-tick i { position: absolute; inset: 0; background: #fff; transform: scaleX(0); transform-origin: left center; }
+.ld .ld-hero.is-in .ld-tick.is-on i { animation: ld-fill var(--hold, 6500ms) linear both; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-fill { to { transform: none; } }
+.ld .ld-rot { display: inline-grid; vertical-align: top; }
+.ld .ld-rot__p { grid-area: 1 / 1; }
+.ld .ld-rot__w { display: inline-block; white-space: nowrap; }
+.ld .ld-rot__c { display: inline-block; opacity: 0; transform: translate3d(0, 0.9em, 0); }
+.ld .ld-rot__p.is-on .ld-rot__c { opacity: 1; transform: none; transition: transform 0.8s var(--tm-ease) calc(var(--ci) * 22ms + 0.28s), opacity 0.45s ease calc(var(--ci) * 22ms + 0.28s); }
+.ld .ld-rot__p.is-out .ld-rot__c { opacity: 0; transform: translate3d(0, -0.9em, 0); transition: transform 0.5s cubic-bezier(0.55, 0, 0.75, 0.2) calc(var(--ci) * 14ms), opacity 0.35s ease calc(var(--ci) * 14ms + 0.1s); }
+@media (min-width: 601px) {
+  .ld .ld-hero__ticks { left: auto; right: 44px; bottom: calc(var(--ld-cut) + 26px); }
+}
+@media (max-width: 600px) {
+  .ld .ld-hero__img.is-alt { object-position: var(--op-m, var(--op)); }
+  .ld .ld-hero__ticks { top: 16px; bottom: auto; left: auto; right: var(--ld-gut); }
+}
+
+/* ---- shimmer (since 1913, brighter tomorrow): a glint band sweeps a copy of the text */
+.ld .ld-shine { position: relative; display: inline-block; }
+.ld .ld-shine__glint { position: absolute; inset: 0; color: var(--ld-glint, #e9f7ff); pointer-events: none; -webkit-user-select: none; user-select: none; clip-path: polygon(-30% 0, -16% 0, -26% 100%, -40% 100%); animation: ld-glint 7s cubic-bezier(0.45, 0, 0.25, 1) 1.6s infinite; animation-play-state: var(--ld-play, paused); }
+body.ld-body.is-day .ld-story .ld-shine__glint { --ld-glint: #63c3f7; }
+.ld .ld-band .ld-shine__glint { --ld-glint: #ffffff; }
+@keyframes ld-glint { 0% { clip-path: polygon(-30% 0, -16% 0, -26% 100%, -40% 100%); } 26%, 100% { clip-path: polygon(116% 0, 130% 0, 120% 100%, 106% 100%); } }
+
+/* ---- story: a very slow Ken Burns and a slow crossfade to a second field photo (nothing is drawn over
+   the photo: no scan bars, grids or marks over people), the shimmer on "since 1913", the contours drift */
+.ld .ld-story__img img { animation: ld-storykb 24s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-storykb { from { transform: none; } to { transform: scale(1.05) translate3d(-1.5%, -0.8%, 0); } }
+.ld .ld-story__alt { position: absolute; inset: 0; opacity: 0; animation: ld-storyalt 22s ease-in-out 4s infinite; animation-play-state: var(--ld-play, paused); }
+.ld .ld-story__alt img { object-position: 55% 45%; }
+@keyframes ld-storyalt { 0%, 38% { opacity: 0; } 50%, 88% { opacity: 1; } 100% { opacity: 0; } }
+.ld .ld-story .ld-topo, .ld .ld-x .ld-topo, .ld .ld-exp .ld-topo { animation: ld-topo 22s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-topo { from { transform: translate3d(-18px, 0, 0); } to { transform: translate3d(18px, -8px, 0); } }
+
+/* ---- expertise cards: slow Ken Burns, a second photo crossfading in, a staggered light sweep */
+.ld .ld-xcard__alt { position: absolute; inset: 0; opacity: 0; animation: ld-xalt 18s ease-in-out infinite; animation-delay: calc(var(--d, 0s) * 12); animation-play-state: var(--ld-play, paused); }
+@keyframes ld-xalt { 0%, 36% { opacity: 0; } 46%, 86% { opacity: 1; } 96%, 100% { opacity: 0; } }
+.ld .ld-xcard__img img { animation: ld-xkb 16s ease-in-out infinite alternate; animation-delay: calc(var(--d, 0s) * -20); animation-play-state: var(--ld-play, paused); }
+@keyframes ld-xkb { from { transform: translate3d(-2%, 0, 0); } to { transform: scale(1.06) translate3d(2%, -1.5%, 0); } }
+.ld .ld-xcard::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; z-index: 1; pointer-events: none; background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0) 100%); transform: translate3d(-120%, 0, 0); animation: ld-sweep 7.5s cubic-bezier(0.45, 0, 0.25, 1) infinite; animation-delay: calc(var(--d, 0s) * 5 + 1s); animation-play-state: var(--ld-play, paused); }
+@keyframes ld-sweep { 0% { transform: translate3d(-120%, 0, 0); } 30%, 100% { transform: translate3d(240%, 0, 0); } }
+
+/* ---- the 3D film title card: the film stills crossfade (Experience.tsx, useSlides) with a slow Ken Burns;
+   the copy and the play control stay still (nothing ticks or blinks) */
+.ld .ld-film__frame.is-on { transition-duration: 2.4s; }
+.ld .ld-film__frame img { animation: ld-filmkb 18s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-filmkb { from { transform: none; } to { transform: scale(1.07) translate3d(-1.2%, -0.6%, 0); } }
+
+/* ---- take the controls: the drone photo drifts; a flight readout and a moving tick ruler at the edge (over sky, never over people) */
+.ld .ld-ctl__img img { animation: ld-ctlkb 22s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-ctlkb { from { transform: none; } to { transform: scale(1.05) translate3d(-1.8%, 1.2%, 0); } }
+.ld .ld-ctl__hud { position: absolute; inset: 0; z-index: 1; pointer-events: none; color: #fff; }
+.ld .ld-ctl__read { position: absolute; left: calc(var(--ld-gut) + 28px); top: 18px; display: grid; gap: 5px; font: 500 12px/1.2 var(--ld-mono); letter-spacing: 0.12em; text-transform: uppercase; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
+.ld .ld-ctl__read b { font-weight: 500; color: #fff; opacity: 0.8; }
+.ld .ld-ctl__hud::before { content: ""; position: absolute; left: 0; top: 0; width: min(520px, 70%); height: 170px; background: radial-gradient(120% 100% at 0 0, rgba(6, 22, 40, 0.5), rgba(6, 22, 40, 0) 70%); }
+.ld .ld-ctl__num { white-space: pre; font-variant-numeric: tabular-nums; contain: content; }
+.ld .ld-ctl__ruler { position: absolute; left: var(--ld-gut); top: 18px; height: 38%; width: 14px; overflow: hidden; border-right: 1px solid rgba(255, 255, 255, 0.55); }
+.ld .ld-ctl__ruler i { position: absolute; left: 0; right: 0; top: -60px; bottom: 0; background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0 1px, transparent 1px 15px) right top / 7px 100% no-repeat, repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0 1px, transparent 1px 60px) right top / 13px 100% no-repeat; animation: ld-ruler 6s linear infinite; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-ruler { to { transform: translate3d(0, 60px, 0); } }
+
+/* ---- the kit rail: blueprint panels scan (the rail itself auto-advances, Kit.tsx) */
+.ld .ld-bp__scan { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 0%, transparent 82%, rgba(127, 208, 255, 0.12) 98%, rgba(127, 208, 255, 0.5) 99.6%, transparent 100%); transform: translate3d(0, -100%, 0); animation: ld-scan 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; animation-delay: calc(var(--i, 0) * -0.9s); animation-play-state: var(--ld-play, paused); }
+
+/* ---- crew mosaic: each tile crossfades to a second crew photo and back, staggered */
+.ld .ld-mosaic .ld-alt { position: absolute; inset: 0; opacity: 0; animation: ld-tile 21s ease-in-out infinite; animation-delay: calc(var(--d, 0s) * 30 - 1s); animation-play-state: var(--ld-play, paused); }
+@keyframes ld-tile { 0%, 8% { opacity: 0; } 16%, 52% { opacity: 1; } 60%, 100% { opacity: 0; } }
+
+/* ---- purpose band: slow Ken Burns */
+.ld .ld-band__bg img { animation: ld-bandkb 26s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-bandkb { from { transform: none; } to { transform: scale(1.06) translate3d(-2%, -1%, 0); } }
+
+/* ---- lite tier: crossfades and readouts stay; drifts, sweeps and scans go */
+.ld.ld-lite .ld-slide img, .ld.ld-lite .ld-xcard__img img, .ld.ld-lite .ld-story__img img, .ld.ld-lite .ld-ctl__img img, .ld.ld-lite .ld-band__bg img, .ld.ld-lite .ld-film__frame img,
+.ld.ld-lite .ld-topo, .ld.ld-lite .ld-ctl__ruler i { animation: none !important; }
+.ld.ld-lite .ld-xcard::before, .ld.ld-lite .ld-bp__scan { display: none; }
+@keyframes ld-scan { 0% { transform: translate3d(0, -100%, 0); } 70%, 100% { transform: translate3d(0, 100%, 0); } }

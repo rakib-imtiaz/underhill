@@ -26,12 +26,22 @@ function pickFormat() {
   return f === 'mobile' && deviceTier() === 'tablet' ? 'tablet' : f
 }
 
-export default function IntroVideo({ base = '/intro' }: { base?: string }) {
+/** onLeave: called once when the film starts to leave (or at once, when it does not play this visit),
+ *  so a page can start its own entrance as the intro fades (Home's hero). */
+export default function IntroVideo({ base = '/intro', onLeave }: { base?: string; onLeave?: () => void }) {
   const [format, setFormat] = useState(pickFormat)
   const src = `${base}-${format}.mp4`, poster = `${base}-${format}.jpg`
   const [state, setState] = useState<'playing' | 'leaving' | 'done'>(() => (shouldPlay() ? 'playing' : 'done'))
   const video = useRef<HTMLVideoElement>(null)
   const resumeAt = useRef(0) // a rotation mid-film swaps the cut and carries on from the same moment
+  const left = useRef(false)
+  const leaveRef = useRef(onLeave)
+  leaveRef.current = onLeave
+  useEffect(() => {
+    if (state === 'playing' || left.current) return
+    left.current = true
+    leaveRef.current?.()
+  }, [state])
 
   const finish = () => {
     setState((s) => (s === 'playing' ? 'leaving' : s))

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ground Truth — Underhill Geomatics</title>
+  <meta name="description" content="A scroll-driven film about a survey drone, a GNSS base station and a total station, each built entirely in code with three.js.">
+  <meta name="theme-color" content="#000000">
+  <link rel="preload" href="./vendor/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./vendor/fonts/funnel-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="./media/underhill-icon.png">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <script>
+    // before first paint: the remembered daylight choice (so the boot screen is light or dark from the
+    // start) and the boot progress hook main.js reports to
+    (function () {
+      var q = new URLSearchParams(location.search).get('day'), day = false;
+      try { day = q !== null ? q === '1' : localStorage.getItem('gt-daylight') === '1'; } catch (e) {}
+      document.documentElement.classList.toggle('boot-day', day);
+      // the boot screen (film.html markup, css/style.css "boot screen"): every call moves the bar, the
+      // step counter, the scan line over the survey sheet and the GNSS readout; nothing here touches WebGL
+      var STEPS = ['Loading the scene…', 'Setting up the studio…', 'Building the survey drone…', 'Calibrating the GNSS base…', 'Levelling the total station…', 'Warming up the lasers…', 'Laying out the valley…', 'Lining up the satellites…'];
+      var shown = 0, step = 0, sig = 1.475, done = false, timer = 0;
+      var RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var $ = function (id) { return document.getElementById(id); };
+      var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      var grp = function (v, d) { var s = v.toFixed(d), i = s.indexOf('.'), w = s.slice(0, i); return w.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + s.slice(i); };
+      function fix() {   // the coordinates settle as the fix converges (jitter = the current sigma)
+        var n = $('boot-n'), e = $('boot-e'), z = $('boot-z'); if (!n) return;
+        var j = function () { return done ? 0 : (Math.random() * 2 - 1) * sig; };
+        n.textContent = grp(5615204.318 + j(), 3);
+        e.textContent = grp(686400 + 1600 * (shown / 100) + j(), 3);
+        z.textContent = (412.06 + j() * 0.6).toFixed(2);
+      }
+      window.__boot = function (pct, msg) {
+        pct = Math.max(shown, Math.min(100, Math.round(pct))); shown = pct;
+        var p = pct / 100, k = msg ? STEPS.indexOf(msg) : -1;
+        if (k > step) step = k;
+        if (pct >= 100) { done = true; step = STEPS.length - 1; clearInterval(timer); }
+        sig = 0.008 + 1.467 * (1 - p) * (1 - p);
+        var b = $('boot-bar'), r = $('boot'), m = $('fallback-msg');
+        if (b) b.style.transform = 'scaleX(' + p + ')';
+        if ($('boot-pct')) $('boot-pct').textContent = pct + '%';
+        if (r) r.setAttribute('aria-valuenow', String(pct));
+        if (m && msg) m.textContent = msg;
+        if ($('boot-step')) $('boot-step').textContent = pad(step + 1) + ' / ' + pad(STEPS.length);
+        if ($('boot-sweep')) { $('boot-sweep').style.transform = 'translateX(' + ((p - 1) * 100) + '%)'; $('boot-sweep-in').style.transform = 'translateX(' + ((1 - p) * 100) + '%)'; $('boot-scanner').style.transform = $('boot-sweep').style.transform; }
+        if ($('boot-fix')) {
+          $('boot-fix').textContent = done ? 'RTK fixed' : p < 0.26 ? 'Searching' : 'RTK float';
+          $('boot-fix-dot').className = 'boot-fix-dot' + (done ? ' is-fixed' : p < 0.26 ? '' : ' is-float');
+          $('boot-sig').textContent = '±' + sig.toFixed(3) + ' m';
+          $('boot-sv').textContent = 'SV ' + pad(4 + Math.round(p * 12));
+        }
+        fix();
+      };
+      function fit() {   // the sheet fades in just under the progress block, whatever the layout
+        var f = $('fallback'), b = $('boot'); if (!f || !b) return;
+        var y = b.getBoundingClientRect().bottom + 28;
+        f.style.setProperty('--bt-fade-a', Math.round(y) + 'px');
+        f.style.setProperty('--bt-fade-b', Math.round(y + Math.max(110, innerHeight * 0.2)) + 'px');
+      }
+      document.addEventListener('DOMContentLoaded', function () {
+        fit(); addEventListener('resize', fit);
+        window.__boot(shown || 4);
+        if (!RM) timer = setInterval(function () { if (!done) fix(); }, 110);
+        // the daylight switch works during the boot too
+        var d = $('daylight');
+        if (d) d.addEventListener('click', function () { setTimeout(function () { document.documentElement.classList.toggle('boot-day', document.body.classList.contains('is-day')); }, 0); });
+      });
+    })();
+  </script>
+  <script type="importmap">
+    { "imports": {
+      "three": "./vendor/three/build/three.module.min.js",
+      "three/addons/": "./vendor/three/examples/jsm/"
+    } }
+  </script>
+</head>
+<body class="is-booting">
+  <!-- (Underhill's brand intro plays on the landing, index.html: the film opens straight on its title) -->
+
+  <div class="screen" id="screen">
+    <canvas id="stage" class="stage" role="img" aria-label="A three.js film of three survey instruments on a dark studio floor"></canvas>
+
+    <div class="picture" id="picture">
+      <svg id="leaders" class="leaders" aria-hidden="true"></svg>
+      <div id="labels" class="labels" aria-hidden="true"></div>
+      <div id="tags" class="tags" aria-hidden="true">
+        <div class="tag" data-station="drone"><span class="tag__n">01</span><span class="tag__t">Survey drone</span><span class="tag__b"></span></div>
+        <div class="tag" data-station="gnss"><span class="tag__n">02</span><span class="tag__t">GNSS base station</span><span class="tag__b"></span></div>
+        <div class="tag" data-station="ts"><span class="tag__n">03</span><span class="tag__t">Total station</span><span class="tag__b"></span></div>
+      </div>
+      <div id="ftags" class="ftags" aria-hidden="true"></div>
+      <!-- Underhill-style information cards: leaders under the cards, both in picture space -->
+      <svg id="uleads" class="pl-leads" aria-hidden="true"></svg>
+      <div id="ucards" class="ucards" aria-hidden="true"></div>
+      <div id="readout" class="readout" aria-hidden="true">
+        <span class="readout__k">Slope distance</span>
+        <span class="readout__v" id="readout-v">—</span>
+      </div>
+      <div class="title-card" id="title-card">
+        <p class="title-card__kicker">Before anything is built, someone measures the ground</p>
+        <h1 class="title-card__title">Ground Truth</h1>
+        <p class="title-card__sub"><span class="long">A short film in three instruments: a survey drone, a GNSS base station and a total station, and how a survey crew uses them to measure the ground.</span><span class="short">Three instruments, and how a crew measures the ground.</span></p>
+      </div>
+      <div class="intertitle" data-id="gnss" aria-hidden="true">
+        <span class="intertitle__n">02</span><span class="intertitle__t">From the sky</span><span class="intertitle__s">The GNSS base station</span>
+      </div>
+      <div class="intertitle" data-id="ts" aria-hidden="true">
+        <span class="intertitle__n">03</span><span class="intertitle__t">Along a line of sight</span><span class="intertitle__s">The total station</span>
+      </div>
+      <div class="intertitle" data-id="field" aria-hidden="true">
+        <span class="intertitle__n">04</span><span class="intertitle__t">In the field</span><span class="intertitle__s">Now put them to work</span>
+      </div>
+      <div class="intertitle" data-id="world" aria-hidden="true">
+        <span class="intertitle__n">05</span><span class="intertitle__t">The bigger picture</span><span class="intertitle__s">From one valley to the planet</span>
+      </div>
+      <div class="finale-card" id="finale-card" aria-hidden="true">
+        <p class="finale-card__title">Ground Truth</p>
+      </div>
+    </div>
+
+    <!-- the letterbox band behind the site header -->
+    <div class="bar bar--top" id="bar-top" aria-hidden="true"></div>
+
+
+    <!-- everything anchored to the bottom lives in this box: it is the small viewport (100svh), so it
+         stays above a mobile browser's toolbar and never moves when the toolbar collapses -->
+    <div class="hud" id="hud">
+      <footer class="bar bar--bottom" id="bar-bottom">
+        <div class="captions" id="captions">
+          <!-- phones and tablets in portrait: the caption card's last line, replaced by the parts in
+               view (an exploded view) or by the facts of the information card (field and planet) -->
+          <div class="cap-extra" id="cap-extra" aria-live="polite">
+            <div class="cap-facts" id="cap-facts"></div>
+            <div class="cap-legend" id="cap-legend" role="group" aria-label="Parts in view"></div>
+          </div>
+        </div>
+        <!-- the end-cards: at the last stop, where to go next (main.js fades them in) -->
+        <nav class="endcards" id="endcards" aria-label="Where next" aria-hidden="true" inert>
+          <p class="endcards__k">Where next</p>
+          <div class="endcards__row">
+            <a class="endcard is-back" href="/"><span aria-hidden="true">←</span> <span class="endcard__long">Back to Underhill</span><span class="endcard__short">Underhill</span></a>
+            <a class="endcard is-primary" href="./fly.html"><span class="endcard__long">Fly the drone yourself</span><span class="endcard__short">Fly the drone</span> <span aria-hidden="true">→</span></a>
+            <a class="endcard" href="./gear.html">Try the kit <span aria-hidden="true">→</span></a>
+          </div>
+        </nav>
+      </footer>
+      <button type="button" class="scroll-cue" id="scroll-cue" aria-label="Scroll to start the film"><span>Scroll</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6 L8 11 L13 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="loader" id="loader" role="status" aria-live="polite"><span class="loader__spin"></span><span id="loader-t">Building model…</span></div>
+      <button type="button" id="lb-toggle" class="lb-toggle" aria-pressed="true" title="Letterbox bars on or off">Letterbox</button>
+    </div>
+
+  </div>
+
+  <!-- Underhill's site header (ported from the React site: Header.tsx, MobileNav.tsx, data/nav.ts).
+       Styles: css/base.css; behaviour: js/header.js (it wires this static markup on import). The logo
+       links to the v2 landing (./). Other pages render the same markup with mountHeader(). -->
+  <header class="site-head" id="site-head">
+    <div class="container">
+      <a class="logo" href="/" aria-label="Underhill Geomatics — home">
+        <img class="logo-light" src="./media/REV-UG-Horozontal-RGB.png" alt="Underhill Geomatics" width="1000" height="284">
+        <img class="logo-dark" src="./media/Underhill-Horozontal-RGB.png" alt="Underhill Geomatics" width="1000" height="284">
+      </a>
+      <nav class="nav" aria-label="Primary"><ul id="nav-list"></ul></nav>
+      <!-- daylight mode: the same film in a bright studio and on a clear day (js/daylight.js) -->
+      <button type="button" class="daylight" id="daylight" aria-pressed="false" aria-label="Daylight on/off" title="Daylight">
+        <span class="daylight__knob" aria-hidden="true"></span>
+        <svg class="daylight__moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.6A7.6 7.6 0 0 1 9.4 4.5a7.6 7.6 0 1 0 10.1 10.1z"/></svg>
+        <svg class="daylight__sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>
+      </button>
+      <a class="btn small join" id="nav-join" href="https://underhill.ca/about-underhill-geomatics/careers/">Join The Team</a>
+      <button type="button" class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="mnav"><span></span><span></span><span></span></button>
+    </div>
+    <div class="head-progress" id="head-progress" aria-hidden="true"></div>
+    <!-- chapter rail under the header, on the logo's edge: the counter, a tick per chapter, the name -->
+    <div class="container head-rail">
+      <nav class="rail" id="rail" aria-label="Chapters">
+        <span class="rail__num" id="rail-num">01</span>
+        <span class="rail__ticks">
+          <button type="button" data-go="drone" aria-label="Chapter 1: Drone" aria-current="step"></button>
+          <button type="button" data-go="gnss" aria-label="Chapter 2: GNSS base" aria-current="false"></button>
+          <button type="button" data-go="ts" aria-label="Chapter 3: Total station" aria-current="false"></button>
+          <button type="button" data-go="field" aria-label="Chapter 4: In the field" aria-current="false"></button>
+          <button type="button" data-go="world" aria-label="Chapter 5: The world" aria-current="false"></button>
+        </span>
+        <span class="rail__name" id="rail-name">Drone</span>
+      </nav>
+      <!-- quality: Auto / Lite / Balanced / High (js/film-settings.js; applies on reload) -->
+      <div class="fset" id="fset">
+        <button type="button" class="fset__btn" id="fset-btn" aria-expanded="false" aria-controls="fset-panel" aria-label="Quality settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.85 1.85M16.65 16.65l1.85 1.85M5.5 18.5l1.85-1.85M16.65 7.35l1.85-1.85"/><circle cx="12" cy="12" r="6.4"/></svg>
+          <span class="fset__tier" id="fset-tier"></span>
+        </button>
+        <div class="fset__panel" id="fset-panel" role="dialog" aria-label="Quality settings" hidden>
+          <p class="fset__k">Quality</p>
+          <p class="fset__now" id="fset-now"></p>
+          <p class="fset__why" id="fset-why"></p>
+          <fieldset class="fset__opts">
+            <legend class="fset__sr">Choose the film's quality</legend>
+            <label><input type="radio" name="fset-q" value="auto"><span>Auto</span><small>Picked for this device</small></label>
+            <label><input type="radio" name="fset-q" value="lite"><span>Lite</span><small>Lightest: no shadows, fewer effects</small></label>
+            <label><input type="radio" name="fset-q" value="balanced"><span>Balanced</span><small>Smooth on most phones and laptops</small></label>
+            <label><input type="radio" name="fset-q" value="high"><span>High</span><small>Shadows and full detail</small></label>
+          </fieldset>
+          <p class="fset__note">The film reloads to apply a change.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="mnav" id="mnav" aria-hidden="true">
+    <ul id="mnav-list"></ul>
+    <a class="btn" id="mnav-join" href="https://underhill.ca/about-underhill-geomatics/careers/">Join The Team</a>
+    <p class="mnav-foot">Est. <b>1913</b> — Vancouver · Kamloops · Vancouver Island · Whitehorse</p>
+  </div>
+
+  <!-- the scroll track: one section per beat; its text is the accessible version of the captions -->
+  <main id="track" class="track"></main>
+
+  <!-- shown until the WebGL scene has booted (and permanently if it cannot): the boot screen. The title
+       block sits exactly where the title card sits in the first frame, so the hand-off is a cross-fade.
+       Its progress is driven by main.js through window.__boot(pct, status). -->
+  <div class="fallback" id="fallback">
+    <div class="boot-bg" aria-hidden="true">
+      <!-- the survey sheet: every contour faint, then the measured sheet revealed behind a scan line that
+           sweeps across with the real progress (two counter-translating layers: compositor-only) -->
+      <div class="boot-map boot-map--base"></div>
+      <div class="boot-sweep" id="boot-sweep" style="transform:translateX(-96%)">
+        <div class="boot-sweep__in" id="boot-sweep-in" style="transform:translateX(96%)">
+          <div class="boot-map boot-map--lit"></div>
+          <div class="boot-map boot-map--spots"></div>
+        </div>
+      </div>
+      <div class="boot-scanner" id="boot-scanner" style="transform:translateX(-96%)">
+        <div class="boot-scan"><span class="boot-scan__trail"></span><span class="boot-scan__line"></span><span class="boot-scan__head"></span></div>
+      </div>
+      <!-- the sheet's data strip: a GNSS fix converging as the film loads -->
+      <div class="boot-strip">
+        <span class="boot-strip__k">Underhill Geomatics <i>/</i> Sheet GT-01 <i>/</i> UTM 10N</span>
+        <span class="boot-strip__xy"><b>N</b><span id="boot-n">5 615 204.318</span><b>E</b><span id="boot-e">686 464.000</span><b>EL</b><span id="boot-z">412.06</span></span>
+        <span class="boot-strip__fix"><i class="boot-fix-dot" id="boot-fix-dot"></i><span id="boot-fix">Searching</span><span id="boot-sig">&plusmn;1.475 m</span><span id="boot-sv">SV 04</span></span>
+      </div>
+    </div>
+    <div class="fallback__inner">
+      <p class="fallback__kicker">Before anything is built, someone measures the ground</p>
+      <h1 class="fallback__title">Ground Truth</h1>
+      <div class="boot" id="boot" role="progressbar" aria-label="Loading the film" aria-valuemin="0" aria-valuemax="100" aria-valuenow="4">
+        <p class="boot__row"><span class="boot__step" id="boot-step">01 / 08</span><span class="fallback__msg" id="fallback-msg">Loading the scene…</span><span class="boot__pct" id="boot-pct">4%</span></p>
+        <div class="boot__bar"><span id="boot-bar"></span></div>
+        <div class="boot__scale" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <noscript><p class="fallback__msg">This film is drawn live with WebGL and needs JavaScript. The text version is below.</p></noscript>
+      <ol class="fallback__list">
+        <li><b>The survey drone.</b> An enterprise survey quadcopter that maps ground from the air: a square fuselage with hot-swap batteries, four folding carbon arms with brushless motors and folding propellers, two splayed landing legs, a gimbal camera underneath and a second camera on top.</li>
+        <li><b>The GNSS base station.</b> An antenna dome on a range pole, a radio with a whip antenna, and a tripod head on three carbon legs with flip-lock clamps and steel spikes.</li>
+        <li><b>The total station.</b> A telescope with an EDM rangefinder and objective lens, a carry handle, display and keypad, a tribrach with levelling screws, and a tripod.</li>
+        <li><b>In the field.</b> On a valley site at dusk the three work together: the base station fixes a control mark, the total station measures a prism on the far slope, and the drone scans a staked parcel into a point cloud that resolves into contours.</li>
+        <li><b>The bigger picture.</b> Pulled back to the planet, the valley is one point in a global frame, tied to it by the positioning satellites overhead.</li>
+      </ol>
+    </div>
+  </div>
+
+  <script type="module" src="./js/header.js"></script>
+  <script type="module" src="./js/main.js"></script>
+  <script type="module" src="./js/film-settings.js"></script>
+</body>
+</html>

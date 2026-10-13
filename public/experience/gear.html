@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>The Kit — Underhill Geomatics</title>
+  <meta name="description" content="Pick a piece of Underhill's real field kit, turn it over in 3D, take it apart, and run the job the way the crew does: GNSS, robotic total station, survey drone and more.">
+  <meta name="theme-color" content="#0a1b2e">
+  <link rel="preload" href="./vendor/fonts/ibm-plex-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./vendor/fonts/funnel-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./vendor/fonts/montserrat-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="./media/underhill-icon.png">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/gear.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "./vendor/three/build/three.module.min.js",
+      "three/addons/": "./vendor/three/examples/jsm/",
+      "three/examples/jsm/": "./vendor/three/examples/jsm/"
+    } }
+  </script>
+</head>
+<body class="gear is-inspect">
+  <div id="uh-header"></div>
+
+  <main class="gx" id="gx">
+    <!-- the picker: a rail grouped by category on desktop, a bottom sheet on phones -->
+    <aside class="gx-rail" id="rail" aria-label="The kit">
+      <div class="gx-rail__head">
+        <p class="gx-rail__kick">Underhill's field kit</p>
+        <h2 class="gx-rail__title">The Kit <span id="rail-count">18</span></h2>
+        <button type="button" class="gx-rail__close" id="rail-close" aria-label="Close the kit list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <nav class="gx-rail__list" id="rail-list" aria-label="Choose a piece of kit"></nav>
+    </aside>
+    <div class="gx-scrim" id="scrim" aria-hidden="true"></div>
+
+    <section class="gx-stage" id="stage" aria-label="Gear playground">
+      <canvas id="gx-canvas" class="gx-canvas" tabindex="0" aria-label="3D view of the instrument. Drag to turn it, pinch or scroll to zoom, double-tap to reset."></canvas>
+      <svg class="gx-leaders" id="leaders" aria-hidden="true"></svg>
+      <div class="gx-labels" id="labels"></div>
+      <div class="gx-tags" id="tags" aria-hidden="true"></div>
+      <div class="gx-pip" id="pip" hidden aria-hidden="true">
+        <span class="gx-pip__x"></span><span class="gx-pip__label">Telescope</span><span class="gx-pip__lock">Lock</span>
+      </div>
+
+      <!-- gear name + mode tabs -->
+      <div class="gx-top" id="top" data-cover="top">
+        <button type="button" class="gx-name" id="gear-name" aria-haspopup="true">
+          <span class="gx-name__c" id="gear-name-c"></span>
+          <span class="gx-name__t" id="gear-name-t">The Kit</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
+        </button>
+        <div class="gx-modes" role="tablist" aria-label="Mode">
+          <button type="button" role="tab" id="tab-inspect" aria-selected="true">Inspect</button>
+          <button type="button" role="tab" id="tab-operate" aria-selected="false">Operate</button>
+        </div>
+      </div>
+
+      <!-- Inspect tools -->
+      <div class="gx-chips" id="chips" data-cover="bottom" aria-label="Parts"></div>
+      <div class="gx-tools" id="tools" data-cover="bottom">
+        <button type="button" class="gx-tool" id="btn-explode" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9 4 4M15 9l5-5M9 15l-5 5M15 15l5 5M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg><span>Explode</span></button>
+        <label class="gx-slider"><span class="gx-sr">Explode amount</span><input type="range" id="explode" min="0" max="100" value="0"></label>
+        <button type="button" class="gx-tool gx-tool--icon" id="btn-labels" aria-pressed="true" aria-label="Part labels"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9l3 3-3 3H4zM8 13v7"/><circle cx="18.5" cy="17.5" r="2"/></svg></button>
+        <button type="button" class="gx-tool gx-tool--icon" id="btn-reset" aria-label="Reset the view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4 4v4.5h4.5"/></svg></button>
+        <button type="button" class="gx-tool" id="btn-notes" aria-expanded="false" aria-controls="notes-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h9l3 3v14H6z"/><path d="M9 10h6M9 13.5h6M9 17h4"/></svg><span>Field notes</span></button>
+      </div>
+
+      <!-- the mission step card / result card -->
+      <div class="mc" id="mission" data-cover="auto" hidden role="region" aria-label="Mission"></div>
+
+      <!-- loader skeleton -->
+      <div class="gx-loader" id="loader" hidden>
+        <div class="gx-loader__sheet" aria-hidden="true"><i></i><i></i><i></i><span class="gx-loader__scan"></span></div>
+        <p class="gx-loader__t" role="status"><span id="loader-t">Loading the model</span></p>
+      </div>
+
+      <!-- a gear whose model is in production -->
+      <section class="gx-await" id="await" hidden></section>
+    </section>
+
+    <!-- field notes (a column on desktop, a sheet on phones) -->
+    <aside class="gx-notes" id="notes-panel" aria-label="Field notes">
+      <button type="button" class="gx-notes__close" id="notes-close" aria-label="Close the field notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="nt" id="notes"></div>
+    </aside>
+
+    <!-- phones: the kit as a chip carousel -->
+    <div class="gx-strip" id="strip" data-cover="bottom">
+      <button type="button" class="gx-strip__all" id="btn-all" aria-label="All the kit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>All</span></button>
+      <ul class="gx-strip__list" id="strip-list" aria-label="Choose a piece of kit"></ul>
+    </div>
+  </main>
+
+  <!-- quality settings (header ⋯) -->
+  <div class="gx-settings" id="settings" hidden role="dialog" aria-label="Settings">
+    <div class="gx-settings__head"><p>Quality · <b data-tier></b></p><button type="button" data-close aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <p class="gx-settings__now" data-now></p>
+    <fieldset class="gx-settings__q">
+      <legend class="gx-sr">Quality</legend>
+      <label><input type="radio" name="gq" value="auto"><span>Auto</span></label>
+      <label><input type="radio" name="gq" value="lite"><span>Lite</span></label>
+      <label><input type="radio" name="gq" value="balanced"><span>Balanced</span></label>
+      <label><input type="radio" name="gq" value="high"><span>High</span></label>
+    </fieldset>
+    <p class="gx-settings__why" data-why></p>
+  </div>
+
+  <noscript><p class="gx-noscript">The Kit playground needs JavaScript. <a href="/">Back to Underhill</a>.</p></noscript>
+  <script type="module" src="./js/gear/main.js"></script>
+</body>
+</html>

@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import SmartLink from "./SmartLink";
+import { startScan } from "./footerScan";
 import "../styles/footer.css";
 
 type Props = {
   /** raises the success toast — client-side only demo, same as the source */
   onSent: () => void;
+  /** the survey band above the footer (default on). Home leaves it out: the landing ends on its own
+      purpose band. The Let's Talk panel works either way. */
+  band?: boolean;
 };
 
 const COLUMNS: { title: string; links: { label: string; href: string; ext?: boolean }[] }[] = [
@@ -53,14 +57,16 @@ const Arrow = () => (
 );
 
 /**
- * The site footer: a survey band (the closing call to action, with the offices as survey stations over a Yukon
- * range), then the footer proper. "Request a consultation" — and every #lets-talk link on the site — opens the
+ * The site footer: a survey band (the closing call to action: the offices as survey stations over a Yukon range,
+ * with a LiDAR-style scanner you can aim — footerScan.ts), then the footer proper. "Request a consultation" — and every #lets-talk link on the site — opens the
  * Let's Talk form in a side panel.
  */
-export default function Footer({ onSent }: Props) {
+export default function Footer({ onSent, band = true }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const bandRef = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
+  const [shut, setShut] = useState<Set<string>>(() => new Set()); // phones: footer sections folded away
+  const toggle = (t: string) => setShut((s) => { const n = new Set(s); if (n.has(t)) n.delete(t); else n.add(t); return n; });
   const { hash, pathname } = useLocation();
 
   // #lets-talk (from any page's CTA) lands on the band and opens the form
@@ -92,7 +98,8 @@ export default function Footer({ onSent }: Props) {
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { el.classList.add("is-in"); io.disconnect(); } }, { threshold: 0.25 });
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [band]);
+  useEffect(() => (bandRef.current ? startScan(bandRef.current) : undefined), [band]);
 
   const onSubmit = (ev: FormEvent<HTMLFormElement>) => {
     ev.preventDefault();
@@ -104,18 +111,33 @@ export default function Footer({ onSent }: Props) {
   return (
     <>
       {/* ---------------- the survey band ---------------- */}
+      {band && (
       <section className="sf-band" id="lets-talk" ref={bandRef}>
-        <div className="sf-band-bg" aria-hidden="true"><img src="/team/footer-range.webp" alt="" loading="lazy" /></div>
+        <div className="sf-band-bg" aria-hidden="true"><img src="/team/footer-range.webp" alt="" loading="lazy" /><canvas className="sf-scan" /></div>
         <svg className="sf-stations" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
-          <polyline className="sf-line" points="520,170 690,330 905,410" pathLength={1} />
-          <polyline className="sf-pkt" points="520,170 690,330 905,410" pathLength={1} />
-          <line className="sf-drop" x1="520" y1="40" x2="520" y2="170" />
-          <line className="sf-drop" x1="905" y1="300" x2="905" y2="410" />
+          <g className="sf-st-m">
+            <polyline className="sf-line" points="480,144 620,180 880,216" pathLength={1} />
+            <line className="sf-drop" x1="480" y1="0" x2="480" y2="144" />
+            <line className="sf-drop" x1="880" y1="150" x2="880" y2="216" />
+          </g>
+          <g className="sf-st-d">
+            <polyline className="sf-line" points="520,170 690,330 905,410" pathLength={1} />
+            <line className="sf-drop" x1="520" y1="40" x2="520" y2="170" />
+            <line className="sf-drop" x1="905" y1="300" x2="905" y2="410" />
+          </g>
         </svg>
-        <div className="sf-pin" style={{ left: "52%", top: "28.3%", ["--i" as string]: 0 }}><i /><span>Whitehorse</span></div>
-        <div className="sf-pin" style={{ left: "69%", top: "55%", ["--i" as string]: 1 }}><i /><span>Kamloops</span></div>
-        <div className="sf-pin is-left" style={{ left: "90.5%", top: "68.3%", ["--i" as string]: 2 }}><i /><span>Vancouver</span></div>
-        <p className="sf-coord is-a" aria-hidden="true"><b>+</b>60.7212° N<br />135.0568° W</p>
+        <div className="sf-pin is-wh" style={{ ["--i" as string]: 0 }} data-name="Whitehorse" data-lat="60.7212° N" data-lon="135.0568° W"><i /><span>Whitehorse</span></div>
+        <div className="sf-pin is-ka" style={{ ["--i" as string]: 1 }} data-name="Kamloops" data-lat="50.6745° N" data-lon="120.3273° W"><i /><span>Kamloops</span></div>
+        <div className="sf-pin is-va is-left" style={{ ["--i" as string]: 2 }} data-name="Vancouver" data-lat="49.2827° N" data-lon="123.1207° W"><i /><span>Vancouver</span></div>
+        <div className="sf-reticle" aria-hidden="true">
+          <svg className="sf-ret-ring" viewBox="-100 -100 200 200">
+            <circle className="sf-ret-c" r="99" />
+            <circle className="sf-ret-arc" r="91" pathLength={100} />
+            <path className="sf-ret-tk" d="M0-99v14M0 99V85M-99 0h14M99 0H85M-11 0h7M4 0h7M0-11v7M0 4v7" />
+          </svg>
+          <span className="sf-ret-tag">Station</span>
+        </div>
+        <p className="sf-coord is-a" aria-hidden="true"><b>+</b><i className="sf-coord-k">Whitehorse, YT</i><span className="sf-coord-lat">60.7212° N</span><br /><span className="sf-coord-lon">135.0568° W</span></p>
         <p className="sf-coord is-b" aria-hidden="true">49.2827° N<br />123.1207° W</p>
         <div className="sf-band-copy">
           <h2>Data for a <em>brighter</em> <em>tomorrow.</em></h2>
@@ -124,6 +146,7 @@ export default function Footer({ onSent }: Props) {
           <button type="button" className="sf-btn" onClick={() => setOpen(true)}>Request a consultation <Arrow /></button>
         </div>
       </section>
+      )}
 
       {/* ---------------- the footer proper ---------------- */}
       <footer className="sf-foot">
@@ -132,11 +155,16 @@ export default function Footer({ onSent }: Props) {
             <Link className="sf-logo" to="/"><img src="/assets/uploads/2024/12/REV-UG-Horozontal-RGB.png" alt="Underhill Geomatics" /></Link>
             <span className="sf-rule" aria-hidden="true" />
             <p>Advanced geospatial solutions backed by more than a century of experience.</p>
-            <p className="sf-offices">Vancouver · Vancouver Island · Kamloops · Whitehorse</p>
+            <p className="sf-offices"><span>Vancouver ·</span> <span>Vancouver Island ·</span> <span>Kamloops ·</span> <span>Whitehorse</span></p>
           </div>
           {COLUMNS.map((col) => (
-            <nav key={col.title} className="sf-col" aria-label={col.title}>
-              <h4>{col.title}</h4>
+            <nav key={col.title} className={`sf-col${shut.has(col.title) ? " is-shut" : ""}`} aria-label={col.title}>
+              <h4>
+                <button type="button" className="sf-col-toggle" aria-expanded={!shut.has(col.title)} onClick={() => toggle(col.title)}>
+                  {col.title}
+                  <svg className="sf-chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              </h4>
               <ul>
                 {col.links.map((l) => (
                   <li key={l.label}>
@@ -159,7 +187,7 @@ export default function Footer({ onSent }: Props) {
           </div>
         </div>
         <div className="sf-wrap sf-bottom">
-          <span>© 2026 Underhill Geomatics Ltd. All rights reserved.</span>
+          <span className="sf-copy">© 2026 Underhill Geomatics Ltd.<br className="sf-br" /> All rights reserved.</span>
           <a href="/privacy-policy/">Privacy Policy</a>
           <span className="sf-grid">49.2827° N, 123.1207° W — NAD83</span>
           <svg className="sf-peaks" viewBox="0 0 54 20" aria-hidden="true"><path d="M1 19 L14 5 L21 12 L30 2 L42 14 L47 9 L53 19" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></svg>

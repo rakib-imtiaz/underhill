@@ -1,0 +1,299 @@
+/* Underhill v2 — shared base for every page (landing, film, fly, gear).
+   Load it FIRST, before the page's own stylesheet:  <link rel="stylesheet" href="./css/base.css">
+   It holds: the fonts, the design tokens (the film's Underhill tokens and the Team-page tokens),
+   a tiny reset, Underhill's site header (.site-head), the phone menu (.mnav), the button (.btn),
+   the daylight pill (.daylight) and the light header (body.is-day / .site-head.is-light).
+   The header markup comes from js/header.js (mountHeader) or is static in film.html; theme.js
+   toggles body.is-day. Page-specific colours (--bg, --ink, …) stay in each page's own CSS.
+   Rules here were moved verbatim from the film's style.css, in their original order, so the film
+   renders exactly as before; only .btn was widened from `.site-head .btn, .mnav .btn` to `.btn`. */
+
+/* ------------------------------------------------------------------------------------ fonts */
+@font-face {
+  font-family: 'Archivo';
+  src: url('../vendor/fonts/archivo-latin-wdth-normal.woff2') format('woff2-variations'),
+       url('../vendor/fonts/archivo-latin-wdth-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plex Mono';
+  src: url('../vendor/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: 'Plex Mono';
+  src: url('../vendor/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2');
+  font-weight: 500; font-display: swap;
+}
+/* Underhill's header faces (latin subsets, variable weight) */
+@font-face {
+  font-family: 'Funnel Display';
+  src: url('../vendor/fonts/funnel-display-latin-wght-normal.woff2') format('woff2');
+  font-weight: 300 800; font-display: swap;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('../vendor/fonts/montserrat-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900; font-display: swap;
+}
+/* the Team page's handwritten captions (latin, 500; OFL, from Google Fonts) */
+@font-face {
+  font-family: 'Caveat';
+  src: url('../vendor/fonts/caveat-latin-500-normal.woff2') format('woff2');
+  font-weight: 500; font-display: swap;
+}
+
+/* ----------------------------------------------------------------------------------- tokens */
+:root {
+  --sans: 'Archivo', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --gutter: clamp(16px, 3.2vw, 44px);
+  /* Underhill's design system (src/styles/style.css, src/hero/SurveyHero.css), prefixed */
+  --uh-blue: #0082ca;           /* the live site's blue (what the header and Team page render) */
+  --uh-blue-pms: #0085ca;       /* the brand book's PANTONE Process Blue C (0 133 202) */
+  --uh-blue-deep: #0069a3;
+  --uh-blue-rgb: 0, 130, 202;
+  --uh-navy: #3c3950;
+  --uh-charcoal: #32373c;
+  --uh-lime: #e7ff89;
+  --uh-grey-050: #f5f7f9;
+  --uh-head-h: 76px;
+  --uh-maxw: 1240px;
+  --uh-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --uh-font-head: 'Funnel Display', 'Montserrat', sans-serif;
+  --uh-font-body: 'Montserrat', 'Archivo', sans-serif;
+  --sh-ink: #eef4f8;
+  --sh-dim: rgba(214, 228, 238, 0.7);
+  --sh-accent-soft: #5cc0f5;
+  --sh-sans: 'Archivo', 'Helvetica Neue', Arial, system-ui, sans-serif;
+  --sh-mono: 'Plex Mono', 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  /* the Our Team page (underhill/src/pages/team/team.css): night navy, sky, paper; square corners */
+  --tm-night: #0a1b2e;
+  --tm-night-2: #0f2741;
+  --tm-ink: #14202e;
+  --tm-text: #4d5b69;
+  --tm-mute: #7b8794;
+  --tm-sky: #5cc0f5;
+  --tm-paper: #f4f7fa;
+  --tm-line: rgba(20, 32, 46, 0.12);
+  --tm-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tm-ease-io: cubic-bezier(0.65, 0, 0.35, 1);   /* the diagonal clip-path wipes (1.5 s) */
+  --tm-gut: clamp(20px, 4vw, 56px);
+  --tm-hand: 'Caveat', 'Segoe Script', cursive;
+  --tm-mono: 'Plex Mono', 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* ------------------------------------------------------------------------------------ reset */
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+/* touch: instant taps, and no text selection on controls */
+button, a, [role='button'] { touch-action: manipulation; }
+button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* -------------------------------------------- Underhill site header (ported from the React site) */
+.site-head {
+  position: fixed; inset: 0 0 auto 0; z-index: 300; height: var(--uh-head-h);
+  font-family: var(--uh-font-body); color: #fff;
+}
+.site-head ul { list-style: none; margin: 0; padding: 0; }
+.site-head a { text-decoration: none; }
+.site-head .container { width: min(var(--uh-maxw), calc(100% - 48px)); margin-inline: auto; }
+.site-head > .container:first-child { height: var(--uh-head-h); display: flex; align-items: center; gap: 28px; }
+.site-head .logo { display: flex; align-items: center; flex: 0 0 auto; }
+.site-head .logo img { height: 34px; width: auto; transition: transform 0.35s var(--uh-ease); transform-origin: left center; }
+.site-head .logo .logo-dark { display: none; }
+/* thin scroll-progress rule along the header's bottom edge */
+.head-progress {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, var(--uh-blue), var(--uh-lime));
+  transform: scaleX(0); transform-origin: left center; pointer-events: none;
+}
+.site-head .nav { margin-left: auto; }
+.site-head .nav > ul { display: flex; align-items: center; gap: 6px; }
+.site-head .nav > ul > li { position: relative; }
+.site-head .nav > ul > li > a {
+  position: relative; display: flex; align-items: center; gap: 7px;
+  font-family: var(--uh-font-head); font-weight: 500; font-size: 15px;
+  color: #fff; padding: 10px 13px; transition: color 0.2s;
+}
+/* underline grows from the crosshair-left on hover */
+.site-head .nav > ul > li > a::after {
+  content: ""; position: absolute; left: 13px; right: 13px; bottom: 4px; height: 2px; background: var(--uh-blue);
+  transform: scaleX(0); transform-origin: left center; transition: transform 0.3s var(--uh-ease);
+}
+.site-head .nav .caret {
+  width: 7px; height: 7px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
+  transform: rotate(45deg) translateY(-2px); transition: transform 0.25s var(--uh-ease);
+}
+.site-head .has-drop:hover > a .caret, .site-head .has-drop:focus-within > a .caret { transform: rotate(225deg) translateY(-1px); }
+/* dropdown: the ::before bridge keeps hover alive across the visual gap */
+.site-head .drop {
+  position: absolute; top: 100%; left: 0; min-width: 280px; background: #fff;
+  box-shadow: 0 24px 60px rgba(18, 26, 38, 0.18); border-top: 3px solid var(--uh-blue);
+  opacity: 0; visibility: hidden; transform: translateY(12px);
+  transition: opacity 0.24s var(--uh-ease), transform 0.24s var(--uh-ease), visibility 0.24s;
+  padding: 12px 0; margin-top: 12px;
+}
+.site-head .drop::before { content: ""; position: absolute; left: 0; right: 0; top: -15px; height: 15px; }
+.site-head .has-drop:hover > .drop, .site-head .has-drop:focus-within > .drop { opacity: 1; visibility: visible; transform: translateY(0); }
+/* one dropdown at a time: while the pointer is over the nav, close one held open only by focus */
+.site-head .nav:hover .has-drop:focus-within:not(:hover) > .drop { opacity: 0; visibility: hidden; transform: translateY(12px); }
+.site-head .nav:hover .has-drop:focus-within:not(:hover) .drop li { opacity: 0; transform: translateY(6px); transition-delay: 0s; }
+.site-head .drop li { opacity: 0; transform: translateY(6px); transition: opacity 0.22s var(--uh-ease), transform 0.22s var(--uh-ease); }
+.site-head .has-drop:hover .drop li, .site-head .has-drop:focus-within .drop li { opacity: 1; transform: none; }
+.site-head .has-drop:hover .drop li:nth-child(1), .site-head .has-drop:focus-within .drop li:nth-child(1) { transition-delay: 0.03s; }
+.site-head .has-drop:hover .drop li:nth-child(2), .site-head .has-drop:focus-within .drop li:nth-child(2) { transition-delay: 0.06s; }
+.site-head .has-drop:hover .drop li:nth-child(3), .site-head .has-drop:focus-within .drop li:nth-child(3) { transition-delay: 0.09s; }
+.site-head .has-drop:hover .drop li:nth-child(4), .site-head .has-drop:focus-within .drop li:nth-child(4) { transition-delay: 0.12s; }
+.site-head .has-drop:hover .drop li:nth-child(5), .site-head .has-drop:focus-within .drop li:nth-child(5) { transition-delay: 0.15s; }
+.site-head .has-drop:hover .drop li:nth-child(6), .site-head .has-drop:focus-within .drop li:nth-child(6) { transition-delay: 0.18s; }
+.site-head .has-drop:hover .drop li:nth-child(7), .site-head .has-drop:focus-within .drop li:nth-child(7) { transition-delay: 0.21s; }
+.site-head .has-drop:hover .drop li:nth-child(8), .site-head .has-drop:focus-within .drop li:nth-child(8) { transition-delay: 0.24s; }
+.site-head .has-drop:hover .drop li:nth-child(n+9), .site-head .has-drop:focus-within .drop li:nth-child(n+9) { transition-delay: 0.27s; }
+.site-head .drop a {
+  position: relative; display: block; padding: 9px 22px 9px 34px; color: var(--uh-charcoal);
+  font-size: 14px; font-weight: 500; white-space: nowrap;
+  transition: padding 0.18s var(--uh-ease), color 0.18s, background 0.18s;
+}
+/* tiny crosshair marker ahead of each item */
+.site-head .drop a::before {
+  content: ""; position: absolute; left: 20px; top: 50%; width: 7px; height: 7px; transform: translateY(-50%) scale(0.7);
+  background: linear-gradient(var(--uh-blue), var(--uh-blue)) center / 100% 1.4px no-repeat, linear-gradient(var(--uh-blue), var(--uh-blue)) center / 1.4px 100% no-repeat;
+  opacity: 0.45; transition: transform 0.18s var(--uh-ease), opacity 0.18s;
+}
+.site-head a:focus-visible, .site-head button:focus-visible, .mnav a:focus-visible, .mnav button:focus-visible { outline: 2px solid var(--uh-blue); outline-offset: 3px; }
+
+/* the Underhill button (the blue "Join The Team"): square corners, uppercase, a darker fill sweeps in */
+.btn {
+  position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--uh-font-head); font-weight: 600; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 16px 32px; border: 0; cursor: pointer; background: var(--uh-blue); color: #fff; text-decoration: none;
+  transition: color 0.25s var(--uh-ease), transform 0.25s var(--uh-ease), box-shadow 0.25s var(--uh-ease), background 0.25s var(--uh-ease);
+}
+/* fill sweep, transform only */
+.btn::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; background: var(--uh-blue-deep);
+  transform: translateX(-101%); transition: transform 0.38s var(--uh-ease);
+}
+.btn:focus-visible { outline: 2px solid var(--uh-blue); outline-offset: 3px; }
+.btn.small { padding: 11px 20px; font-size: 12px; }
+.site-head .btn.join { margin-left: 14px; flex: 0 0 auto; }
+
+/* hamburger and the phone menu */
+.site-head .burger { display: none; margin-left: auto; background: none; border: 0; cursor: pointer; width: 44px; height: 44px; position: relative; }
+.site-head .burger span { position: absolute; left: 10px; right: 10px; height: 2px; background: #fff; transition: 0.3s var(--uh-ease); }
+.site-head .burger span:nth-child(1) { top: 15px; }
+.site-head .burger span:nth-child(2) { top: 21px; }
+.site-head .burger span:nth-child(3) { top: 27px; }
+.site-head .burger.open span:nth-child(1) { top: 21px; transform: rotate(45deg); }
+.site-head .burger.open span:nth-child(2) { opacity: 0; }
+.site-head .burger.open span:nth-child(3) { top: 21px; transform: rotate(-45deg); }
+.site-head.menu-open .head-rail, .site-head.menu-open .head-progress { visibility: hidden; }
+/* full-screen navy survey-sheet panel with staggered links, under the header */
+.mnav {
+  position: fixed; inset: 0; z-index: 250; background: var(--uh-navy); font-family: var(--uh-font-body);
+  padding: calc(var(--uh-head-h) + 26px) 30px 44px; overflow-y: auto;
+  transform: translateX(100%); transition: transform 0.42s var(--uh-ease); counter-reset: mnav;
+}
+.mnav::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+.mnav.open { transform: translateX(0); }
+.mnav ul { list-style: none; position: relative; margin: 0; padding: 0; }
+.mnav a { text-decoration: none; }
+.mnav > ul > li { border-bottom: 1px solid rgba(255, 255, 255, 0.12); opacity: 0; transform: translateX(26px); transition: opacity 0.4s var(--uh-ease), transform 0.4s var(--uh-ease); }
+.mnav.open > ul > li { opacity: 1; transform: none; }
+.mnav.open > ul > li:nth-child(1) { transition-delay: 0.08s; }
+.mnav.open > ul > li:nth-child(2) { transition-delay: 0.14s; }
+.mnav.open > ul > li:nth-child(3) { transition-delay: 0.2s; }
+.mnav.open > ul > li:nth-child(4) { transition-delay: 0.26s; }
+.mnav > ul > li > a {
+  display: flex; align-items: baseline; gap: 14px; padding: 15px 4px; color: #fff;
+  font-family: var(--uh-font-head); font-size: 24px; font-weight: 600; letter-spacing: 0.02em;
+}
+.mnav > ul > li > a::before { counter-increment: mnav; content: "0" counter(mnav); font-size: 11px; letter-spacing: 0.2em; color: var(--uh-lime); font-weight: 500; }
+.mnav .sub { display: none; padding-left: 38px; }
+.mnav li.expanded > .sub { display: block; padding-bottom: 12px; }
+.mnav li.expanded > .sub > li { animation: mnavSub 0.32s var(--uh-ease) both; }
+@keyframes mnavSub { from { opacity: 0; transform: translateY(-6px); } }
+.mnav .sub a { display: block; font-size: 15px; font-weight: 500; padding: 8px 4px; color: rgba(255, 255, 255, 0.68); }
+.mnav .expander {
+  float: right; background: none; border: 0; font-size: 26px; color: var(--uh-lime);
+  padding: 12px 8px; cursor: pointer; font-family: var(--uh-font-head); transition: transform 0.3s var(--uh-ease);
+}
+.mnav li.expanded > .expander { transform: rotate(180deg); }
+.mnav .btn { margin-top: 26px; width: 100%; justify-content: center; }
+.mnav .mnav-foot { position: relative; margin: 34px 0 0; font-family: var(--uh-font-head); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255, 255, 255, 0.4); }
+.mnav .mnav-foot b { color: var(--uh-lime); font-weight: 500; }
+@media (max-width: 1080px) {
+  .site-head .nav, .site-head .btn.join { display: none; }
+  .site-head .burger { display: block; }
+}
+
+/* reduced motion: the header and the phone menu settle instantly */
+@media (prefers-reduced-motion: reduce) {
+  .site-head *, .mnav, .mnav * { transition-duration: 0.01s !important; animation: none !important; }
+}
+
+/* hover states: only where a pointer can hover */
+@media (hover: hover) and (pointer: fine) {
+  .site-head .nav > ul > li > a:hover::after { transform: scaleX(1); }
+  .site-head .nav > ul > li > a:hover { color: var(--uh-blue); }
+  .site-head .drop a:hover { color: var(--uh-blue); background: var(--uh-grey-050); padding-left: 40px; }
+  .site-head .drop a:hover::before { opacity: 1; transform: translateY(-50%) scale(1); }
+  .btn:hover { color: #fff; transform: translateY(-2px); box-shadow: 0 14px 30px rgba(var(--uh-blue-rgb), 0.35); }
+  .btn:hover::before { transform: translateX(0); }
+  .mnav > ul > li > a:hover { color: var(--uh-lime); }
+  .mnav .sub a:hover { color: var(--uh-lime); }
+}
+
+/* ===================================================================================== daylight */
+/* The header's sun / moon switch: a small pill, the knob over the current mode. 44 px tall target. */
+.site-head .daylight {
+  position: relative; flex: 0 0 auto; width: 54px; height: 28px; margin-left: 18px; padding: 0; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.38); background: rgba(255, 255, 255, 0.08); color: #fff;
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.site-head .daylight::after { content: ''; position: absolute; inset: -9px -4px; }
+.daylight__knob {
+  position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  transition: transform 0.35s var(--uh-ease), background-color 0.35s ease;
+}
+.daylight svg { position: absolute; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: color 0.3s ease; }
+.daylight__moon { left: 6px; color: #0b1520; }
+.daylight__sun { right: 6px; color: rgba(255, 255, 255, 0.75); }
+.daylight[aria-pressed='true'] .daylight__knob { transform: translateX(26px); background: var(--uh-blue); }
+.daylight[aria-pressed='true'] .daylight__sun { color: #fff; }
+.daylight[aria-pressed='true'] .daylight__moon { color: var(--uh-navy); }
+.site-head .daylight:active { opacity: 0.75; }
+@media (hover: hover) and (pointer: fine) { .site-head .daylight:hover { border-color: rgba(255, 255, 255, 0.7); } }
+/* phones and tablets: in the bar, beside the burger */
+@media (max-width: 1080px) {
+  .site-head .daylight { margin-left: auto; }
+  .site-head .burger { margin-left: 8px; }
+}
+
+/* the page's colours cross-fade with the 3D (a view transition; none under reduced motion) */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.8s; animation-timing-function: ease; }
+
+/* The light header: Underhill's .site-head.scrolled. It shows in daylight (body.is-day, set by
+   theme.js) and wherever a page adds .site-head.is-light (e.g. the landing, over its paper sections). */
+body.is-day .site-head, .site-head.is-light {
+  background: rgba(255, 255, 255, 0.94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 rgba(60, 57, 80, 0.1), 0 10px 30px rgba(23, 32, 44, 0.08);
+}
+body.is-day .site-head .logo .logo-light, .site-head.is-light .logo .logo-light { display: none; }
+body.is-day .site-head .logo .logo-dark, .site-head.is-light .logo .logo-dark { display: block; }
+body.is-day .site-head .nav > ul > li > a, .site-head.is-light .nav > ul > li > a { color: var(--uh-navy); }
+body.is-day .site-head .burger span, .site-head.is-light .burger span { background: var(--uh-navy); }
+body.is-day .site-head .daylight, .site-head.is-light .daylight { border-color: rgba(60, 57, 80, 0.3); background: rgba(60, 57, 80, 0.06); }
+/* the phone menu is Underhill's navy panel in both modes */
+body.is-day .site-head.menu-open, .site-head.is-light.menu-open { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body.is-day .site-head.menu-open .logo .logo-light, .site-head.is-light.menu-open .logo .logo-light { display: block; }
+body.is-day .site-head.menu-open .logo .logo-dark, .site-head.is-light.menu-open .logo .logo-dark { display: none; }
+body.is-day .site-head .burger.open span, .site-head.is-light .burger.open span { background: #fff; }
