@@ -61,29 +61,32 @@ export class FlyDrone {
     const gCam = rt.nodes['gimbal-camera'];
     this.gCam = gCam;
     const own = gCam.children.filter((o) => o.isMesh || o.isInstancedMesh);
-    const arm = () => new THREE.Mesh(withColor(new THREE.BoxGeometry(0.018, 0.05, 0.022).translate(0, 0.068, -0.004)), M.housing);
-    const yawMotor = () => new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.016, 0.016, 0.018, 28).translate(0, 0.0925, 0)), M.anodized);
+    // (the model's gimbal yoke carries them: yaw motor and arm, roll motor and the U-shaped roll arm
+    // with the pitch motors. Each body is sized to turn inside it: within 0.060 m of the pitch axis
+    // in the y-z plane, and side caps reach out to the model's pitch rotors, x = ±0.0665 … ±0.069,
+    // which stay on for every payload.)
+    const caps = (half) => [1, -1].map((sx) => new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.017, 0.017, 0.0665 - half, 32).rotateZ(Math.PI / 2).translate(sx * (0.0665 + half) / 2, 0, 0)), M.anodized));
     // L2: a squarer housing with the big round LiDAR window and a small RGB lens
     const l2 = new THREE.Group(); l2.name = 'fly:payload-L2';
-    l2.add(arm(), yawMotor());
-    l2.add(new THREE.Mesh(withColor(new THREE.BoxGeometry(0.118, 0.1, 0.11).translate(0, -0.004, 0)), M.housing));
-    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.047, 0.047, 0.012, 40).rotateX(Math.PI / 2).translate(-0.012, -0.006, 0.058)), M.anodized));
-    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.04, 0.04, 0.004, 40).rotateX(Math.PI / 2).translate(-0.012, -0.006, 0.0645)), M.glass));
-    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.011, 0.011, 0.01, 24).rotateX(Math.PI / 2).translate(0.042, 0.028, 0.059)), M.anodized));
-    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.008, 0.008, 0.003, 24).rotateX(Math.PI / 2).translate(0.042, 0.028, 0.064)), M.glass));
+    l2.add(...caps(0.055));
+    l2.add(new THREE.Mesh(withColor(new THREE.BoxGeometry(0.11, 0.082, 0.082).translate(0, -0.002, 0)), M.housing));
+    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.03, 0.03, 0.008, 40).rotateX(Math.PI / 2).translate(-0.012, -0.004, 0.045)), M.anodized));
+    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.025, 0.025, 0.003, 40).rotateX(Math.PI / 2).translate(-0.012, -0.004, 0.049)), M.glass));
+    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 24).rotateX(Math.PI / 2).translate(0.036, 0.024, 0.044)), M.anodized));
+    l2.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.0065, 0.0065, 0.002, 24).rotateX(Math.PI / 2).translate(0.036, 0.024, 0.0475)), M.glass));
     // P1: a compact full-frame body with a 35 mm lens barrel
     const p1 = new THREE.Group(); p1.name = 'fly:payload-P1';
-    p1.add(arm(), yawMotor());
-    p1.add(new THREE.Mesh(withColor(new THREE.BoxGeometry(0.112, 0.092, 0.084).translate(0, -0.004, -0.004)), M.housing));
-    p1.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.034, 0.036, 0.058, 40).rotateX(Math.PI / 2).translate(0, -0.006, 0.066)), M.anodized));
-    p1.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.027, 0.027, 0.004, 40).rotateX(Math.PI / 2).translate(0, -0.006, 0.096)), M.glass));
+    p1.add(...caps(0.054));
+    p1.add(new THREE.Mesh(withColor(new THREE.BoxGeometry(0.108, 0.08, 0.076).translate(0, -0.002, -0.004)), M.housing));
+    p1.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.029, 0.031, 0.04, 40).rotateX(Math.PI / 2).translate(0, -0.006, 0.054)), M.anodized));
+    p1.add(new THREE.Mesh(withColor(new THREE.CylinderGeometry(0.023, 0.023, 0.003, 40).rotateX(Math.PI / 2).translate(0, -0.006, 0.0745)), M.glass));
     for (const g of [l2, p1]) { g.visible = false; gCam.add(g); }
     // optical sockets (FPV camera / LiDAR emitter), in the gimbal camera's frame (+Z = boresight)
     const sock = (x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); gCam.add(o); return o; };
     this.payloads = {
       H20T: { show: own, socket: rt.sockets['gimbal-camera/boresight'], laser: sock(0.024, 0.022, 0.05) },
-      L2: { show: [l2], socket: sock(-0.012, -0.006, 0.072), laser: sock(-0.012, -0.006, 0.072) },
-      P1: { show: [p1], socket: sock(0, -0.006, 0.1), laser: sock(0, -0.006, 0.1) },
+      L2: { show: [l2], socket: sock(-0.012, -0.004, 0.056), laser: sock(-0.012, -0.004, 0.056) },
+      P1: { show: [p1], socket: sock(0, -0.006, 0.08), laser: sock(0, -0.006, 0.08) },
     };
     this.payload = 'H20T';
     this.setPayload('L2');

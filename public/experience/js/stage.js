@@ -220,11 +220,13 @@ export class Stage {
 
     // floor
     const ftex = floorTexture(Q.texSize, Q.aniso);
-    ftex.repeat.set(40 / 4, 40 / 4);
+    // (120 m across, the same 4 m tile: daylight's fog runs the floor back to a soft horizon, and its
+    // edge must stay inside the fog)
+    ftex.repeat.set(120 / 4, 120 / 4);
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x7a8088, map: ftex, roughness: 0.78, metalness: 0.0, envMapIntensity: 0.25,
     });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), floorMat);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120).rotateX(-Math.PI / 2), floorMat);
     floor.receiveShadow = Q.shadows;
     floor.name = 'set:floor';
     scene.add(floor);

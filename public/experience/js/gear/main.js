@@ -89,7 +89,7 @@ const thumb = (k) => {
   return src ? `<img src="${esc(src)}" alt="" width="96" height="72" decoding="async">`
     : `<svg viewBox="0 0 24 24" aria-hidden="true">${GEAR_ICONS[k.icon] || ''}</svg>`;
 };
-const statusChip = (ready) => (ready ? '<span class="pk-st is-ready">3D ready</span>' : '<span class="pk-st">Model in production</span>');
+const statusChip = (ready) => (ready ? '<span class="pk-st is-ready">3D ready</span>' : '<span class="pk-st">Upcoming</span>');
 function buildPicker() {
   const list = $('rail-list');
   list.innerHTML = GROUPS.map(([g, label]) => {
@@ -107,7 +107,7 @@ function buildPicker() {
   const strip = $('strip-list');
   strip.innerHTML = KIT.map((k) => {
     const ready = gearEntry(k.id).ready;
-    return `<li><a class="sc${ready ? ' is-ready' : ''}" href="?g=${encodeURIComponent(k.id)}" data-id="${esc(k.id)}" aria-label="${esc(k.name)}: ${ready ? '3D ready' : 'model in production'}">
+    return `<li><a class="sc${ready ? ' is-ready' : ''}" href="?g=${encodeURIComponent(k.id)}" data-id="${esc(k.id)}" aria-label="${esc(k.name)}: ${ready ? '3D ready' : 'upcoming'}">
       <span class="sc__thumb">${thumb(k)}</span><span class="sc__name">${esc(k.short)}</span><span class="sc__st">${ready ? '3D' : 'Soon'}</span></a></li>`;
   }).join('');
   for (const a of document.querySelectorAll('.pk, .sc')) {
@@ -156,13 +156,13 @@ function awaitHtml(kit, i) {
     : `<div class="bp" role="img" aria-label="${esc(kit.name)}: drawing, photo to come">
         <span class="bp__fig" aria-hidden="true">Fig. ${String(i + 1).padStart(2, '0')}</span><span class="bp__id" aria-hidden="true">${esc(kit.id)}</span>
         <svg class="bp__icon" viewBox="0 0 24 24" aria-hidden="true">${GEAR_ICONS[kit.icon] || ''}</svg>
-        <span class="bp__note" aria-hidden="true">Model in production</span><span class="bp__scale" aria-hidden="true"><i></i>0.5 m</span></div>`;
+        <span class="bp__note" aria-hidden="true">Upcoming</span><span class="bp__scale" aria-hidden="true"><i></i>0.5 m</span></div>`;
   const others = READY_IDS.map((id) => KIT.find((k) => k.id === id)).filter(Boolean);
   return `
     <div class="aw__head">
       <p class="aw__kick">${esc(CATEGORIES[kit.category] || kit.category)} · ${esc(GROUPS.find(([g]) => g === kit.group)?.[1] || '')}</p>
       <h1 class="aw__title">${esc(kit.name)}</h1>
-      <p class="aw__status"><i aria-hidden="true"></i>3D model in production — coming soon</p>
+      <p class="aw__status"><i aria-hidden="true"></i>Upcoming · 3D model in production</p>
       <p class="aw__line">${esc(kit.line)}</p>
     </div>
     <div class="aw__grid">

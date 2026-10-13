@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { FILM_MODULES, FILM_URL } from "./urls";
 import { Arrow, Line, Pic, Topo, d } from "./parts";
 import { detectQuality, qualityBadge, type Quality } from "./quality";
@@ -109,7 +109,17 @@ const FRAMES: Frame[] = [
   { set: [["exp-frame-2-900", 900], ["exp-frame-2", 1800]], op: "85% 50%" }, // the total station under its spotlight (night studio, u 19.15)
   { set: [["exp-frame-3-900", 900], ["exp-frame-3", 1800]], op: "62% 42%" }, // the globe, the valley pinned in BC (night, u 53.1)
 ];
-const FRAME_HOLD = 7000;
+const FRAME_HOLD = 5000;
+// "Play the film" starts the film playing by itself (film.html?autoplay=1: it runs from the title to
+// the end once its boot screen hands off); the rest of the card opens the film at its title, as before.
+// (The control sits inside the card's link, and links cannot nest, so it redirects a plain click; a
+// modified or middle click opens the card's own link.)
+const FILM_PLAY_URL = `${FILM_URL}?autoplay=1`;
+const playFilm = (e: MouseEvent) => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  window.location.assign(FILM_PLAY_URL);
+};
 const CHAPTERS = ["Drone", "GNSS", "Total station", "Field", "Globe"];
 
 export default function Experience({ q, ready }: { q: Quality; ready: boolean }) {
@@ -151,14 +161,14 @@ export default function Experience({ q, ready }: { q: Quality; ready: boolean })
           </span>
           <span className="ld-film__shade" aria-hidden="true" />
           <span className="ld-film__body" aria-hidden="true">
-            <span className="ld-film__kicker">3D film <i>·</i> about 3 min<span className="ld-film__cue"> <i>·</i> scroll to play</span></span>
+            <span className="ld-film__kicker">3D film <i>·</i> about 4 min<span className="ld-film__cue"> <i>·</i> scroll to play</span></span>
             <span className="ld-film__title">Ground Truth</span>
             <span className="ld-film__line">One valley, measured from the air, the ground and space.</span>
             <span className="ld-film__chips">
               {CHAPTERS.map((c) => <span key={c}>{c}</span>)}
             </span>
           </span>
-          <span className="ld-film__play" aria-hidden="true">
+          <span className="ld-film__play" aria-hidden="true" data-href={FILM_PLAY_URL} onClick={playFilm}>
             <span className="ld-film__icon"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6l7.6-4.8z" /></svg></span>
             <span className="ld-film__label">Play the film</span>
           </span>

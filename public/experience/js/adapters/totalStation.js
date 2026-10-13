@@ -51,9 +51,14 @@ export default {
       freeze: (o) => /^(hingeLugs(Front|RearRight|RearLeft)|baseHousing)$/.test(o.name),
       unitKeyOf: (o) => o.name,
       labels: [
-        { id: 'handle', text: 'Carry handle', short: 'Handle', node: 'handleGrip', dir: [0.2, 1, 0.5] },
-        { id: 'scope', text: 'Telescope with EDM rangefinder', short: 'Telescope', node: 'telescope', meshes: /^telescope:housing$/, dir: [-0.6, 0.4, 0.6] },
-        { id: 'lens', text: 'Objective lens', short: 'Objective', node: 'objectiveLens', meshes: /^objectiveLens:frontRing$/, dir: [0, 0.6, 1] },
+        // (2026-10-13: the handle's label ends on the top of its light upright: the grip bar is dark
+        // grey and, unlit in the exploded view, the leader seemed to point at empty space. The
+        // telescope's ends on the top of its housing and the lens's on the lower rim of its front
+        // ring, so the telescope's anchor sits above and behind the lens's and the two leaders,
+        // both in the left column, no longer cross)
+        { id: 'handle', text: 'Carry handle', short: 'Handle', node: 'handleUprightLeft', meshes: /^handleUprightLeft:upright$/, dir: [0.1, 1, 0.3] },
+        { id: 'scope', text: 'Telescope with EDM rangefinder', short: 'Telescope', node: 'telescope', meshes: /^telescope:housing$/, dir: [0, 1, -0.15] },
+        { id: 'lens', text: 'Objective lens', short: 'Objective', node: 'objectiveLens', meshes: /^objectiveLens:frontRing$/, dir: [0, -0.55, 1] },
         { id: 'display', text: 'Display & keypad', short: 'Display', node: 'rearKeyboard', meshes: /^rearKeyboard:unit$/, dir: [0, 0.3, -1] },
         { id: 'keypad', text: 'Side keypad', short: 'Keypad', node: 'sideKeypad', meshes: /^sideKeypad:panel$/, dir: [-1, 0, 0] },
         { id: 'tribrach', text: 'Tribrach with levelling screws', short: 'Tribrach', node: 'levelScrewA', dir: [0.6, 0.3, 1] },

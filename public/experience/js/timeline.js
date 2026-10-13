@@ -2,7 +2,7 @@
 // screen-heights (0 … U). Camera keys are authored as orbit parameters around a target and are
 // framed by subject radius, so they hold their composition at any aspect ratio.
 import * as THREE from 'three';
-import { FIELD, heightAt, groundAt, stripState } from './field.js';
+import { FIELD, heightAt, groundAt, stripState, STRIPS_END } from './field.js';
 
 export const U = 57.6;
 /** Act II cut: the studio gives way to the survey site under a dip to black. */
@@ -19,13 +19,36 @@ export const HERO = {
   leds: [39.5, 0.15, 0.09],    // first motor ring on, gap to the next, flicker-in time
   cal: [40.3, 41.35],          // gimbal calibration sweep
   checks: [40.5, 40.85, 41.2], // IMU aligned · RTK fixed · LiDAR ready
-  spin: [41.4, 41.8],          // rotors spin up
-  lift: [41.85, 42.5],         // off the pad to 3.2 m
-  transit: [42.5, 43.2],       // climb out to the start of the first strip
-  beam: [43.2, 43.38],         // the LiDAR switches on at the parcel edge
+  // (re-timed 2026-10-13 for real-world pace: the take-off is now its own move, from the "Check, then
+  // fly" stop to a new "Climb to survey height" stop (43.3), played as one ~9.5 s shot at an even
+  // rate in u: spin-up ~1.2 s, off the pad ~1.5 s, a ~1 s hover at 2 m, a ~4 s eased climb-out)
+  // (2026-10-13, second pass: the hold at 2 m is shorter (~0.7 s) and the climb-out starts sooner and
+  // ends later, so the drone is nearly still for a moment only, and alive then: main.js adds the
+  // hover's drift and bob on the clock. It reaches the corner just before the stop and holds there,
+  // scanning, while the stop dwells; the strips start soon after the stop)
+  spin: [41.36, 41.55],        // rotors spin up (the real speed ramps over ~1 s on the clock, main.js)
+  lift: [41.6, 41.98],         // off the pad to a 2 m hover
+  hover: [41.98, 42.12],       // a short hold at 2 m
+  transit: [42.12, 43.22],     // climb (eased in and out) and out to the start of the first strip
+  beam: [43.16, 43.28],        // the LiDAR switches on at the parcel edge
 };
+/** The "Climb to survey height" stop: the drone holds at the parcel corner, its scanner on. */
+export const F4C = 43.3;
 /** The strips. */
-export const CAPTURE = [43.38, 46.68];
+export const CAPTURE = [43.34, 46.68];
+/**
+ * Authored pace (seconds per unit of u) for the field's flight, used by the stepper and by autoplay
+ * for any move inside these ranges instead of their usual 3–5 s: the take-off at real-world speeds
+ * (spin-up ~1.2 s, a hold at 2 m, a ~4 s eased climb-out: 9.5 s from "Check, then fly" to "Climb to
+ * survey height"), the strips at one steady ~16 m/s across both moves that fly them (one strip and
+ * its turn ~3.8 s), then the run to the hold and the model at a quicker pace (2.6 s/u since
+ * 2026-10-13, was 2.0: the camera now holds the drone to the end of the last strip before it climbs
+ * to the plan view, so the climb is steeper: at 2.6 the camera's top speed in that move is 36 m/s,
+ * under the 40 m/s it reached before at 2.0).
+ */
+export const PACE = [[41.3, F4C, 4.75], [F4C, 46.68, 4.6], [46.68, 48.85, 2.6]];
+/** seconds per u at u inside PACE, or 0 */
+export function paceAt(u) { for (const [a, b, k] of PACE) if (u >= a - 1e-6 && u <= b + 1e-6) return k; return 0; }
 /** The drone's run at the lens; the planet is cut in behind it when it fills the frame. */
 export const APPROACH = [50.7, 51.75];
 /** Act III cut: the site gives way to the planet (78 % of the way through the approach). */
@@ -53,12 +76,10 @@ export const BEATS = [
   { id: 'd1', chapter: 'drone', u0: 1.5, u1: 3.2, still: 2.45, kicker: '01 — From above · The survey drone', title: 'What is actually there?',
     short: 'The drone answers it from the air.',
     copy: 'Every site begins as that question. The survey drone answers it from the air, millions of measured points at a time.' },
-  { id: 'd2', chapter: 'drone', u0: 3.2, u1: 5.6, still: 5.2, kicker: '01 — From above · The survey drone', title: 'Taken apart, in order',
+  // one stop for the exploded drone, resting once every part is out (the gimbal camera arrives last)
+  { id: 'd2', chapter: 'drone', u0: 3.2, u1: 7.0, still: 5.95, kicker: '01 — From above · The survey drone', title: 'Taken apart, in order',
     short: 'Top camera first, then covers, arms and gear.',
-    copy: 'The top camera lifts away first. The covers, arms, motors and propellers follow, then the landing gear, and the gimbal camera last.' },
-  { id: 'd3', chapter: 'drone', u0: 5.6, u1: 7.0, still: 5.95, kicker: '01 — From above · The survey drone', title: 'Nothing here is a lump',
-    short: 'Each part leaves along the joint that holds it.',
-    copy: 'Each part leaves along the joint that holds it, and goes back the same way.' },
+    copy: 'The top camera lifts away first. The covers, arms, motors and propellers follow, then the landing gear, and the gimbal camera last. Each part leaves along the joint that holds it.' },
   { id: 'd4', chapter: 'drone', u0: 7.0, u1: 8.2, still: 7.85, kicker: '01 — From above · The survey drone', title: 'Spin up. Lift off.',
     short: 'Four motors spin up; it climbs clear of the pad.',
     copy: 'Four brushless motors come up to speed. The props blur, and the drone climbs clear of the pad.' },
@@ -102,10 +123,15 @@ export const BEATS = [
   { id: 'f4a', chapter: 'field', u0: HERO.cut, u1: 40.25, still: 40.15, kicker: '04 — In the field · Pre-flight', title: 'Unfold. Wake up.',
     short: 'The arms lock out; the rings light one by one.',
     copy: 'The arms swing out and lock. One by one, the rings under the motors light.' },
-  { id: 'f4b', chapter: 'field', u0: 40.25, u1: 43.0, still: 41.3, kicker: '04 — In the field · Pre-flight', title: 'Check, then fly',
+  { id: 'f4b', chapter: 'field', u0: 40.25, u1: 42.3, still: 41.3, kicker: '04 — In the field · Pre-flight', title: 'Check, then fly',
     short: 'Gimbal level, IMU, RTK and LiDAR ready: lift-off.',
-    copy: 'The gimbal sweeps its range and settles level. IMU aligned, RTK fixed, LiDAR ready: the rotors spin up and it climbs away.' },
-  { id: 'f4', chapter: 'field', u0: 43.0, u1: 46.9, still: 45.36, kicker: '04 — In the field · Capture', title: 'Then capture everything else',
+    copy: 'The gimbal sweeps its range and settles level. IMU aligned, RTK fixed, LiDAR ready: the rotors spin up and it lifts off.' },
+  // (a stop of its own since 2026-10-13: the take-off used to be squeezed with two and a half strips
+  // into one 5 s move; its moves are timed by PACE, below)
+  { id: 'f4c', chapter: 'field', u0: 42.3, u1: 43.7, still: F4C, kicker: '04 — In the field · Take-off', title: 'Climb to survey height',
+    short: 'A hover at two metres, then out to the parcel.',
+    copy: 'It holds a moment at two metres, then climbs to survey height and runs out to the corner of the parcel. On the first flight line, the scanner switches on.' },
+  { id: 'f4', chapter: 'field', u0: 43.7, u1: 46.9, still: 45.36, kicker: '04 — In the field · Capture', title: 'Then capture everything else',
     short: 'Strip by strip, the drone scans the parcel.',
     copy: 'The parcel is staked. Strip by strip the drone scans it, and every return lands on the same control.' },
   { id: 'f5', chapter: 'field', u0: 46.9, u1: 49.3, still: 48.85, kicker: '04 — In the field · Model', title: 'From points to a surface',
@@ -221,6 +247,34 @@ export const CLOSE_CAM = new THREE.Vector3(
 // a camera key can follow the drone: its target is then a function of u
 const _dt = { pos: new THREE.Vector3(), heading: 0, pitch: 0, scanning: false, flying: false };
 const droneTgt = (dy) => (u) => { fieldDrone(u, _dt); return [_dt.pos.x, _dt.pos.y + dy, _dt.pos.z]; };
+/** The drone's path averaged over the last 2·lag of u (a pure box filter): a target that trails it by
+ *  about `lag` and rounds off its turns, for a camera that follows with a lag instead of in lockstep. */
+const _tr = new THREE.Vector3();
+function trailAt(u, lag) {
+  _tr.set(0, 0, 0);
+  const n = 7;
+  for (let i = 0; i < n; i++) { fieldDrone(u - (2 * lag * i) / (n - 1), _dt); _tr.add(_dt.pos); }
+  return _tr.multiplyScalar(1 / n);
+}
+const droneTrail = (dy, lag) => (u) => { const p = trailAt(u, lag); return [p.x, p.y + dy, p.z]; };
+/** Over the drone (the corner hold and the mapping flight): a point `dy` below it, `ahead` metres on
+ *  along the first strip. It sits mostly on the drone and a quarter of the way back along its path
+ *  (trailAt): the turns at the strip ends are rounded off, but the drone, flying away from or toward
+ *  the lens on alternate strips, no longer runs a few metres ahead of the frame or into its bottom. */
+const overTgt = (dy, ahead = 0) => (u) => {
+  const p = trailAt(u, 0.04), h = typeof dy === 'function' ? dy(u) : dy;
+  fieldDrone(u, _dt); p.lerp(_dt.pos, 0.72);
+  return [p.x + ahead * Math.cos(0.07), p.y + h, p.z + ahead * Math.sin(0.07)];
+};
+/** The corner hold's aim: near the drone while it climbs out (aimed lower, the climbing drone left the
+ *  top of the frame), easing down below it as it arrives, so its fan reaches the ground in frame. */
+const holdDy = (u) => -1 - 4.5 * smooth(win(u, 42.7, F4C));
+/** The plan view's target: over the drone (as the mapping shot has it) until the last strip is nearly
+ *  flown, then eased over to the plan's centre `c` while the camera climbs. */
+const toPlan = (c) => (u) => {
+  const w = smooth(win(u, 46.2, 47.74)), p = overTgt(-3.8)(u);
+  return [p[0] + (c[0] - p[0]) * w, p[1] + (c[1] - p[1]) * w, p[2] + (c[2] - p[2]) * w];
+};
 // the profile: behind and above the instrument, the line climbing the far slope in frame
 // (low enough that the instrument stepping round from point to point stays in the corner of frame)
 const M4 = pastInstrument(TS_HEAD, PROFILE_MID, -26, 3.3, 0.8, 46, -3.4);
@@ -320,20 +374,38 @@ const CAM = [
   // front-on and low for the gimbal's calibration sweep
   { u: 41.35, tgt: [DPX, 0.17, DPZ], az: 5, el: 4, r: 0.6, fill: 0.92, fov: 30, ease: 'inOutSoft' },
   { u: HERO.lift[0], tgt: [DPX, 0.38, DPZ], az: 7, el: 3, r: 0.6, fill: 0.9, fov: 30, portrait: { fill: 0.82 } },
-  // lift-off: a low camera that tilts up after it
-  { u: HERO.lift[1], tgt: droneTgt(0.12), az: 12, el: -26, d: 4.3, fov: 32, pd: 1.3 },
-  // chase it out over the valley; the scanner switches on at the parcel edge
-  // (framed between the drone and the ground, so the fan and the swath it lays are both in shot)
-  { u: HERO.beam[0], tgt: droneTgt(-5), az: 34, el: 30, d: 27, fov: 32, pd: 1.3 },
-  { u: CAPTURE[0] + 0.1, tgt: droneTgt(-5), az: 40, el: 32, d: 29, fov: 32, ease: 'linear', pd: 1.3 },
+  // lift-off: a low camera that tilts up after it and settles on the hover. The camera follows the
+  // drone a beat late (droneTrail: its path averaged over the last stretch of u), so the two never
+  // move in lockstep: the drone leads, the camera catches up
+  { u: HERO.lift[1] + 0.06, tgt: droneTrail(0.1, 0.04), az: 12, el: -18, d: 5.2, fov: 32, pd: 1.3, ease: 'inOutSoft' },
+  // chase it out over the valley as it climbs, and settle behind and above it at the parcel's far
+  // corner, looking down the first flight line (the parcel ahead and to the right): close enough that
+  // the drone reads as a drone, with the scanner's fan and swath under it
+  // (2026-10-13, second pass: this key is the "Climb to survey height" stop itself, so the camera
+  // arrives with the stop instead of halting at 43.16 while the drone was still flying in, and leaves
+  // it with the next move; higher and further back, so the scanner's fan reaches the ground in frame)
+  { u: F4C, tgt: overTgt(holdDy, 1.5), az: -60, el: 60, d: 12.5, fov: 44, pd: 1.25, ease: 'inOutSoft', portrait: { d: 12, fov: 52 } },
   // then crane up to the high oblique while the strips are flown: high enough that the staked
   // rectangle never foreshortens into a spike, and turned so the fan is seen across, not edge-on
   // (tall screens look along the parcel instead, so its long side runs up the screen)
   // (the parcel sits left of centre: the right quarter of the frame is kept for the information card)
-  { u: 44.25, tgt: [10, -2.6, -30], az: 13, el: 44, d: 66, fov: 32, pd: 1.55, portrait: { tgt: [-6.5, -2.6, -30], az: 84, el: 48, d: 100, fov: 46, pd: 1 } },
-  { u: CAPTURE[1], tgt: [10, -2.6, -31], az: 5, el: 48, d: 67, fov: 32, ease: 'linear', pd: 1.55, portrait: { tgt: [-6.5, -2.6, -31], az: 76, el: 52, d: 100, fov: 46, pd: 1 } },
+  // (2026-10-13: the camera used to watch the strips from 66 m, where the drone was a dot. It now
+  // rides behind and above the drone, a beat late, looking down the flight line past it: the drone
+  // reads as a drone at the top of the frame, its fan falls onto the parcel, the scanned strips on
+  // one side and the open ground still to fly on the other. One eased segment from the chase at the
+  // parcel corner to this key at the capture stop, and one on up to the plan view, so no key inside a
+  // move stops the camera dead: it used to stop and restart at 43.48 and 44.25)
+  // (2026-10-13, second pass: from behind at 32° the ground under the drone, where the returns are born,
+  // was always below the frame: the fan ran out of the bottom and the cloud seemed to fill in on its
+  // own. Now the camera looks down over the drone's shoulder, ~8 m above and ~3 m behind it: the drone
+  // reads from above (arms, rotor discs), its fan falls onto the swath just below it, the new returns
+  // light up on the line and the scanned strips stretch away behind)
+  { u: 45.36, tgt: overTgt(-3.8), az: -78, el: 76, d: 12.4, fov: 44, pd: 1.3, ease: 'inOutSoft', portrait: { el: 78, d: 12, fov: 52, pd: 1 } },
   // model: up to a plan view, the way the contours are drawn on a survey sheet
-  { u: 47.75, tgt: [11, -3, -32], az: 0, el: 74, d: 70, fov: 32, pd: 1.6, portrait: { tgt: [4, -3, -32], az: 90, el: 74, d: 106, fov: 46, pd: 1 } },
+  // (its target stays on the drone until the last strip is nearly flown, then eases over to the plan's
+  // centre: the camera used to start for the centre at once and lost the drone, and the last strip's
+  // returns, off the bottom of the frame)
+  { u: 47.75, tgt: toPlan([11, -3, -32]), az: 0, el: 74, d: 70, fov: 32, pd: 1.6, portrait: { tgt: toPlan([4, -3, -32]), az: 90, el: 74, d: 106, fov: 46, pd: 1 } },
   { u: 49.25, tgt: [11, -3, -32], az: -4, el: 79, d: 68, fov: 32, ease: 'linear', pd: 1.6, portrait: { tgt: [4, -3, -32], az: 86, el: 79, d: 102, fov: 46, pd: 1 } },
   // closing: behind the crew, the drone holding at the centre of frame over the valley. The camera
   // then stays put while the drone flies at it (same pose on every screen: no portrait distance)
@@ -348,6 +420,8 @@ const CAM = [
 ];
 
 const GLOBE_KEY = CAM.findIndex((k) => k.u > GCUT);
+/** (review tooling: the camera keys, read-only by convention) */
+export const CAMERA_KEYS = CAM;
 
 // safe-frame fractions (share of the picture the subject radius may fill), per layout
 const FRAMES = {
@@ -491,7 +565,18 @@ const S1 = stripState(1, { pos: new THREE.Vector3() }).pos.clone();
 const H_STRIP0 = stripState(0, { pos: new THREE.Vector3() }).heading;
 const H_STRIP1 = stripState(1, { pos: new THREE.Vector3() }).heading;
 const H_PAD = Math.PI / 2;                       // parked with its nose toward the crew (+Z)
-const LIFT_Y = 3.2;
+/** 0..1 → 0..1 at an even rate, easing up over the first and down over the last 8 % (C1). (Was 4 %:
+ *  the drone reached strip speed in 0.6 s, a 28 m/s² kick the chasing camera passed on.) */
+function easeRun(t, r = 0.08) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const A = 1 - r, P = (x) => (x < r ? x / 2 - (r / (2 * Math.PI)) * Math.sin((Math.PI * x) / r) : r / 2 + (x - r));
+  return t <= 1 - r ? P(t) / A : 1 - P(1 - t) / A;
+}
+/** Capture progress at u: the eased run, ending as the last strip ends (STRIPS_END). The drone, the
+ *  swath and the returns (field.js) all read this one value, so the cloud is born under the scan. */
+const captureAt = (u) => easeRun(win(u, CAPTURE[0], CAPTURE[1])) * STRIPS_END;
+const LIFT_Y = 2.0;                                // the hover after lift-off (m)
 const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const towards = (a, b) => Math.atan2(b.z - a.z, b.x - a.x);
 const H_OUT = towards(FIELD.stations.drone, S0);
@@ -510,21 +595,26 @@ export function fieldDrone(u, out = { pos: new THREE.Vector3(), heading: H_PAD, 
   const pad = FIELD.stations.drone;
   out.scanning = false; out.pitch = 0; out.flying = true;
   if (u < HERO.lift[0]) { out.pos.copy(pad); out.heading = H_PAD; out.flying = false; }
-  else if (u < HERO.lift[1]) {
-    // slow and deliberate: it eases off the pad, hangs for a beat, then climbs on
-    const t = win(u, HERO.lift[0], HERO.lift[1]);
-    out.pos.copy(pad).setY(LIFT_Y * smoother(t));
+  else if (u < HERO.hover[1]) {
+    // slow and deliberate: it eases off the pad to 2 m and holds there a moment, breathing a few cm
+    const t = win(u, HERO.lift[0], HERO.lift[1]), h = win(u, HERO.hover[0], HERO.hover[1]);
+    out.pos.copy(pad).setY(LIFT_Y * smoother(t) + 0.05 * Math.sin(Math.PI * h) * Math.sin(Math.PI * 2 * h + 0.6));
     out.heading = H_PAD;
   } else if (u < HERO.transit[1]) {
-    // climb first, then out; it turns its nose to the parcel, then onto the first strip
+    // climb first, then out; it turns its nose to the parcel, then onto the first strip. Both eased in
+    // and out, the horizontal run on a gentler curve (peak 1.5× its mean, about 18 m/s over ~50 m)
+    // (the climb on a cubic, not a quintic: it is under way within a few tenths of a second of the
+    // hold instead of creeping off it, peak ~2.5 m/s)
     const t = win(u, HERO.transit[0], HERO.transit[1]);
-    const th = smoother(t), tv = smoother(Math.min(1, t * 1.3));
+    const th = smooth(win(t, 0.12, 1)), tv = smooth(Math.min(1, t * 1.35));
     out.pos.set(pad.x + (S0.x - pad.x) * th, LIFT_Y + (S0.y - LIFT_Y) * tv, pad.z + (S0.z - pad.z) * th);
     out.heading = H_PAD + wrapPi(H_OUT - H_PAD) * smoother(win(t, 0, 0.35)) + wrapPi(H_STRIP0 - H_OUT) * smoother(win(t, 0.7, 1));
     out.pitch = 0.16 * Math.sin(Math.PI * t);
   } else if (u < CAPTURE[0]) { out.pos.copy(S0); out.heading = H_STRIP0; out.scanning = true; }   // the scanner switches on
   else if (u < CAPTURE[1]) {
-    stripState(win(u, CAPTURE[0], CAPTURE[1]), _ss);
+    // (the run eases up to strip speed off the hold at the parcel corner, and down onto the last
+    // strip's end, where the flight to the hold starts from rest: no velocity step at either end)
+    stripState(captureAt(u), _ss);
     out.pos.copy(_ss.pos); out.heading = _ss.heading; out.scanning = _ss.scanning; out.pitch = 0.08;
   } else if (u < 47.6) {
     // off the last strip to the hold over the valley
@@ -666,7 +756,7 @@ export function sceneAt(u) {
   const f = {
     on: inField ? 1 : 0,
     boundary: sw(u, 42.55, 43.2),
-    capture: win(u, CAPTURE[0], CAPTURE[1]),
+    capture: captureAt(u),   // (the drone's own eased run: the swath stays under it)
     cloud: (u >= CAPTURE[0] ? 1 : 0) * (1 - 0.72 * sw(u, 47.0, 47.8)),
     contours: win(u, 47.35, 48.75),
     model: sw(u, 47.55, 48.55),

@@ -176,6 +176,10 @@
     <div class="head-progress" id="head-progress" aria-hidden="true"></div>
     <!-- chapter rail under the header, on the logo's edge: the counter, a tick per chapter, the name -->
     <div class="container head-rail">
+      <!-- the way out, on every stop (and Esc): back to the site's Home (js/main.js handles Esc) -->
+      <a class="filmnav__btn filmexit" id="filmexit" href="/" aria-label="Exit the film, back to the Underhill site">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 3.5 2.5 8 7 12.5M3 8h10.5"/></svg><span class="filmnav__lbl"><span class="filmexit__long">Back to site</span><span class="filmexit__short">Exit</span></span>
+      </a>
       <nav class="rail" id="rail" aria-label="Chapters">
         <span class="rail__num" id="rail-num">01</span>
         <span class="rail__ticks">
@@ -188,18 +192,29 @@
         <span class="rail__name" id="rail-name">Drone</span>
       </nav>
       <!-- previous / next stop (js/main.js): the same glide as a wheel tick or an arrow key; the tip
-           names the stop it goes to. Hidden with the rail while the film boots. -->
+           names the stop it goes to. Hidden with the rail while the film boots. Between them, autoplay. -->
       <div class="filmnav" id="filmnav" role="group" aria-label="Move through the film">
-        <button type="button" class="filmnav__btn" id="filmnav-prev" data-dir="-1" aria-label="Previous stop" disabled>
+        <button type="button" class="filmnav__btn" id="filmnav-prev" data-dir="-1" aria-label="Previous chapter" disabled>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg><span class="filmnav__lbl">Prev</span>
         </button>
-        <button type="button" class="filmnav__btn" id="filmnav-next" data-dir="1" aria-label="Next stop">
+        <!-- autoplay: the film plays itself to the end (js/main.js "autoplay"); the line along its
+             foot is the time left to the next stop -->
+        <button type="button" class="filmnav__btn filmnav__play" id="filmnav-play" aria-pressed="false" aria-label="Play the film by itself, to the end">
+          <svg class="filmnav__i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.4v9.2l7.4-4.6z"/></svg><svg class="filmnav__i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.5v9M10.8 3.5v9"/></svg><span class="filmnav__lbl" id="filmnav-play-lbl">Play</span><span class="filmnav__meter" aria-hidden="true"><i id="filmnav-meter"></i></span>
+        </button>
+        <button type="button" class="filmnav__btn" id="filmnav-next" data-dir="1" aria-label="Next chapter">
           <span class="filmnav__lbl">Next</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>
         </button>
         <p class="filmnav__tip" id="filmnav-tip" aria-hidden="true"><span class="filmnav__k" id="filmnav-k"></span><span class="filmnav__t" id="filmnav-t"></span></p>
       </div>
       <!-- quality: Auto / Lite / Balanced / High (js/film-settings.js; applies on reload) -->
       <div class="fset" id="fset">
+        <!-- full screen (js/main.js): hidden where the browser cannot put a page in full screen (iPhone) -->
+        <button type="button" class="fset__btn fsbtn" id="fsbtn" aria-pressed="false" aria-label="View the film in full screen" title="Full screen (F)" hidden>
+          <svg class="fsbtn__on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+          <svg class="fsbtn__off" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
+          <span class="fsbtn__lbl" id="fsbtn-lbl">Full screen</span>
+        </button>
         <button type="button" class="fset__btn" id="fset-btn" aria-expanded="false" aria-controls="fset-panel" aria-label="Quality settings">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.85 1.85M16.65 16.65l1.85 1.85M5.5 18.5l1.85-1.85M16.65 7.35l1.85-1.85"/><circle cx="12" cy="12" r="6.4"/></svg>
           <span class="fset__tier" id="fset-tier"></span>
@@ -261,6 +276,8 @@
         <div class="boot__bar"><span id="boot-bar"></span></div>
         <div class="boot__scale" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
+      <!-- nobody is held on the boot screen: the way back to the site from the first moment -->
+      <a class="boot-exit" href="/"><span aria-hidden="true">←</span> Back to site</a>
       <noscript><p class="fallback__msg">This film is drawn live with WebGL and needs JavaScript. The text version is below.</p></noscript>
       <ol class="fallback__list">
         <li><b>The survey drone.</b> An enterprise survey quadcopter that maps ground from the air: a square fuselage with hot-swap batteries, four folding carbon arms with brushless motors and folding propellers, two splayed landing legs, a gimbal camera underneath and a second camera on top.</li>

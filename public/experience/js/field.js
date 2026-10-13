@@ -142,6 +142,10 @@ export function clipToParcel(ax, az, bx, bz) {
  * them; returns the drone's world position and heading, and which strip / along-fraction it is on.
  */
 const TURN = 0.18;   // share of each strip slot spent turning onto the next line
+/** Capture progress at which the last strip is flown to its end (there is no turn after it): the run
+ *  is timed to end here, so the drone does not stop dead at the end of the last strip and wait there.
+ *  (Written as the cloud's own reveal of the last return, so the two agree exactly.) */
+export const STRIPS_END = (FIELD.strips - 1 + 1 * (1 - TURN)) / FIELD.strips;
 export function stripState(q, out = { pos: new THREE.Vector3(), heading: 0, strip: 0, f: 0, scanning: false }) {
   const N = FIELD.strips, P = FIELD.parcel;
   const slot = Math.min(N - 1e-6, Math.max(0, q) * N);
@@ -184,8 +188,11 @@ function inProfileView(x, z) {
 
 /** Where the field act's cameras pass (x, z; sampled from timeline.cameraAt over u 27.3–51.5, landscape
  *  and tall, de-duplicated at 5 m). Scenery trees keep 14 m clear of them, so none fills the lens.
- *  Re-sample if the field's camera keys move (review/field-real/harness.html). */
-const CAMERA_PATH = [[2,12],[3,6],[3,1],[8,3],[13,1],[18,-1],[24,-4],[30,-8],[35,-13],[39,-17],[42,-21],[45,-26],[14,-23],[-2,4],[-5,0],[-7,-8],[-9,-16],[-9,-22],[-4,-26],[1,-26],[9,-25],[21,-19],[24,-15],[29,-1],[28,4],[24,12],[21,16],[16,15],[13,11],[13,6],[11,-5],[11,-10],[11,-15],[8,13],[8,21],[8,27],[4,18],[3,23],[4,-8],[-5,-19],[1,-20],[9,-20],[29,-16],[46,-14],[54,-16],[59,-20],[51,-20],[40,-29],[35,-31],[30,-31],[25,-31],[33,-24],[43,-6],[43,2],[41,9],[38,16],[33,22],[27,25],[22,28],[14,30]];
+ *  Re-sample if the field's camera keys move (review/field-real/harness.html; the take-off and strips
+ *  were re-sampled in review/autoplay/dev/campath-41-49.json). */
+const CAMERA_PATH = [[2,12],[3,6],[3,1],[8,3],[13,1],[18,-1],[24,-4],[30,-8],[35,-13],[39,-17],[42,-21],[45,-26],[14,-23],[-2,4],[-5,0],[-7,-8],[-9,-16],[-9,-22],[-4,-26],[1,-26],[9,-25],[21,-19],[24,-15],[29,-1],[28,4],[24,12],[21,16],[16,15],[13,11],[13,6],[11,-5],[11,-10],[11,-15],[8,13],[8,21],[8,27],[4,18],[3,23],[4,-8],[-5,-19],[1,-20],[9,-20],[29,-16],[46,-14],[54,-16],[59,-20],[51,-20],[40,-29],[35,-31],[30,-31],[25,-31],[33,-24],[43,-6],[43,2],[41,9],[38,16],[33,22],[27,25],[22,28],[14,30],
+  // (2026-10-13, autoplay pass: the re-timed take-off and the closer chase over the strips, u 41.3–48.9)
+  [-10,-3],[-13,-8],[-15,-13],[-18,-17],[-20,-22],[-23,-28],[-25,-33],[-22,-37],[-17,-37],[-12,-37],[-7,-36],[-2,-36],[3,-36],[10,-36],[16,-36],[21,-36],[19,-30],[14,-30],[9,-31],[-18,-27],[-13,-27],[20,-24],[25,-22],[16,-16],[5,-17],[-2,-11],[-2,9],[-7,4],[-23,-18],[-26,-23],[-28,-28],[-30,-32],[-2,-30],[-10,-32],[-2,-5],[17,-9]];
 const nearCamera = (x, z, r = 14) => CAMERA_PATH.some(([cx, cz]) => (x - cx) ** 2 + (z - cz) ** 2 < r * r);
 
 /** The slope behind the profile (seen through its cross-section): tall scenery trees stay off it. */
@@ -585,7 +592,9 @@ export class Field {
     geo.setAttribute('reveal', new THREE.Float32BufferAttribute(reveal, 1));
     geo.setAttribute('elev', new THREE.Float32BufferAttribute(elev, 1));
     this.cloudMat = new THREE.ShaderMaterial({
-      uniforms: { q: { value: 0 }, alpha: { value: 1 }, pixel: { value: 1 }, flash: { value: 0.012 } },
+      // (flash: how long, in capture progress, a new return glows; 0.014 ≈ the last 3.5 m of the strip
+      // behind the swath, so a short bright wake trails the scan line)
+      uniforms: { q: { value: 0 }, alpha: { value: 1 }, pixel: { value: 1 }, flash: { value: 0.014 } },
       vertexShader: /* glsl */`
         attribute float reveal; attribute float elev; uniform float q; uniform float pixel; uniform float flash;
         varying vec3 vC; varying float vA;
@@ -596,10 +605,11 @@ export class Field {
           float since = q - reveal;
           vA = step(0.0, since);
           float hot = vA * exp(-since / flash);
-          vC = ramp(clamp((elev + 7.0) / 11.0, 0.0, 1.0)) * (0.75 + 2.5 * hot);
+          // (just born, a return is lit in the laser's own green, then settles into its elevation colour)
+          vC = mix(ramp(clamp((elev + 7.0) / 11.0, 0.0, 1.0)), vec3(0.55, 1.0, 0.78), 0.5 * hot) * (0.75 + 1.8 * hot);
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
-          gl_PointSize = pixel * clamp(110.0 / -mv.z, 1.4, 5.0) * (1.0 + hot);
+          gl_PointSize = pixel * clamp(110.0 / -mv.z, 1.4, 5.0) * (1.0 + 0.6 * hot);
         }`,
       fragmentShader: /* glsl */`
         uniform float alpha; varying vec3 vC; varying float vA;
@@ -682,98 +692,161 @@ export class Field {
     }
   }
 
-  /* The drone's LiDAR: a thin fan of laser lines from the payload down to the ground across the flight
-     line, pulses running down them, and a narrow glowing swath where they land. Nothing solid (lines
-     and a soft glow only), and the swath is clipped to the parcel. While the scanner is on, a few
-     dozen vertices are rewritten per frame. */
+  /* The drone's LiDAR, out of the payload under the gimbal: a thin translucent sheet of laser light
+     across the flight line down to the ground, a few crisp beams in it with pulses running down them,
+     a bright scan line sweeping across it (the scan mirror), a glint at the laser window, and the swath
+     where it lands: a bright core and a soft glow, with a hot spot where the sweep hits. The returns
+     (buildCloud) are born on that line. Over the parcel it is at full strength; past its edge (the hold
+     at the first corner, the turns) it dims, since only the parcel is recorded. Nothing solid, and all
+     built here, at load: a few dozen vertices are rewritten per frame, no program is compiled later.
+     The shaders write premultiplied colour (rgb·a, a): added light at night, drawn over the ground in
+     daylight (setScanDay, called from daylight.js); blending is GL state, so one program serves both. */
   buildScan() {
-    const N = this.lowDetail ? 14 : 24;    // laser lines in the fan
-    const M = 40;                          // samples along the swath
+    const N = this.lowDetail ? 14 : 24;    // beams in the fan
+    const M = this.lowDetail ? 28 : 40;    // samples across the swath (sheet, core, glow)
     this.scanN = N; this.scanM = M;
-    this.scanColor = new THREE.Color(0x56ffb0);   // the drone's laser green (same as the studio pulses)
-    const u = { uColor: { value: this.scanColor }, uAlpha: { value: 0 }, uReach: { value: 1 }, uTime: { value: 0 } };
+    this.scanColor = new THREE.Color(0x56ffb0);      // the drone's laser green (same as the studio pulses)
+    this.scanDayColor = new THREE.Color(0x0069a3);   // daylight: Underhill blue (daylight.js GLOW_DAY.blue)
+    const u = {
+      uColor: { value: this.scanColor.clone() }, uAlpha: { value: 0 }, uReach: { value: 1 }, uTime: { value: 0 },
+      uSweep: { value: 0.5 }, uDay: { value: 0 }, uPixel: { value: 1 },
+    };
     this.scanU = u;
-    // fan: line i runs from the payload (t = 0) to its ground point (t = 1); y = its place across the swath
+    const mat = (vs, fs, extra = {}) => new THREE.ShaderMaterial({
+      uniforms: u, vertexShader: vs, fragmentShader: fs, transparent: true, depthWrite: false,
+      blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, ...extra,
+    });
+    // (shared: the colour and how much of it. Night: light added to the dusk, free to bloom. Day: a deep
+    // blue drawn over the ground, more of it (a faint light on a dark ground needs less than a pigment
+    // on a bright one), never more than nearly opaque)
+    const HEAD = /* glsl */`
+      uniform vec3 uColor; uniform float uAlpha; uniform float uReach; uniform float uTime; uniform float uSweep; uniform float uDay;
+      vec4 outC(float a){ a = clamp(a * uAlpha * mix(1.0, 2.4, uDay), 0.0, mix(4.0, 0.92, uDay)); return vec4(uColor * a, min(a, 1.0) * uDay); }
+      float sweepAt(float s){ return exp(-pow((s - uSweep) * 9.0, 2.0)); }`;
+    // beams: line i runs from the payload (t = 0) to its ground point (t = 1); s = its place across the swath
     const fg = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 2 * 3), 3));
     const ft = new Float32Array(N * 4);
     for (let i = 0; i < N; i++) ft.set([0, i / (N - 1), 1, i / (N - 1)], i * 4);
     fg.setAttribute('fan', new THREE.BufferAttribute(ft, 2));
-    this.fan = new THREE.LineSegments(fg, new THREE.ShaderMaterial({
-      uniforms: u,
-      vertexShader: 'attribute vec2 fan; varying vec2 vF; void main(){ vF = fan; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: /* glsl */`
-        uniform vec3 uColor; uniform float uAlpha; uniform float uReach; uniform float uTime; varying vec2 vF;
-        void main(){
-          if (vF.x > uReach) discard;                       // switching on: the lines grow down from the payload
-          // faint lines, a little brighter toward the ground, with short pulses running down them
-          float pulse = pow(max(0.0, sin((vF.x * 4.0 - uTime * 3.0 + vF.y * 2.3) * 6.2832)), 24.0);
-          // the scan mirror sweeping across the fan
-          float sweep = exp(-pow((vF.y - (0.5 + 0.5 * sin(uTime * 6.0))) * 6.0, 2.0));
-          float a = (0.05 + 0.1 * vF.x) * (0.45 + 0.55 * sweep) + pulse * 0.55;
-          gl_FragColor = vec4(uColor * a * uAlpha, 1.0);
-        }`,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
-    // swath: the line where the fan meets the ground (bright core) and a narrow soft glow either side
+    fg.setAttribute('ins', new THREE.BufferAttribute(new Float32Array(N * 2), 1));
+    const VS_FAN = 'attribute vec2 fan; attribute float ins; varying vec2 vF; varying float vI; void main(){ vF = fan; vI = ins; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+    this.fan = new THREE.LineSegments(fg, mat(VS_FAN, HEAD + /* glsl */`
+      varying vec2 vF; varying float vI;
+      void main(){
+        if (vF.x > uReach) discard;                       // switching on: the beams grow down from the payload
+        // faint beams, brighter toward the ground and where the mirror is, with short pulses running down
+        float pulse = pow(max(0.0, sin((vF.x * 4.0 - uTime * 3.0 + vF.y * 2.3) * 6.2832)), 24.0);
+        float a = (0.07 + 0.12 * vF.x) * (0.4 + 0.9 * sweepAt(vF.y)) + pulse * 0.45;
+        gl_FragColor = outC(a * mix(0.4, 1.0, vI));
+      }`));
+    // the sheet: a strip of triangles between the payload and the swath (the apex repeated per sample)
+    const sh = new THREE.BufferGeometry();
+    sh.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 2 * 3), 3));
+    const st = new Float32Array(M * 4);
+    for (let i = 0; i < M; i++) st.set([0, i / (M - 1), 1, i / (M - 1)], i * 4);
+    sh.setAttribute('fan', new THREE.BufferAttribute(st, 2));
+    sh.setAttribute('ins', new THREE.BufferAttribute(new Float32Array(M * 2), 1));
+    const si = []; for (let i = 0; i < M - 1; i++) { const k = i * 2; si.push(k, k + 1, k + 3, k, k + 3, k + 2); }
+    sh.setIndex(si);
+    this.fanSheet = new THREE.Mesh(sh, mat(VS_FAN, HEAD + /* glsl */`
+      varying vec2 vF; varying float vI;
+      void main(){
+        if (vF.x > uReach) discard;
+        // a faint curtain, soft at its two edges, and the scan line: a bright band sweeping across it
+        float edge = smoothstep(0.0, 0.06, vF.y) * smoothstep(1.0, 0.94, vF.y);
+        float a = (0.009 + 0.021 * vF.x) * edge + 0.2 * sweepAt(vF.y) * (0.3 + 0.7 * vF.x);
+        gl_FragColor = outC(a * mix(0.4, 1.0, vI));
+      }`, { side: THREE.DoubleSide }));
+    // swath: the line where the fan meets the ground (bright core, hot where the sweep hits) and a
+    // narrow soft glow either side of it along the track
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 3), 3));
-    this.swath = new THREE.Line(sg, new THREE.ShaderMaterial({
-      uniforms: u,
-      vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform vec3 uColor; uniform float uAlpha; uniform float uReach; void main(){ gl_FragColor = vec4(uColor * 3.2 * uAlpha * step(0.999, uReach), 1.0); }',
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
+    const ss = new Float32Array(M); for (let i = 0; i < M; i++) ss[i] = i / (M - 1);
+    sg.setAttribute('s', new THREE.BufferAttribute(ss, 1));
+    sg.setAttribute('ins', new THREE.BufferAttribute(new Float32Array(M), 1));
+    this.swath = new THREE.Line(sg, mat(
+      'attribute float s; attribute float ins; varying float vS; varying float vI; void main(){ vS = s; vI = ins; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      HEAD + 'varying float vS; varying float vI; void main(){ gl_FragColor = outC((2.2 + 3.0 * sweepAt(vS)) * mix(0.3, 1.0, vI) * step(0.999, uReach)); }'));
     const gg = new THREE.BufferGeometry();
     gg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 2 * 3), 3));
-    const side = new Float32Array(M * 2); for (let i = 0; i < M; i++) { side[i * 2] = -1; side[i * 2 + 1] = 1; }
+    const side = new Float32Array(M * 2), gs = new Float32Array(M * 2);
+    for (let i = 0; i < M; i++) { side[i * 2] = -1; side[i * 2 + 1] = 1; gs[i * 2] = gs[i * 2 + 1] = i / (M - 1); }
     gg.setAttribute('side', new THREE.BufferAttribute(side, 1));
+    gg.setAttribute('s', new THREE.BufferAttribute(gs, 1));
+    gg.setAttribute('ins', new THREE.BufferAttribute(new Float32Array(M * 2), 1));
     const idx = []; for (let i = 0; i < M - 1; i++) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
     gg.setIndex(idx);
-    this.swathGlow = new THREE.Mesh(gg, new THREE.ShaderMaterial({
-      uniforms: u,
-      vertexShader: 'attribute float side; varying float vS; void main(){ vS = side; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform vec3 uColor; uniform float uAlpha; uniform float uReach; varying float vS; void main(){ float a = exp(-vS * vS * 5.0) * 0.55; gl_FragColor = vec4(uColor * a * uAlpha * step(0.999, uReach), 1.0); }',
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    }));
-    for (const o of [this.fan, this.swath, this.swathGlow]) { o.frustumCulled = false; o.visible = false; this.group.add(o); }
+    this.swathGlow = new THREE.Mesh(gg, mat(
+      'attribute float side; attribute float s; attribute float ins; varying float vS; varying float vX; varying float vI; void main(){ vS = side; vX = s; vI = ins; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      HEAD + 'varying float vS; varying float vX; varying float vI; void main(){ float a = exp(-vS * vS * 5.0) * (0.5 + 1.1 * sweepAt(vX)); gl_FragColor = outC(a * mix(0.3, 1.0, vI) * step(0.999, uReach)); }',
+      { side: THREE.DoubleSide }));
+    // the laser window: a small glint at the payload, so the eye finds where the fan comes from
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+    this.scanEmitter = new THREE.Points(eg, mat(
+      'uniform float uPixel; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = uPixel * clamp(90.0 / -mv.z, 5.0, 16.0); }',
+      HEAD + 'void main(){ vec2 c = gl_PointCoord - 0.5; float r = dot(c, c) * 4.0; if (r > 1.0) discard; gl_FragColor = outC((exp(-r * 6.0) * 2.6 + 0.25 * (1.0 - r)) * uReach); }'));
+    this.scanParts = [this.fanSheet, this.fan, this.swathGlow, this.swath, this.scanEmitter];
+    for (const o of this.scanParts) { o.frustumCulled = false; o.visible = false; this.group.add(o); }
     this._scanA = new THREE.Vector3(); this._scanB = new THREE.Vector3();
+  }
+
+  /** Daylight (daylight.js): the scan drawn in deep blue over the bright ground instead of added light. */
+  setScanDay(day) {
+    const u = this.scanU;
+    u.uDay.value = day ? 1 : 0;
+    u.uColor.value.copy(day ? this.scanDayColor : this.scanColor);
+    // (GL blend state only: no program changes)
+    for (const o of this.scanParts) o.material.blendDst = day ? THREE.OneMinusSrcAlphaFactor : THREE.OneFactor;
+  }
+
+  /** 1 inside the parcel, falling to 0 over 0.6 m across its edge (the scan is recorded inside only). */
+  scanInside(x, z) {
+    const [a, b] = worldToParcel(x, z), P = FIELD.parcel;
+    const d = Math.min(P.ha - Math.abs(a), P.hc - Math.abs(b));
+    return Math.min(1, Math.max(0, (d + 0.3) / 0.6));
   }
 
   /**
    * Lay the scan for this frame. `payload` is the payload's world position, `heading` the drone's
-   * flight direction (radians, (cos h, sin h) in x/z). Returns false if the swath is off the parcel.
+   * flight direction (radians, (cos h, sin h) in x/z). The swath is one lane wide (adjacent swaths just
+   * meet), across the flight line under the payload, on the ground wherever the drone is.
    */
   layScan(payload, heading) {
-    const w = (2 * FIELD.parcel.hc / FIELD.strips) * 0.5;          // half a lane: adjacent swaths just meet
+    const w = (2 * FIELD.parcel.hc / FIELD.strips) * 0.5;          // half a lane
     const rx = -Math.sin(heading), rz = Math.cos(heading);         // across the flight line
     const fx = Math.cos(heading), fz = Math.sin(heading);          // along it
     const ax = payload.x - rx * w, az = payload.z - rz * w, bx = payload.x + rx * w, bz = payload.z + rz * w;
-    const clip = clipToParcel(ax, az, bx, bz);
-    if (!clip) return false;
-    const N = this.scanN, M = this.scanM;
-    const at = (t, out) => { const x = ax + (bx - ax) * t, z = az + (bz - az) * t; return out.set(x, groundAt(x, z) + 0.05, z); };
-    const fp = this.fan.geometry.attributes.position;
+    const N = this.scanN, M = this.scanM, A = this._scanA;
+    const at = (t) => { const x = ax + (bx - ax) * t, z = az + (bz - az) * t; return A.set(x, groundAt(x, z) + 0.05, z); };
+    const fp = this.fan.geometry.attributes.position, fi = this.fan.geometry.attributes.ins;
     for (let i = 0; i < N; i++) {
-      at(clip[0] + (clip[1] - clip[0]) * (i / (N - 1)), this._scanA);
+      at(i / (N - 1));
+      const k = this.scanInside(A.x, A.z);
       fp.setXYZ(i * 2, payload.x, payload.y, payload.z);
-      fp.setXYZ(i * 2 + 1, this._scanA.x, this._scanA.y, this._scanA.z);
+      fp.setXYZ(i * 2 + 1, A.x, A.y, A.z);
+      fi.setX(i * 2, k); fi.setX(i * 2 + 1, k);
     }
-    fp.needsUpdate = true;
-    const sp = this.swath.geometry.attributes.position, gp = this.swathGlow.geometry.attributes.position;
-    const P = FIELD.parcel;
+    const hp = this.fanSheet.geometry.attributes.position, hi = this.fanSheet.geometry.attributes.ins;
+    const sp = this.swath.geometry.attributes.position, si = this.swath.geometry.attributes.ins;
+    const gp = this.swathGlow.geometry.attributes.position, gi = this.swathGlow.geometry.attributes.ins;
     for (let i = 0; i < M; i++) {
-      at(clip[0] + (clip[1] - clip[0]) * (i / (M - 1)), this._scanA);
-      sp.setXYZ(i, this._scanA.x, this._scanA.y, this._scanA.z);
-      // the glow is 0.7 m wide along the track, pinned inside the boundary
+      at(i / (M - 1));
+      const k = this.scanInside(A.x, A.z);
+      hp.setXYZ(i * 2, payload.x, payload.y, payload.z);
+      hp.setXYZ(i * 2 + 1, A.x, A.y, A.z);
+      hi.setX(i * 2, k); hi.setX(i * 2 + 1, k);
+      sp.setXYZ(i, A.x, A.y, A.z); si.setX(i, k);
+      // the glow is 0.7 m wide along the track
       for (const s of [-1, 1]) {
-        let [a, b] = worldToParcel(this._scanA.x + fx * 0.35 * s, this._scanA.z + fz * 0.35 * s);
-        a = Math.max(-P.ha, Math.min(P.ha, a)); b = Math.max(-P.hc, Math.min(P.hc, b));
-        const [x, z] = parcelToWorld(a, b);
-        gp.setXYZ(i * 2 + (s > 0 ? 1 : 0), x, groundAt(x, z) + 0.04, z);
+        const x = A.x + fx * 0.35 * s, z = A.z + fz * 0.35 * s, j = i * 2 + (s > 0 ? 1 : 0);
+        gp.setXYZ(j, x, groundAt(x, z) + 0.04, z); gi.setX(j, k);
       }
     }
-    sp.needsUpdate = true; gp.needsUpdate = true;
+    for (const a of [fp, fi, hp, hi, sp, si, gp, gi]) a.needsUpdate = true;
+    const ep = this.scanEmitter.geometry.attributes.position;
+    ep.setXYZ(0, payload.x, payload.y, payload.z); ep.needsUpdate = true;
     return true;
   }
 
@@ -863,14 +936,19 @@ export class Field {
       varying float vY; varying float vG; varying vec2 vSV;
       float lineAA(float v, float w){ float d = abs(fract(v + 0.5) - 0.5) / max(fwidth(v), 1e-4); return 1.0 - smoothstep(0.0, w, d); }
       void main(){
+        // the earth in section: fill, grid and ticks only BELOW the curve (above it the sheet used to
+        // carry a faint fill and the whole grid up to the top, which read as a tinted glass pane over
+        // the trees and sky); above the curve nothing is drawn but the curve itself (a separate line)
         float d = vY - (vG + uLift);                       // above (+) or below (-) the elevation curve
         float below = 1.0 - smoothstep(-fwidth(vY), fwidth(vY), d);
         float e = vY - uLift;                              // the true elevation this height stands for
-        float grid = lineAA(e, 1.0) * 0.05 + lineAA(e / 5.0, 1.2) * 0.07;
-        float tick = lineAA(vSV.x * (uN - 1.0), 1.0) * below * 0.3;
+        float grid = lineAA(e, 1.0) * 0.04 + lineAA(e / 5.0, 1.2) * 0.06;
+        float tick = lineAA(vSV.x * (uN - 1.0), 1.0) * 0.3;
         float datum = (1.0 - smoothstep(0.0, 2.0 * fwidth(vY), vY - (uHmin - 1.0 + uLift))) * 0.45;
-        float edge = smoothstep(0.0, 0.025, vSV.x) * smoothstep(1.0, 0.975, vSV.x) * smoothstep(1.0, 0.8, vSV.y);
-        float a = (below * 0.085 + (1.0 - below) * 0.022 + grid + tick) * edge + datum;
+        float edge = smoothstep(0.0, 0.025, vSV.x) * smoothstep(1.0, 0.975, vSV.x);
+        // a little denser just under the cut line, fading with depth: it reads as ground, not a pane
+        float fill = 0.05 + 0.05 * exp(-max(0.0, -d) * 0.6);
+        float a = below * (fill + grid + tick) * edge + datum;
         gl_FragColor = vec4(uColor * a * uAlpha, 1.0);
       }`, { side: THREE.DoubleSide })));
 
@@ -951,6 +1029,11 @@ export class Field {
       this.groundMat.userData.uniforms.uModel.value = s.model;
       this.skyMat.uniforms.uTime.value = clock;
       this.water.userData.u.uTime.value = clock;
+      // the model is bare earth: the creek's water drains away under the surface as it fades in, so
+      // the carved channel reads in the elevation tint instead of a dark band across the sheet
+      const k = s.model * s.model * (3 - 2 * s.model);
+      this.water.position.y = -3 * k;
+      this.water.visible = k < 0.999;
     }
     this.skyLight.intensity = 1.0 * s.on;
     this.terrainUniforms.uModel.value = s.model;
@@ -979,15 +1062,20 @@ export class Field {
     this.cloud.visible = s.cloud > 0.002 && s.capture > 0;
     this.contourMat.uniforms.draw.value = s.contours;
     this.contours.visible = s.contours > 0.001;
-    // the LiDAR: a fan from the payload to a swath across the flight line, inside the parcel only,
-    // and only on the flight lines themselves (off through the turns, which are outside the parcel)
-    let scan = s.scan > 0.001 && drone && drone.payload && drone.scanning;
+    // the LiDAR: a fan from the payload to a swath across the flight line, from the parcel corner to the
+    // end of the last strip (through the turns too, dimmed off the parcel: it never blinks off and on)
+    let scan = s.scan > 0.001 && drone && drone.payload;
     if (scan) scan = this.layScan(drone.payload, drone.heading);
-    this.fan.visible = this.swath.visible = this.swathGlow.visible = !!scan;
+    for (const o of this.scanParts) o.visible = !!scan;
     if (scan) {
-      this.scanU.uAlpha.value = Math.min(1, s.scan * 1.5);
-      this.scanU.uReach.value = s.scanReach;
-      this.scanU.uTime.value = clock;
+      const u = this.scanU;
+      u.uAlpha.value = Math.min(1, s.scan * 1.5);
+      u.uReach.value = s.scanReach;
+      u.uTime.value = clock;
+      u.uPixel.value = pixel;
+      // the scan mirror: across and back about 1.6 times a second, easing at each end (on the clock, so
+      // it keeps sweeping while the film holds on a stop)
+      u.uSweep.value = 0.5 - 0.5 * Math.cos(clock * Math.PI * 1.6);
     }
   }
 }

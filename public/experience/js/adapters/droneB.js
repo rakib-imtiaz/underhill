@@ -2,8 +2,8 @@
 // Model: ../../models/drone-sculptor/drone.js, a copy of DRONE/threejs-object-sculptor/src/drone.js
 // (since 2026-10-13 its motor pods are flipped: see SCULPT_LOG). An enterprise survey quad: square
 // fuselage, four folding carbon arms with fin (front) and dome (rear) housings hanging under the arm
-// tips, motors and 21-inch two-blade folding props on top of them, two splayed legs with T skids, a gimbal camera under the belly
-// and a second camera on a damper mount on top.
+// tips, motors and 21-inch two-blade folding props on top of them, two splayed legs with T skids, a 3-axis gimbal camera under
+// the belly (yaw, roll and pitch on their own joints since 2026-10-13) and a second camera on a damper mount on top.
 import * as THREE from 'three';
 import { createSurveyDrone, DRONE_DIMENSIONS } from '../../models/drone-sculptor/drone.js';
 import { ruleOf, makeRotorDisc, makeMotorRing, disposeOwned } from './common.js';
@@ -98,10 +98,15 @@ const STAGES = [
   [/^motor-(fl|fr|rl|rr)-stator/, 13],
   [/^leg-/, 14],
   [/^skid-/, 15],
+  // the gimbal from the bottom up, joint by joint: the camera drops out of the roll arm, the roll arm
+  // slides forward off the roll motor, the yaw arm drops off the connector, then the connector and
+  // the damper plate
   [/^gimbal-camera/, 16],
-  [/^gimbal-connector/, 17],
-  [/^gimbal-damper-frame/, 18],
-  [/^gimbal-payload/, 19],
+  [/^gimbal-roll/, 17],
+  [/^gimbal-yaw/, 18],
+  [/^gimbal-connector/, 19],
+  [/^gimbal-damper-frame/, 20],
+  [/^gimbal-payload/, 21],
 ];
 
 export default {
@@ -229,7 +234,6 @@ export default {
     // the camera moved (measured: 22 % fewer popping pixels in the orbit to the exploded view with a
     // softer coat and half the bump; the weave still reads from its colour map)
     if (MM.carbon) { floorRough(MM.carbon, null, 0.24); MM.carbon.bumpScale = Math.min(MM.carbon.bumpScale, 0.9); }
-    const gCam = rt.nodes['gimbal-camera'];
     let speed = 0, lastSpeed = 0, fold = 0;
 
     return {
@@ -263,8 +267,9 @@ export default {
       sockets: { payload: rt.sockets['gimbal-camera/boresight'] },
       /** Pose, a pure function of the timeline: gimbal in degrees (+ pitch = nose-down), fold 0..1. */
       pose({ gimbalPitch = 0, gimbalYaw = 0, gimbalRoll = 0, fold: f = 0 } = {}) {
-        root.setGimbal(gimbalYaw, -gimbalPitch);   // the model's pitch is + up
-        gCam.rotation.z = gimbalRoll * DEG;
+        // each axis turns on its own joint in the model (yaw under the connector, roll behind the
+        // camera, pitch through its centre), so no part of the gimbal leaves its mount at any pose
+        root.setGimbal(gimbalYaw, -gimbalPitch, gimbalRoll);   // the model's pitch is + up
         fold = f;
         root.setArmFold(f);                        // parks and folds the blades with the arms
         // arms out: the parked props stand in for the rotors in the outline; folded, the blades count

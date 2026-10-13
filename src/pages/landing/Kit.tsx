@@ -6,8 +6,9 @@ import { motionFlags } from "./useLandingMotion";
 
 /* "The tools behind the data": a sideways rail of the kit. The first four read like the mockup's product
    cards; the rest of the kit follows in kit-data order. Photos: the draft crops where one exists, then
-   the kit's own photo, else a blueprint panel with the gear's line icon. Each card opens the gear
-   playground on that instrument (<experience>/gear.html?g=<id>). */
+   the kit's own photo, else a blueprint panel with the gear's line icon. Upcoming gear (no 3D model and
+   no photo yet) stays off Home; it is still listed, marked Upcoming, on the gear page. Each card opens
+   the gear playground on that instrument (<experience>/gear.html?g=<id>). */
 
 type Card = KitEntry & { title: string; photoStem?: string; w?: number; h?: number };
 
@@ -28,7 +29,12 @@ const CARDS: Card[] = [
     return g ? [{ ...g, ...f }] : [];
   }),
   ...KIT.filter((g) => !featuredIds.has(g.id)).map((g) => ({ ...g, title: g.name, ...(DRAFT_PHOTOS[g.id] || {}) })),
-];
+].filter((c) => !isUpcoming(c));
+
+/** not built yet: no 3D model and no photo of any kind */
+function isUpcoming(c: Card) {
+  return c.status !== "ready" && !c.photoStem && !c.photo;
+}
 
 /** a GEAR_ICONS entry (inner SVG markup) as React elements */
 function GearIcon({ name }: { name: string }) {
@@ -59,7 +65,7 @@ function CardMedia({ c, i }: { c: Card; i: number }) {
     <div className="ld-bp" aria-hidden="true">
       <GearIcon name={c.icon} />
       <span className="ld-bp__fig">Fig. {String(i + 1).padStart(2, "0")}</span>
-      <span className="ld-bp__note">Photo to come</span>
+      <span className="ld-bp__note">{c.status === "ready" ? "Open in 3D" : "Photo to come"}</span>
       <span className="ld-bp__scan" />
     </div>
   );

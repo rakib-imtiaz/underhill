@@ -43,7 +43,10 @@ function dressMapperPlus(inst, THREE) {
   const cam = root.getObjectByName('gimbal-camera');
   const qr = root.getObjectByName('gimbal-connector');
   if (!qr || root.getObjectByName('gear:mapper')) return;
-  if (cam) cam.visible = false;
+  // the Mapper+ is fixed on the Skyport: the gimbal's yaw stage (arms, roll and pitch motors and the
+  // camera it carries) goes with the camera
+  const yaw = root.getObjectByName('gimbal-yaw');
+  if (yaw) yaw.visible = false; else if (cam) cam.visible = false;
   const g = new THREE.Group();
   g.name = 'gear:mapper';
   const black = new THREE.MeshStandardMaterial({ name: 'mapper-black', color: 0x17191c, roughness: 0.42, metalness: 0.35 });

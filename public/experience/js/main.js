@@ -106,8 +106,35 @@ let spotWas = -1;
 const labels = new Labels($('#labels'), $('#leaders'));
 const dust = Object.fromEntries(Object.entries(stage.stations).map(([k, st]) => [k, new DustMotes(st.keyRig, st.keyLight, { count: Q.dust })]));
 const intertitleEls = [...document.querySelectorAll('.intertitle')];
+// chapter slates: dressed once here from the plain markup in film.html (number, title, subtitle) into
+// a survey-sheet slate: grid backdrop, a large outlined chapter number, registration corners, the
+// title rising word by word out of a mask, a ruler drawing out under it. Opacity follows the scroll
+// (s.intertitles); the entrance itself is timed (CSS, on .is-on), so it plays fully even mid-move.
+const IT_ICONS = {
+  gnss: '<path d="M8 6.5c0-1.4 1.8-2.5 4-2.5s4 1.1 4 2.5S14.2 9 12 9 8 7.9 8 6.5z"/><path d="M12 9v12M8.5 21h7"/><path d="M5 5.5a8 8 0 0 1 2-2.5M19 5.5a8 8 0 0 0-2-2.5"/>',
+  ts: '<rect x="8.5" y="3.5" width="7" height="6" rx="1"/><circle cx="12" cy="6.5" r="1.6"/><path d="M7.5 9.5h9v2h-9z"/><path d="M12 11.5 6 21M12 11.5 18 21M12 11.5V21"/>',
+  field: '<path d="M2.5 19.5 9 10l4 5.5 3-4 5.5 8z"/><path d="M15 4v6M15 4h4l-1 1.5 1 1.5h-4"/>',
+  world: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5c-2.6-2.4-3.8-5.2-3.8-8.5s1.2-6.1 3.8-8.5z"/>',
+};
+const IT_TOTAL = String(intertitleEls.length + 1).padStart(2, '0');
+for (const el of intertitleEls) {
+  const n = el.querySelector('.intertitle__n')?.textContent.trim() || '';
+  const t = el.querySelector('.intertitle__t')?.textContent.trim() || '';
+  const sub = el.querySelector('.intertitle__s')?.textContent.trim() || '';
+  const esc = (x) => x.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const words = t.split(/\s+/).map((w, i) => `<span class="it__w"><span style="--k:${i}">${esc(w)}</span></span>`).join(' ');
+  el.innerHTML = `<span class="it__bg"></span><span class="it__big">${esc(n)}</span>
+    <div class="it__box">
+      <span class="it__c it__c--tl"></span><span class="it__c it__c--tr"></span><span class="it__c it__c--bl"></span><span class="it__c it__c--br"></span>
+      <span class="intertitle__n">Chapter <b>${esc(n)}</b><i>/ ${IT_TOTAL}</i></span>
+      <span class="intertitle__t">${words}</span>
+      <span class="it__rule"><i></i></span>
+      <span class="intertitle__s"><svg viewBox="0 0 24 24" aria-hidden="true">${IT_ICONS[el.dataset.id] || ''}</svg>${esc(sub)}</span>
+    </div>`;
+}
 // daylight mode (daylight.js): blended over every frame after it is posed; the switch is in the header
 const daylight = new Daylight({ stage, field, globe });
+daylight.camera = camera;   // (the day studio's fog starts past the nearest instrument)
 let dayFrame = 0;
 // Act II prism: placed once, independent of which total station build is resident
 const fieldLaser = new LaserShot(scene);
@@ -267,7 +294,7 @@ function outlineAtKey(name, entry, ku, hit) {
 function fitSubject(u, key) {
   // (Act II: the control shot frames the base station, the pre-flight the drone, on tall screens)
   const names = u < 10.62 ? ['drone'] : u < 18.14 ? ['gnss'] : u < 25.6 ? ['ts'] : u < TL.FCUT ? ['drone', 'gnss', 'ts']
-    : u >= 30.2 && u < 32.6 ? ['gnss'] : u >= TL.HERO.cut && u < TL.HERO.lift[1] ? ['drone'] : null;
+    : u >= 30.2 && u < 32.6 ? ['gnss'] : u >= TL.HERO.cut && u < TL.HERO.hover[1] ? ['drone'] : null;
   if (!names) return null;
   const pts = [];
   for (const n of names) { const e = models.active(n); if (!e) return null; for (const q of outlineAtKey(n, e, key.u, key.hit)) pts.push(q); }
@@ -331,7 +358,7 @@ for (const b of TL.BEATS) {
 const railBtns = [...document.querySelectorAll('.rail__ticks button')];
 for (const btn of railBtns) {
   // a click on the rail jumps (briskly) to the chapter's first resting beat
-  btn.addEventListener('click', () => stepTo(stopIndexAtOrAfter(TL.CHAPTER_START[btn.dataset.go] + 0.02), { jump: true }));
+  btn.addEventListener('click', () => { apPause(); stepTo(stopIndexAtOrAfter(TL.CHAPTER_START[btn.dataset.go] + 0.02), { jump: true }); });
 }
 // the rail counts the five chapters; the title belongs to the first, the three-instrument close to the third
 const RAIL = { title: -1, drone: 0, gnss: 1, ts: 2, end: 2, field: 3, world: 4 };
@@ -348,11 +375,11 @@ function updateRail(chapter) {
   railBtns.forEach((b, i) => b.setAttribute('aria-current', i === k ? 'step' : 'false'));
 }
 
-/* ------------------------------------------- previous / next stop: the arrows by the rail */
-// A click is a wheel tick: it glides to the stop before or after (stepBy, the checkpoint stepper),
-// and a click during a move queues the next one, as a gesture does. ← → and Page Up / Down already
-// step (the keydown handler below). Disabled at the ends, while the intro or the menu has the page, and
-// while an instrument is still being built; hidden with the rail while the film boots (style.css).
+/* ---------------------------------------- previous / next chapter: the arrows by the rail */
+// A click cuts straight to the first stop of the previous / next chapter (cutTo; it also stops
+// autoplay). The wheel, swipes and ← → / Page Up / Down still step stop by stop (stepBy). Disabled at
+// the ends, while the intro or the menu has the page, and while an instrument is still being built;
+// hidden with the rail while the film boots (style.css).
 const navBtns = [$('#filmnav-prev'), $('#filmnav-next')];
 const navTip = $('#filmnav-tip');
 let navKey = '', navHot = null;
@@ -364,35 +391,69 @@ function stopLabel(i) {
 }
 function showNavTip(btn) {
   navHot = btn;
+  if (btn && btn === apBtn) {
+    // the play button's tip: what it will do
+    const end = uNow() >= STOPS[LAST_STOP] - 0.02;
+    $('#filmnav-k').textContent = AP.on ? (AP.until >= 0 ? 'Playing the chapter' : 'Autoplay · playing') : 'Autoplay';
+    $('#filmnav-t').textContent = AP.on ? 'Pause here (or press Space)' : end ? 'Play again from the opening' : 'Play the film to the end';
+    navTip.dataset.dir = '0';
+    navTip.classList.add('is-on');
+    return;
+  }
   const dir = Number(btn?.dataset.dir || 0);
-  const k = btn && !btn.disabled ? nextStop(dir) : -1;
-  if (k < 0 || k > LAST_STOP) { navTip.classList.remove('is-on'); return; }
-  const l = stopLabel(k);
-  $('#filmnav-k').textContent = `${dir < 0 ? 'Back to' : 'Next'} · ${l.k}`;
-  $('#filmnav-t').textContent = l.t;
+  const i = btn && !btn.disabled ? chapterTarget(dir) : -1;
+  if (i < 0) { navTip.classList.remove('is-on'); return; }
+  const l = stopLabel(CHAPTERS[i].first);
+  $('#filmnav-k').textContent = dir < 0 ? 'Previous chapter' : 'Next chapter';
+  $('#filmnav-t').textContent = l.k === 'Opening' ? 'The opening' : l.k;
   navTip.dataset.dir = String(dir);
   navTip.classList.add('is-on');
 }
 for (const btn of navBtns) {
   const dir = Number(btn.dataset.dir);
-  btn.addEventListener('click', () => { if (!btn.disabled) { stepBy(dir); needsRender = true; } });
+  // (during autoplay a click only pauses it, where the film is: the next click steps)
+  btn.addEventListener('click', () => {
+    showNavTip(null);   // the tip goes on a click (it used to stay up over the stop's card)
+    if (btn.disabled) return;
+    const i = chapterTarget(dir);
+    if (i >= 0) goChapter(i);
+  });
   btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showNavTip(btn); });
-  btn.addEventListener('pointerleave', () => { if (navHot === btn && document.activeElement !== btn) showNavTip(null); });
+  // (only while hovered, or focused from the keyboard: a mouse click leaves the button focused, and the
+  // tip used to stay up after the pointer had gone)
+  btn.addEventListener('pointerleave', () => { if (navHot === btn && !btn.matches(':focus-visible')) showNavTip(null); });
   btn.addEventListener('focus', () => { if (btn.matches(':focus-visible')) showNavTip(btn); });
   btn.addEventListener('blur', () => { if (navHot === btn) showNavTip(null); });
+}
+/** The tip never covers a card, a label or a tag: while it is up, it is hidden whenever its box
+ *  meets one of theirs (checked per frame; the overlays move with the film). */
+const TIP_AVOID = '#ucards > *, #labels > .label, #ftags > *, #tags > .tag, #readout, .caption, #endcards';
+let tipBlocked = false;
+function guardNavTip() {
+  if (!navTip.classList.contains('is-on')) { if (tipBlocked) { tipBlocked = false; navTip.classList.remove('is-blocked'); } return; }
+  const r = navTip.getBoundingClientRect();
+  let hit = false;
+  for (const el of document.querySelectorAll(TIP_AVOID)) {
+    if (el.style.visibility === 'hidden') continue;
+    const cs = el.style.opacity; if (cs !== '' && !(Number(cs) > 0.04)) continue;
+    const o = el.getBoundingClientRect();
+    if (!o.width || !o.height) continue;
+    if (o.left < r.right + 6 && o.right > r.left - 6 && o.top < r.bottom + 6 && o.bottom > r.top - 6) { hit = true; break; }
+  }
+  if (hit !== tipBlocked) { tipBlocked = hit; navTip.classList.toggle('is-blocked', hit); }
 }
 /** per frame: which way the arrows can go now, their names, and the tip (DOM written on change only) */
 function updateNav(loading) {
   const on = stepperOn() && !loading;
-  const prev = on ? nextStop(-1) : -1, next = on ? nextStop(1) : LAST_STOP + 1;
+  const prev = on ? chapterTarget(-1) : -1, next = on ? chapterTarget(1) : -1;
   const key = `${prev}|${next}`;
   if (key === navKey) return;
   navKey = key;
   const [bp, bn] = navBtns;
-  bp.disabled = prev < 0; bn.disabled = next > LAST_STOP;
-  const name = (i) => { const l = stopLabel(i); return `${l.t} (${l.k})`; };
-  bp.setAttribute('aria-label', prev < 0 ? 'Previous stop' : `Previous stop: ${name(prev)}`);
-  bn.setAttribute('aria-label', next > LAST_STOP ? 'Next stop' : `Next stop: ${name(next)}`);
+  bp.disabled = prev < 0; bn.disabled = next < 0;
+  const name = (i) => stopLabel(CHAPTERS[i].first).k;
+  bp.setAttribute('aria-label', prev < 0 ? 'Previous chapter' : `Previous chapter: ${name(prev)}`);
+  bn.setAttribute('aria-label', next < 0 ? 'Next chapter' : `Next chapter: ${name(next)}`);
   if (navHot) showNavTip(navHot);
 }
 $('#lb-toggle').addEventListener('click', () => {
@@ -531,6 +592,66 @@ function poseModel(key, entry, s, flight) {
   return st;
 }
 
+/* The drone in the air, alive on the clock (2026-10-13). Its flight is a pure function of u, so wherever
+   the film holds (a stop's dwell, a paused scroll) it used to hang dead still in the sky. Laid over the
+   pose each frame, after the camera: the slow drift and bob of a hovering multirotor (a few
+   centimetres, a little more when the camera is far, so it still reads), the small tilts that drift
+   makes, a little yaw wander, and the attitude of real flight: the authored nose-down pitch only while
+   the film is actually moving it, easing level with a small flare when the film stops and dipping
+   again as it moves on. The top beacon strobes while it flies. The flight path itself (the scan, the
+   returns, the cards) stays the pure function of u. Off with reduced motion; it fades out at the lens,
+   where the camera is locked off. */
+const life = { u: NaN, k: 1, kv: 0, beacon: null, beaconOf: null, beaconBase: 1.2 };
+function droneLife(entry, s, u, dt, clock, instant) {
+  if (!entry) return;
+  if (life.beaconOf !== entry) {
+    // the amber anti-collision beacon on the top plate (its material is the model's own)
+    life.beaconOf = entry; life.beacon = null;
+    entry.inst.root.traverse((o) => { if (!life.beacon && o.material?.name === 'beacon') life.beacon = o.material; });
+    if (life.beacon) life.beaconBase = life.beacon.emissiveIntensity;
+  }
+  const flying = s.inField && droneFlight.flying;
+  if (life.beacon) {
+    // two short flashes every 1.4 s (an emissive level: no program change)
+    const ph = (clock % 1.4) / 1.4, blip = (c) => Math.exp(-Math.pow((ph - c) / 0.012, 2));
+    const fl = flying && !REDUCED ? Math.max(blip(0.02), blip(0.13)) : 0;
+    life.beacon.emissiveIntensity = life.beaconBase + 34 * fl;
+  }
+  if (!flying || REDUCED) { life.u = NaN; return; }
+  const root = entry.inst.root;
+  // how fast the film is carrying the flight, against its authored pace (PACE): 1 = as authored
+  const pace = TL.paceAt(u);
+  let kT = 1;
+  if (!instant && dt > 0 && pace && Number.isFinite(life.u)) kT = Math.min(1, (Math.abs(u - life.u) / dt) * pace);
+  life.u = u;
+  if (instant || dt <= 0) { life.k = kT; life.kv = 0; }
+  else {
+    // a slightly underdamped spring: braking, the nose comes up a touch past level, then settles
+    const w = 5.5, z = 0.62, h = Math.min(dt, 0.05);
+    life.kv += (w * w * (kT - life.k) - 2 * z * w * life.kv) * h;
+    life.k += life.kv * h;
+  }
+  root.rotation.x = droneFlight.pitch * THREE.MathUtils.clamp(life.k, -0.35, 1.15);
+  // the hover: off the pad it grows in; at the lens it fades out
+  const pad = FIELD.stations.drone.y;
+  const A = THREE.MathUtils.smoothstep(droneFlight.pos.y - pad, 0.15, 1.2) * (1 - THREE.MathUtils.smoothstep(TL.approachAt(u), 0, 0.15))
+    * Math.min(0.09, 0.035 + 0.0035 * camera.position.distanceTo(droneFlight.pos));
+  if (A <= 1e-4) return;
+  const t = clock;
+  const S1 = Math.sin(0.71 * t + 0.3), S2 = Math.sin(1.37 * t + 2.1), S3 = Math.sin(0.53 * t + 1.7), S4 = Math.sin(1.19 * t + 0.4);
+  root.position.x += A * (S1 + 0.45 * S2);
+  root.position.z += A * (S3 + 0.45 * S4);
+  root.position.y += A * 0.8 * (Math.sin(1.9 * t) + 0.5 * Math.sin(3.1 * t + 1.0));
+  // it leans into its drift: the drift's acceleration, in its own frame, as a tilt (×2.5 of a/g, so it reads)
+  const ax = -A * (0.504 * S1 + 0.845 * S2), az = -A * (0.281 * S3 + 0.637 * S4);
+  const hd = droneFlight.heading, ch = Math.cos(hd), sh = Math.sin(hd);
+  root.rotation.x += 2.5 * (ax * ch + az * sh) / 9.81;
+  root.rotation.z += 2.5 * (-ax * sh + az * ch) / 9.81;
+  root.rotation.y += 0.012 * Math.sin(0.37 * t + 0.8) + 0.006 * Math.sin(0.91 * t + 2.0);
+  // (hovering low over the pad it still shades it: keep the contact shadow with it)
+  if (root.position.lengthSq() < 9) stage.markDirty('drone');
+}
+
 function apply(u, dt, clock, { instant = false } = {}) {
   const s = TL.sceneAt(u);
   lastState = s;
@@ -581,13 +702,18 @@ function apply(u, dt, clock, { instant = false } = {}) {
   // a camera on a dolly is never perfectly still: a few millimetres of slow drift (off when reduced)
   // (locked off while the drone flies at the lens, where a few centimetres would swing it across frame)
   const lock = 1 - THREE.MathUtils.smoothstep(TL.approachAt(u), 0.3, 0.6);
-  const drift = (cam, cs) => {
+  // (2026-10-13) while the drone flies its mission the camera is another aircraft: it floats a little
+  // more (about 1 % of its distance, over 14–20 s), so a held stop in the air never freezes the frame.
+  // Faded in off the pad and out on the way up to the plan view, a pure function of u: no pop
+  const air = s.inField ? THREE.MathUtils.smoothstep(u, TL.HERO.lift[0], TL.HERO.lift[1]) * (1 - THREE.MathUtils.smoothstep(u, 46.9, 47.6)) : 0;
+  const drift = (cam, cs, fl = 0) => {
     if (REDUCED) return;
-    const a = 0.0022 * cs.pos.distanceTo(cs.tgt) * lock;
-    cam.position.x += a * (Math.sin(clock * 0.37) + 0.5 * Math.sin(clock * 0.83 + 1.3));
-    cam.position.y += a * 0.7 * (Math.sin(clock * 0.29 + 2.1) + 0.5 * Math.sin(clock * 0.71));
+    const D = cs.pos.distanceTo(cs.tgt), a = 0.0022 * D * lock, b = 0.0095 * D * fl;
+    cam.position.x += a * (Math.sin(clock * 0.37) + 0.5 * Math.sin(clock * 0.83 + 1.3)) + b * Math.sin(clock * 0.45 + 0.7);
+    cam.position.y += a * 0.7 * (Math.sin(clock * 0.29 + 2.1) + 0.5 * Math.sin(clock * 0.71)) + b * 0.6 * Math.sin(clock * 0.31 + 2.4);
+    cam.position.z += b * Math.sin(clock * 0.38 + 4.1);
   };
-  drift(camera, camState);
+  drift(camera, camState, air);
   camera.lookAt(camState.tgt);
   const far = u >= TL.GCUT ? 200 : u >= TL.FCUT ? 1700 : 60, near = u >= TL.GCUT ? 0.004 : u >= TL.FCUT ? 0.05 : 0.03;
   frameCamera(camera, st, camState.fov, near, far);
@@ -601,6 +727,7 @@ function apply(u, dt, clock, { instant = false } = {}) {
   }
   stage.aimRigs(camState.pos);
   camera.updateMatrixWorld();
+  droneLife(models.active('drone'), s, u, dt, clock, instant);
 
   // rotors: the scroll sets the target (parked 0, flying 1); the speed ramps to it on the clock, about
   // a second up and a little less down, so they spin up and wind down the same way whatever the scroll.
@@ -875,7 +1002,7 @@ function updateEndcards(u) {
   endEl.inert = !live;
   endEl.setAttribute('aria-hidden', String(!live));
 }
-$('#scroll-cue').addEventListener('click', () => stepBy(1));
+$('#scroll-cue').addEventListener('click', () => { apPause(); stepBy(1); });
 
 /* ------------------------------------------------------------------ Underhill information cards */
 /** The slant distance the total station reads to PT-114 (from its own optics when it is resident). */
@@ -936,7 +1063,8 @@ function updateDom(s) {
     const a = s.intertitles[i];
     el.style.opacity = a.toFixed(3);
     el.style.visibility = a > 0.002 ? 'visible' : 'hidden';
-    el.style.transform = `translateY(${((1 - a) * 10).toFixed(1)}px)`;
+    // the entrance plays once it is clearly up, and resets once it has gone (so it replays next time)
+    if (a > 0.35) el.classList.add('is-on'); else if (a < 0.01) el.classList.remove('is-on');
   });
   // the header's progress line follows the real scroll; review captures do not scroll, so set it here
   if (DEBUG_FRAME !== null) setProgress(u / TL.U);
@@ -975,6 +1103,7 @@ function updateDom(s) {
   const loading = want && (models.isLoading(want) || !models.active(want));
   $('#loader').classList.toggle('is-on', !!loading && document.body.classList.contains('is-ready'));
   updateNav(!!loading);
+  guardNavTip();
 
   // laser readout next to the prism
   const ro = s.readout * (models.active('ts') ? 1 : 0);
@@ -1046,7 +1175,12 @@ function readScroll() {
   const raw = THREE.MathUtils.clamp(scrollY / vhPx, 0, TL.U);
   uTarget = REDUCED ? TL.beatAt(raw).still : raw;
 }
-addEventListener('scroll', () => { readScroll(); needsRender = true; }, { passive: true });
+addEventListener('scroll', () => {
+  // the page moved, and not by autoplay's own hand (the scrollbar, find-in-page, a middle-click…):
+  // the reader has taken over (AP and apPause: the autoplay section below)
+  if (AP.on && Math.abs(scrollY - AP.top) > 3) apPause();
+  readScroll(); needsRender = true;
+}, { passive: true });
 
 /* ---------------------------------------------------------------------- checkpoints (stepper) */
 // Underhill's hero navigation: every beat's resting frame is a stop. One wheel tick, swipe, arrow
@@ -1070,6 +1204,65 @@ function nextStop(dir) {
   return -1;
 }
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** An even-paced move: the speed rises over the first share r of the time (a cosine ramp), holds,
+ *  and falls over the last r. Its peak is only 1/(1−r) of the mean (the cubic's is 3×), so a move
+ *  reads as one steady glide that starts and ends at rest, C1 throughout. */
+function cineEase(s, r = 0.22) {
+  if (s <= 0) return 0;
+  if (s >= 1) return 1;
+  const A = 1 - r;
+  const P = (x) => (x < r ? x / 2 - (r / (2 * Math.PI)) * Math.sin((Math.PI * x) / r) : r / 2 + (x - r));
+  return s <= 1 - r ? P(s) / A : 1 - P(1 - s) / A;
+}
+/** An authored move (timeline.js PACE: the field take-off, the strips, the run to the model): its
+ *  duration and the map from time to u that keeps the authored pace inside it; or null. Backward plays
+ *  a little quicker. */
+function authoredMove(a, b) {
+  const N = 48, du = (b - a) / N;
+  for (let i = 0; i <= N; i++) if (!TL.paceAt(a + du * i)) return null;
+  const map = new Float64Array(N + 1);
+  // (the pace is softened over a few slices either side of a change, e.g. strips → run to the model at
+  // 46.68: taken as it stands, the camera's speed stepped up by the ratio of the two paces in one slice)
+  const k = [];
+  for (let i = 0; i < N; i++) k.push(TL.paceAt(a + du * (i + 0.5)));
+  const W = [1, 2, 3, 2, 1];
+  for (let i = 1; i <= N; i++) {
+    let s = 0, w = 0;
+    for (let j = -2; j <= 2; j++) { const q = k[Math.min(N - 1, Math.max(0, i - 1 + j))]; s += q * W[j + 2]; w += W[j + 2]; }
+    map[i] = map[i - 1] + (s / w) * Math.abs(du);
+  }
+  const dur = map[N] * (b < a ? 0.75 : 1);
+  for (let i = 1; i <= N; i++) map[i] /= map[N];
+  return dur > 0.05 ? { dur, map } : null;
+}
+/** Chapter slates (timeline.js INTERTITLES) are passed inside a move: a move that crosses one slows
+ *  through its fades and holds on it, so it is read rather than flashed (it used to be on screen for
+ *  about a tenth of a second). Extra seconds per u at u. */
+const SLATE_HOLD = 1.7, SLATE_FADE = 0.5;
+function slateExtra(u) {
+  for (const it of TL.INTERTITLES) {
+    if (it.u0 === null) continue;
+    const i0 = it.u0 + 0.12, f0 = it.u0 + 0.32, f1 = it.u1 - 0.3, o1 = it.u1 - 0.08;
+    if (u >= f0 && u <= f1) return SLATE_HOLD / Math.max(0.02, f1 - f0);
+    if (u >= i0 && u < f0) return SLATE_FADE / (f0 - i0);
+    if (u > f1 && u <= o1) return SLATE_FADE / (o1 - f1);
+  }
+  return 0;
+}
+/** plan (its duration and time → u map, or a plain linear move) with the slate holds added; null when
+ *  the move crosses no slate */
+function withHolds(a, b, plan) {
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  if (REDUCED || !TL.INTERTITLES.some((it) => it.u0 !== null && it.u0 + 0.12 < hi && it.u1 - 0.08 > lo)) return null;
+  const N = 240, M0 = plan.map, n0 = M0 ? M0.length - 1 : 1;
+  // time fraction of the base plan at fraction x of the way in u
+  const base = (x) => { if (!M0) return x; const f = x * n0, i = Math.min(n0 - 1, Math.floor(f)); return M0[i] + (M0[i + 1] - M0[i]) * (f - i); };
+  const map = new Float64Array(N + 1), du = (b - a) / N;
+  for (let i = 1; i <= N; i++) map[i] = map[i - 1] + plan.dur * (base(i / N) - base((i - 1) / N)) + slateExtra(a + du * (i - 0.5)) * Math.abs(du);
+  const dur = map[N];
+  for (let i = 1; i <= N; i++) map[i] /= dur;
+  return { dur, map };
+}
 function stepTo(k, { jump = false, speed = 1 } = {}) {
   k = Math.max(0, Math.min(LAST_STOP, k));
   // (a gesture mid-move queues the next stop and hurries this move along; the speed eases up, so the
@@ -1080,17 +1273,73 @@ function stepTo(k, { jump = false, speed = 1 } = {}) {
   if (Math.abs(b - a) < 1e-3) { step = null; return; }
   if (REDUCED) { step = null; window.scrollTo({ top: b * vhPx, behavior: 'instant' }); return; }
   const n = Math.abs(stopIndexAtOrAfter(b) - stopIndexAtOrAfter(a));
-  const dur = jump ? Math.min(2.2, 0.9 + 0.25 * n) : Math.min(5, Math.max(3, 2.2 + 0.9 * Math.abs(b - a)));
-  step = { k, a, b, t: 0, dur, speed, speedTo: speed };
+  // (an authored move, the field take-off and the strips, plays at its own even pace: it used to be
+  // squeezed into the 5 s cap with a cubic ease, and looked fast-forwarded)
+  const authored = jump ? null : authoredMove(a, b);
+  const linDur = Math.min(5, Math.max(3, 2.2 + 0.9 * Math.abs(b - a)));
+  const mv = jump ? null : withHolds(a, b, authored || { dur: linDur, map: null }) || authored;
+  const dur = jump ? Math.min(2.2, 0.9 + 0.25 * n) : mv ? mv.dur : linDur;
+  step = { k, a, b, t: 0, dur, speed, speedTo: speed, plan: mv };
   needsRender = true;
 }
 function stepBy(dir) { const k = nextStop(dir); if (k >= 0 && k <= LAST_STOP) stepTo(k); }
+/* chapters: the Prev / Next arrows cut to the previous / next chapter's opening (its title slate,
+   where it has one) and play it from there on autoplay's machinery (AP.until): chapters 01–03 play
+   through to their last stop and rest there; 04 glides from its slate onto its first stop (it is
+   too long for one click); 05 has no slate and opens on its first stop. Index 0 is the opening. */
+const CHAPTERS = [{ id: 'title', at: 0 }, ...['drone', 'gnss', 'ts', 'field', 'world'].map((id) => ({ id, at: TL.CHAPTER_START[id] }))]
+  .map((c, i, all) => {
+    const first = c.id === 'title' ? 0 : stopIndexAtOrAfter(c.at + 0.02);
+    const nextAt = all[i + 1] ? all[i + 1].at : Infinity;
+    let last = first;
+    while (last + 1 <= LAST_STOP && STOPS[last + 1] < nextAt) last++;
+    const slate = TL.INTERTITLES.find((it) => it.id === c.id && it.u0 !== null);
+    return {
+      ...c, first,
+      until: ['drone', 'gnss', 'ts'].includes(c.id) ? last : first,
+      // the slate fully up (its title in, its ruler drawn): the middle of its full window
+      entry: slate ? (slate.u0 + 0.32 + slate.u1 - 0.3) / 2 : c.id === 'drone' ? c.at : STOPS[first],
+      slate: !!slate,
+    };
+  });
+/** which chapter the film is in now (0 = the opening) */
+function chapterSlot() {
+  const u = step ? STOPS[step.k] : uNow();
+  let i = 0;
+  for (let j = 1; j < CHAPTERS.length; j++) if (u >= CHAPTERS[j].at - 0.01) i = j;
+  return i;
+}
+/** the chapter an arrow goes to (index into CHAPTERS), or -1 */
+function chapterTarget(dir) {
+  const i = chapterSlot() + dir;
+  return i >= 0 && i < CHAPTERS.length ? i : -1;
+}
+/** cut to chapter i's opening and play it (see CHAPTERS) */
+function goChapter(i) {
+  const c = CHAPTERS[i];
+  apStop();
+  step = null; queued = null;
+  const u = REDUCED || i === 0 ? STOPS[c.first] : c.entry;
+  window.scrollTo({ top: u * vhPx, behavior: 'instant' });
+  uTarget = uShown = u;
+  rotor.speed = 0;
+  needsRender = true;
+  if (REDUCED || i === 0 || !stepperOn() || document.hidden) return;
+  if (Math.abs(u - STOPS[c.first]) < 1e-3 && c.until === c.first) return;   // already resting there
+  AP.on = true; AP.until = c.until; AP.top = scrollY;
+  apUi();
+  // a beat on the slate (or the chapter's first frame), then on through the chapter
+  AP.k = c.first - 1; AP.phase = 'dwell'; AP.t = 0; AP.dur = c.slate ? 1.0 : 0.4;
+  AP.next = Math.abs(u - STOPS[c.first]) < 1e-3 ? null : planMove(u, STOPS[c.first]);
+  if (!AP.next) { apArrive(c.first); return; }
+  AP.cycT = 0; AP.cycDur = AP.dur + AP.next.dur;
+}
 /** advance the running move (from the frame loop) */
 function stepFrame(dt) {
   if (!step) return;
   step.speed += (step.speedTo - step.speed) * (1 - Math.exp(-dt / 0.35));
   step.t = Math.min(1, step.t + (dt / step.dur) * step.speed);
-  const u = step.a + (step.b - step.a) * easeInOut(step.t);
+  const u = step.plan ? planU(step.plan, step.a, step.b, cineEase(step.t)) : step.a + (step.b - step.a) * easeInOut(step.t);
   window.scrollTo({ top: u * vhPx, behavior: 'instant' });
   uTarget = u;
   if (step.t >= 1) {
@@ -1109,10 +1358,219 @@ function engaged(dir) {
   if (dir < 0 && u <= STOPS[0] + 0.001) return false;
   return true;
 }
+/* -------------------------------------------------------------------------------- autoplay */
+// ▶ PLAY, by the chapter arrows: the film plays itself from here to the end. A move to each stop,
+// then a dwell long enough to read its caption and card (3.5–6 s by the length of the text), then on.
+// It drives the very progress the scroll drives (the page's scroll position and uTarget, as the
+// stepper does), from the frame loop with time-based steps: a slow frame neither hurries nor slows
+// it. While it plays, the stepper is idle and CSS scroll snapping is off (html.is-autoplay), so
+// nothing re-snaps the page under it. Any gesture of the reader's (wheel, swipe, scrollbar, the arrow
+// buttons, the keys) pauses it where the film is; Space toggles it; a hidden tab pauses it; at the
+// last stop it stops, and ▶ PLAY there starts again from the opening. ?autoplay=1 starts it when the
+// boot screen hands off. Reduced motion: the same dwells, with cuts between the stops.
+// Each move is timed by the camera: its time is spread over the move in proportion to how fast the
+// camera travels there (cameraMotion), so where the authored camera keys ease to a standstill inside
+// a move (the drone's push-in, 04→05) autoplay passes through them briskly and the camera's own pace
+// stays even; the whole move then follows cineEase (a steady glide, at rest at both ends). Moves with
+// an authored duration (the take-off and the strips) keep their own even pace.
+const AP = { on: false, phase: 'idle', k: 0, t: 0, dur: 0, a: 0, b: 0, plan: null, next: null, cycT: 0, cycDur: 1, top: NaN, meter: -1, until: -1 };
+const apBtn = $('#filmnav-play'), apMeter = $('#filmnav-meter'), apLbl = $('#filmnav-play-lbl');
+const AP_TITLE_DWELL = 4.2;   // the opening title (and the hand-off from the boot screen)
+/** Seconds at stop k: by what there is to read (the caption, and a third of an information card's text). */
+function dwellFor(k) {
+  if (k === 0) return AP_TITLE_DWELL;
+  const b = TL.BEATS[k];
+  let chars = (b.title || '').length + (b.copy || '').length;
+  for (const it of cards.items) if (cards.alpha(it.spec, STOPS[k]) > 0.5) chars += 0.35 * Math.min(220, it.el.textContent.trim().length || 120);
+  return Math.round(THREE.MathUtils.clamp(1.9 + 0.0165 * chars, 3.5, 6) * 100) / 100;
+}
+/** The plan of the move a → b: its duration and the map from eased time to u. */
+function planMove(a, b) {
+  if (REDUCED) return { dur: 0, map: null };
+  const plan = planMoveBase(a, b);
+  return withHolds(a, b, plan) || plan;
+}
+function planMoveBase(a, b) {
+  const mv = authoredMove(a, b);
+  if (mv) return mv;
+  const N = 48, raw = new Float64Array(N + 1);
+  for (let i = 0; i <= N; i++) raw[i] = cameraMotion(a + ((b - a) * i) / N);
+  // (a cut under a dip to black reads as a huge jump in this measure: it gets the median weight, so
+  // the move does not linger on a black frame)
+  const med = [...raw].sort((x, y) => x - y)[N >> 1];
+  const m = raw.map((v) => (v > 6 * med + 4 ? med : Math.min(v, 8)));
+  const mean = Math.max(0.3, m.reduce((x, y) => x + y, 0) / (N + 1));
+  const map = new Float64Array(N + 1);
+  for (let i = 1; i <= N; i++) map[i] = map[i - 1] + (0.4 + (m[i - 1] + m[i]) / mean) / 2;
+  for (let i = 1; i <= N; i++) map[i] /= map[N];
+  // (a move that carries the camera far, the drone's push-in say, gets more time, so its pace stays
+  // near that of the others)
+  const du = Math.abs(b - a);
+  const dur = THREE.MathUtils.clamp(1.5 + 1.15 * du + 0.45 * Math.max(0, mean - 1) * du, 3.2, 7);
+  return { dur, map };
+}
+/** u at eased time e (0..1) of the move a → b */
+function planU(plan, a, b, e) {
+  const M = plan.map;
+  if (!M) return a + (b - a) * e;
+  let lo = 0, hi = M.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (M[mid] <= e) lo = mid; else hi = mid; }
+  const f = M[hi] > M[lo] ? (e - M[lo]) / (M[hi] - M[lo]) : 0;
+  return a + (b - a) * ((lo + THREE.MathUtils.clamp(f, 0, 1)) / (M.length - 1));
+}
+function apWrite(u) {
+  uTarget = u;
+  window.scrollTo({ top: u * vhPx, behavior: 'instant' });
+  AP.top = scrollY;   // (as the page has it, on its own pixel grid)
+}
+function apUi() {
+  const on = AP.on;
+  document.documentElement.classList.toggle('is-autoplay', on);
+  if (!apBtn) return;
+  apBtn.classList.toggle('is-playing', on);
+  apBtn.setAttribute('aria-pressed', String(on));
+  apBtn.setAttribute('aria-label', on ? 'Pause autoplay' : 'Play the film by itself, to the end');
+  if (apLbl) apLbl.textContent = on ? 'Pause' : 'Play';
+  if (!on) apMeterSet(0);
+  if (navHot === apBtn) showNavTip(apBtn);
+}
+function apMeterSet(p) {
+  p = Math.round(THREE.MathUtils.clamp(p, 0, 1) * 500) / 500;
+  if (p === AP.meter || !apMeter) return;
+  AP.meter = p;
+  apMeter.style.transform = `scaleX(${p})`;
+}
+/** settle at stop k: dwell there (unless it is the last), with the next move planned */
+function apArrive(k, dwell) {
+  AP.k = k;
+  if (k >= LAST_STOP || (AP.until >= 0 && k >= AP.until)) { apStop(); return; }
+  AP.phase = 'dwell'; AP.t = 0; AP.dur = dwell ?? dwellFor(k);
+  AP.next = planMove(STOPS[k], STOPS[k + 1]);
+  AP.cycT = 0; AP.cycDur = AP.dur + AP.next.dur;   // the meter: the time left to the next stop
+}
+function apMove(k, fresh = false) {
+  const a = uTarget, b = STOPS[k];
+  AP.plan = !fresh && AP.next ? AP.next : planMove(a, b);
+  AP.next = null;
+  AP.phase = 'move'; AP.t = 0; AP.a = a; AP.b = b; AP.k = k;
+  if (fresh) { AP.cycT = 0; AP.cycDur = AP.plan.dur || 1; }
+}
+function apStart({ boot = false } = {}) {
+  if (AP.on || !stepperOn() || document.hidden) return;
+  AP.until = -1;
+  step = null; queued = null;
+  let u = uNow(), restart = false;
+  if (u >= STOPS[LAST_STOP] - 0.02) {
+    // at (or past) the end: from the opening (a cut: playing the film backwards to get there is not it)
+    restart = true; u = 0;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    uTarget = uShown = 0; rotor.speed = 0;
+  }
+  AP.on = true; AP.top = scrollY;
+  apUi();
+  const at = STOPS.findIndex((x) => Math.abs(x - u) < 0.03);
+  if (at >= 0) {
+    // at a stop: a short beat there first (all of its dwell after the boot or a restart)
+    if (Math.abs(STOPS[at] - u) > 1e-4) apWrite(STOPS[at]);
+    apArrive(at, boot || restart ? dwellFor(at) : 1.2);
+  } else {
+    // between two stops (paused mid-move): on to the next one
+    uTarget = u;
+    AP.k = stopIndexAtOrAfter(u) - 1;
+    apMove(AP.k + 1, true);
+  }
+  needsRender = true;
+}
+function apStop() { AP.on = false; AP.phase = 'idle'; AP.plan = AP.next = null; AP.until = -1; apUi(); }
+/** the reader takes over: autoplay stops where the film is (no snap to a stop) */
+function apPause() { if (AP.on) apStop(); }
+function apToggle() { if (AP.on) apPause(); else apStart(); }
+/** advance autoplay (from the frame loop, before the stepper) */
+function apFrame(dt) {
+  if (!AP.on) return;
+  if (!stepperOn()) { apPause(); return; }
+  AP.t += dt; AP.cycT += dt;
+  if (AP.phase === 'dwell' && AP.t >= AP.dur) apMove(AP.k + 1);
+  if (AP.phase === 'move') {
+    const s = AP.plan.dur > 0 ? Math.min(1, AP.t / AP.plan.dur) : 1;
+    apWrite(planU(AP.plan, AP.a, AP.b, cineEase(s)));
+    if (s >= 1) { apWrite(AP.b); apArrive(AP.k); }
+  }
+  if (AP.on) apMeterSet(AP.cycT / AP.cycDur);
+  needsRender = true;
+}
+apBtn?.addEventListener('click', () => { showNavTip(null); apToggle(); });
+apBtn?.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showNavTip(apBtn); });
+apBtn?.addEventListener('pointerleave', () => { if (navHot === apBtn && !apBtn.matches(':focus-visible')) showNavTip(null); });
+apBtn?.addEventListener('focus', () => { if (apBtn.matches(':focus-visible')) showNavTip(apBtn); });
+apBtn?.addEventListener('blur', () => { if (navHot === apBtn) showNavTip(null); });
+// a hidden tab pauses it (and it stays paused until the reader presses Play). A ?autoplay=1 film
+// opened in a background tab waits, and starts when it is first shown.
+let apPending = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) apPause();
+  else if (apPending) { apPending = false; apStart({ boot: true }); }
+});
+// a press on the page's scrollbar
+addEventListener('pointerdown', (e) => {
+  if (AP.on && e.target === document.documentElement && e.clientX >= document.documentElement.clientWidth) apPause();
+}, { capture: true });
+// Esc leaves the film for the site (not while a menu, the quality panel or the intro has the page,
+// nor while typing). Capture phase: the header's own Esc closes its menu in the bubble phase, and a
+// closed menu must not then read as "nothing open".
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (document.querySelector('.site-head.menu-open') || !$('#fset-panel')?.hidden || window.__intro?.playing) return;
+  if (document.querySelector('dialog[open], [aria-modal="true"]:not([hidden])')) return;
+  if (document.fullscreenElement || document.webkitFullscreenElement) return;   // (Esc leaves full screen first)
+  e.preventDefault();
+  location.href = $('#filmexit')?.getAttribute('href') || '/';
+}, { capture: true });
+
+// full screen: the button left of the quality chip, and F. Hidden where the page cannot go full
+// screen (iPhone Safari has no element full screen).
+{
+  const btn = $('#fsbtn'), root = document.documentElement;
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const can = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !!(root.requestFullscreen || root.webkitRequestFullscreen);
+  if (btn && can) {
+    btn.hidden = false;
+    const toggle = () => {
+      if (fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {});
+      else (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' })?.catch?.(() => {});
+    };
+    const sync = () => {
+      const on = !!fsEl();
+      btn.setAttribute('aria-pressed', String(on));
+      btn.setAttribute('aria-label', on ? 'Exit full screen' : 'View the film in full screen');
+      btn.title = on ? 'Exit full screen (F)' : 'Full screen (F)';
+      $('#fsbtn-lbl').textContent = on ? 'Exit full screen' : 'Full screen';
+      document.body.classList.toggle('is-fullscreen', on);
+    };
+    btn.addEventListener('click', toggle);
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    addEventListener('keydown', (e) => {
+      if ((e.key !== 'f' && e.key !== 'F') || e.repeat || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
+      e.preventDefault(); toggle();
+    });
+  }
+}
+
 // wheel / trackpad: one gesture, one step; the inertia tail of a gesture is ignored
 let wheelAcc = 0, lastWheel = 0, wheelBlocked = false;
 addEventListener('wheel', (e) => {
   if (e.ctrlKey) return;
+  if (AP.on) {
+    // autoplay: the gesture only pauses it, and the rest of the gesture (its inertia tail) is ignored
+    e.preventDefault(); apPause();
+    lastWheel = performance.now(); wheelBlocked = true; wheelAcc = 0;
+    return;
+  }
   const dir = Math.sign(e.deltaY);
   if (!dir || !engaged(dir)) return;
   e.preventDefault();
@@ -1136,7 +1594,9 @@ addEventListener('touchmove', (e) => {
   const d = Math.abs(dx) > Math.abs(dy) ? dx : dy, dir = d < 0 ? 1 : -1;
   if (tKind === 'none') {
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-    tKind = !e.target.closest?.('.mnav') && engaged(dir) ? 'step' : 'native';
+    // autoplay: a drag pauses it where the film is, and the swipe is spent on that
+    if (AP.on && !e.target.closest?.('.mnav')) { apPause(); tKind = 'step'; tFired = true; }
+    else tKind = !e.target.closest?.('.mnav') && engaged(dir) ? 'step' : 'native';
     if (tKind === 'native') return;
   }
   if (e.cancelable) e.preventDefault();
@@ -1149,11 +1609,21 @@ addEventListener('keydown', (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
   const t = e.target;
   if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  // Space: play / pause (a focused button or link keeps its own Space; below the film the page scrolls)
+  if (e.key === ' ' && !e.shiftKey) {
+    if (t && /^(BUTTON|A|SUMMARY)$/.test(t.tagName)) return;
+    if (!stepperOn() || (!AP.on && uNow() > STOPS[LAST_STOP] + 0.02)) return;
+    e.preventDefault(); apToggle(); return;
+  }
+  // any other film key during autoplay only pauses it, where the film is
+  if (AP.on && ['ArrowDown', 'ArrowRight', 'PageDown', 'ArrowUp', 'ArrowLeft', 'PageUp', 'Home', 'End', ' '].includes(e.key)) {
+    e.preventDefault(); apPause(); return;
+  }
   if (e.key === 'Home' || e.key === 'End') {
     if (!stepperOn() || uNow() > STOPS[LAST_STOP] + 0.02) return;
     e.preventDefault(); stepTo(e.key === 'Home' ? 0 : LAST_STOP, { jump: true }); return;
   }
-  const next = ['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key) || (e.key === ' ' && !e.shiftKey);
+  const next = ['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key);
   const prev = ['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key) || (e.key === ' ' && e.shiftKey);
   if (!next && !prev) return;
   if (e.key === ' ' && t && t.tagName === 'BUTTON') return;   // a focused button keeps Space
@@ -1164,7 +1634,7 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('intro:leave', () => { readScroll(); needsRender = true; });
 let resizeT = 0;
-addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { layout(); readScroll(); }, 80); });
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { layout(); if (AP.on) apWrite(uTarget); readScroll(); }, 80); });
 
 function ensureModels(u) {
   for (const obj of TL.neededAt(u)) {
@@ -1185,6 +1655,7 @@ function tick(now) {
   if (!REDUCED) clock += dt;
   const k = REDUCED ? 1 : 1 - Math.exp(-dt / 0.085);       // scroll scrub smoothing
   if (daylight.step(REDUCED ? 1 : dt)) needsRender = true;
+  apFrame(dt);
   stepFrame(dt);
   const before = uShown;
   uShown += (uTarget - uShown) * k;
@@ -1262,12 +1733,15 @@ async function boot() {
   bootProgress(100, 'Ready');
   document.body.classList.remove('is-booting');
   document.body.classList.add('is-ready');
+  // ?autoplay=1 (the Home page's "Play the film"): it plays itself from the hand-off
+  if (DEBUG_FRAME === null && q.get('autoplay') === '1') { if (document.hidden) apPending = true; else apStart({ boot: true }); }
   if (DEBUG_FRAME === null) {
     raf = requestAnimationFrame(tick);
     // (a step re-allocates the post targets: only ever taken while the film rests between moves, and
     // once it has stepped down it stays down for the session: no pixel-ratio oscillation mid-move)
     governor = startGovernor({ renderer, getDpr: () => renderer.getPixelRatio(), setDpr, onStep: governorStep, q: Q,
-      canApply: () => !step && Math.abs(uTarget - uShown) < 1e-3, upAfterDown: false, maxSteps: 1 });
+      // (autoplay counts as moving throughout, dwells included: the resolution never changes under it)
+      canApply: () => !step && !AP.on && Math.abs(uTarget - uShown) < 1e-3, upAfterDown: false, maxSteps: 1 });
     // high tier: build the other instruments while the reader is still on the opening
     if (Q.preload) {
       const idle = window.requestIdleCallback || ((f) => setTimeout(f, 600));
@@ -1404,6 +1878,9 @@ window.__scene = {
   // (review: restart the frame loop, e.g. after replacing requestAnimationFrame in a hidden tab)
   kick: () => { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(tick); },
   stepper: () => ({ stops: STOPS, step: step && { k: step.k, t: +step.t.toFixed(3), dur: step.dur, speed: step.speed }, queued }),
+  autoplay: () => ({ on: AP.on, phase: AP.phase, k: AP.k, t: +AP.t.toFixed(3), dur: AP.phase === 'move' ? AP.plan?.dur : AP.dur, cyc: +(AP.cycT / AP.cycDur).toFixed(3) }),
+  apStart, apPause, dwellFor,
+  planMove: (a, b) => { const p = planMove(a, b); return { dur: p.dur, map: p.map && [...p.map].map((x) => +x.toFixed(3)) }; },
 };
 
 boot().catch((e) => {

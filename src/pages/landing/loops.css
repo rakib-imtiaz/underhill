@@ -12,7 +12,7 @@
 .ld .ld-hero__slides { position: absolute; inset: 0; }
 .ld .ld-slide { position: absolute; inset: 0; opacity: 0; }
 .ld .ld-slide.is-prev { opacity: 1; z-index: 1; }
-.ld .ld-slide.is-on { opacity: 1; z-index: 2; transition: opacity 1.8s cubic-bezier(0.45, 0, 0.25, 1); }
+.ld .ld-slide.is-on { opacity: 1; z-index: 2; transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
 .ld .ld-hero__img.is-alt { object-position: var(--op); }
 .ld .ld-hero__slides img { will-change: transform; }
 @keyframes ld-kb { from { transform: none; } to { transform: scale(var(--kz, 1.07)) translate3d(var(--kx, -1.5%), var(--ky, -1%), 0); } }
@@ -47,15 +47,15 @@ body.ld-body.is-day .ld-story .ld-shine__glint { --ld-glint: #63c3f7; }
    the photo: no scan bars, grids or marks over people), the shimmer on "since 1913", the contours drift */
 .ld .ld-story__img img { animation: ld-storykb 24s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
 @keyframes ld-storykb { from { transform: none; } to { transform: scale(1.05) translate3d(-1.5%, -0.8%, 0); } }
-.ld .ld-story__alt { position: absolute; inset: 0; opacity: 0; animation: ld-storyalt 22s ease-in-out 4s infinite; animation-play-state: var(--ld-play, paused); }
+.ld .ld-story__alt { position: absolute; inset: 0; opacity: 0; animation: ld-storyalt 14s linear 4s infinite; animation-play-state: var(--ld-play, paused); }
 .ld .ld-story__alt img { object-position: 55% 45%; }
-@keyframes ld-storyalt { 0%, 38% { opacity: 0; } 50%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ld-storyalt { 0%, 46% { opacity: 0; } 50%, 96% { opacity: 1; } 100% { opacity: 0; } }
 .ld .ld-story .ld-topo, .ld .ld-x .ld-topo, .ld .ld-exp .ld-topo { animation: ld-topo 22s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
 @keyframes ld-topo { from { transform: translate3d(-18px, 0, 0); } to { transform: translate3d(18px, -8px, 0); } }
 
 /* ---- expertise cards: slow Ken Burns, a second photo crossfading in, a staggered light sweep */
-.ld .ld-xcard__alt { position: absolute; inset: 0; opacity: 0; animation: ld-xalt 18s ease-in-out infinite; animation-delay: calc(var(--d, 0s) * 12); animation-play-state: var(--ld-play, paused); }
-@keyframes ld-xalt { 0%, 36% { opacity: 0; } 46%, 86% { opacity: 1; } 96%, 100% { opacity: 0; } }
+.ld .ld-xcard__alt { position: absolute; inset: 0; opacity: 0; animation: ld-xalt 14s linear infinite; animation-delay: calc(var(--d, 0s) * 12); animation-play-state: var(--ld-play, paused); }
+@keyframes ld-xalt { 0%, 42% { opacity: 0; } 46%, 92% { opacity: 1; } 96%, 100% { opacity: 0; } }
 .ld .ld-xcard__img img { animation: ld-xkb 16s ease-in-out infinite alternate; animation-delay: calc(var(--d, 0s) * -20); animation-play-state: var(--ld-play, paused); }
 @keyframes ld-xkb { from { transform: translate3d(-2%, 0, 0); } to { transform: scale(1.06) translate3d(2%, -1.5%, 0); } }
 .ld .ld-xcard::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; z-index: 1; pointer-events: none; background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0) 100%); transform: translate3d(-120%, 0, 0); animation: ld-sweep 7.5s cubic-bezier(0.45, 0, 0.25, 1) infinite; animation-delay: calc(var(--d, 0s) * 5 + 1s); animation-play-state: var(--ld-play, paused); }
@@ -63,7 +63,7 @@ body.ld-body.is-day .ld-story .ld-shine__glint { --ld-glint: #63c3f7; }
 
 /* ---- the 3D film title card: the film stills crossfade (Experience.tsx, useSlides) with a slow Ken Burns;
    the copy and the play control stay still (nothing ticks or blinks) */
-.ld .ld-film__frame.is-on { transition-duration: 2.4s; }
+.ld .ld-film__frame.is-on { transition-duration: 0.6s; }
 .ld .ld-film__frame img { animation: ld-filmkb 18s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }
 @keyframes ld-filmkb { from { transform: none; } to { transform: scale(1.07) translate3d(-1.2%, -0.6%, 0); } }
 
@@ -83,8 +83,8 @@ body.ld-body.is-day .ld-story .ld-shine__glint { --ld-glint: #63c3f7; }
 .ld .ld-bp__scan { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 0%, transparent 82%, rgba(127, 208, 255, 0.12) 98%, rgba(127, 208, 255, 0.5) 99.6%, transparent 100%); transform: translate3d(0, -100%, 0); animation: ld-scan 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; animation-delay: calc(var(--i, 0) * -0.9s); animation-play-state: var(--ld-play, paused); }
 
 /* ---- crew mosaic: each tile crossfades to a second crew photo and back, staggered */
-.ld .ld-mosaic .ld-alt { position: absolute; inset: 0; opacity: 0; animation: ld-tile 21s ease-in-out infinite; animation-delay: calc(var(--d, 0s) * 30 - 1s); animation-play-state: var(--ld-play, paused); }
-@keyframes ld-tile { 0%, 8% { opacity: 0; } 16%, 52% { opacity: 1; } 60%, 100% { opacity: 0; } }
+.ld .ld-mosaic .ld-alt { position: absolute; inset: 0; opacity: 0; animation: ld-tile 16s linear infinite; animation-delay: calc(var(--d, 0s) * 30 - 1s); animation-play-state: var(--ld-play, paused); }
+@keyframes ld-tile { 0%, 8% { opacity: 0; } 12%, 52% { opacity: 1; } 56%, 100% { opacity: 0; } }
 
 /* ---- purpose band: slow Ken Burns */
 .ld .ld-band__bg img { animation: ld-bandkb 26s ease-in-out infinite alternate; animation-play-state: var(--ld-play, paused); }

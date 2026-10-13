@@ -92,7 +92,7 @@ const HERO_SLIDES: { stem: string; op?: [string, string]; k: [string, string, st
   { stem: "slide-forest", op: ["60% 35%", "52% 40%"], k: ["1.07", "-1%", "-1.2%"] },
 ];
 const HERO_LINES = ["Lead with certainty.", "Measure the land.", "Know the ground.", "Work in any weather.", "Deliver the data."];
-const HERO_HOLD = 6500;
+const HERO_HOLD = 5000;
 
 function Hero({ ready, pre }: { ready: boolean; pre: Record<string, () => void> }) {
   const ref = useRef<HTMLElement>(null);

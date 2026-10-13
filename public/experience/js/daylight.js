@@ -18,8 +18,8 @@ const DAY = {
   // (linear, above 1: the background is tone mapped like the scene, so it is pushed up to read as
   // paper white, #e9eff4 on screen, after ACES)
   studioBg: lin(1.75, 1.86, 2.02),
-  floor: new THREE.Color(0xffffff), floorGlow: new THREE.Color(0x8d98a4),
-  hemiSky: new THREE.Color(0xffffff), hemiGround: new THREE.Color(0xc3ccd6),
+  floor: new THREE.Color(0xffffff), floorGlow: new THREE.Color(0xc4ccd4),
+  hemiSky: new THREE.Color(0xffffff), hemiGround: new THREE.Color(0x8e98a3),
   key: new THREE.Color(0xfff6ec), rim: new THREE.Color(0x9fd6ff),
   fieldNight: lin(0.1, 0.12, 0.15), fieldHaze: lin(0.5, 0.62, 0.76),
   sun: new THREE.Color(0xfff2e2), skyTop: new THREE.Color(0xc4dcf3), skyGround: new THREE.Color(0x6e604c),
@@ -138,7 +138,7 @@ export class Daylight {
 
   /**
    * The field's glows (shader materials in field.js) on a bright ground: the point cloud draws
-   * opaque; contours, scan fan and profile darken the ground instead of lighting it (reverse-subtract
+   * opaque; the scan fan is drawn in deep blue; contours and profile darken the ground instead of lighting it (reverse-subtract
    * blending, with the complement of the colour they should leave behind). GL state and uniforms
    * only: nothing compiles. Each material is looked up defensively (field.js belongs to the field act).
    */
@@ -154,19 +154,19 @@ export class Daylight {
     const plain = (m, on) => { if (m && m.isMaterial) m.blending = on ? THREE.NormalBlending : THREE.AdditiveBlending; };
     if (!this.fieldBase) {
       this.fieldBase = {
-        scan: f.scanU?.uColor?.value?.isColor ? f.scanU.uColor.value.clone() : null,
         sec: f.secU?.uColor?.value?.isColor ? f.secU.uColor.value.clone() : null,
       };
     }
     plain(f.cloudMat, day);
     sub(f.contourMat, day);
     plain(f.boundaryMat, day);
-    for (const o of [f.fan, f.swath, f.swathGlow]) sub(o?.material, day);
+    // (2026-10-13: the drone's LiDAR is drawn in deep Underhill blue over the ground by day, normal-
+    // blended like the other day glows, and added light by night: field.setScanDay, blend state only)
+    f.setScanDay?.(day);
     // (the section stays additive: on the mid-tone valley ground an Underhill-blue light reads as a clear
     // cut line and a tinted section, with no colour artefacts; see the colour below)
-    // (what each darkens by: the complement of Underhill blue, scaled so the brightest term of each
-    // shader, the swath's 3.2× core and the section curve, stays under 1)
-    if (this.fieldBase.scan) f.scanU.uColor.value.copy(day ? new THREE.Color(0.29, 0.19, 0.09) : this.fieldBase.scan);
+    // (what the contours darken by: the complement of Underhill blue, scaled so the brightest term of
+    // the shader and the section curve stay under 1)
     if (this.fieldBase.sec) f.secU.uColor.value.copy(day ? new THREE.Color(0.04, 0.42, 1.0).multiplyScalar(1.7) : this.fieldBase.sec);
     // the contours' index lines are 1.6× bright: at half strength they stay under 1 too
     if (f.contourMat?.uniforms?.alpha) f.contourMat.uniforms.alpha.value = day ? 0.55 : 1;
@@ -203,8 +203,14 @@ export class Daylight {
     const fog = scene.fog;
     if (fog) {
       if (inField) { fog.color.copy(DAY.fieldNight).lerp(DAY.fieldHaze, d); fog.near = 40 + 30 * d; fog.far = 300 + 350 * d; }
-      // (daylight: the floor dissolves into the wall a few metres behind the subject: no horizon line)
-      else if (!inGlobe) { fog.color.copy(BG).lerp(DAY.studioBg, d); fog.near = 8 - 1 * d; fog.far = 24 - 4 * d; }
+      // (daylight: the fog starts past the nearest instrument, so the subject is never hazed, even in
+      // the wide shot of all three from 17 m; the floor then runs back into the wall as a soft horizon)
+      else if (!inGlobe) {
+        const near = this.camera ? Math.min(30, Math.max(7, this.nearestStation() + 2.5)) : 7;
+        fog.color.copy(BG).lerp(DAY.studioBg, d);
+        fog.near = 8 + (near - 8) * d;
+        fog.far = 24 + (Math.min(56, Math.max(42, near + 26)) - 24) * d;   // (inside the camera's 60 m far plane)
+      }
     }
     scene.environmentIntensity *= 1 + (inField ? 1.0 : 1.1) * d;
 
@@ -239,7 +245,7 @@ export class Daylight {
         const dk = st.contact.depthMat?.userData?.darkness;
         if (dk) {
           if (st.contact.darkBase === undefined) st.contact.darkBase = dk.value;
-          const want = st.contact.darkBase * (this.dayGlow ? (inField ? 1.9 : 1.35) : 1);
+          const want = st.contact.darkBase * (this.dayGlow ? (inField ? 1.9 : 1.9) : 1);
           if (Math.abs(dk.value - want) > 1e-3) { dk.value = want; st.contact.dirty = true; }
         }
       }
@@ -261,10 +267,24 @@ export class Daylight {
     if (inGlobe) globe.starMat.uniforms.uAlpha.value *= 1 - 0.6 * d;
   }
 
+  /** Camera distance to the nearest studio station (metres). */
+  nearestStation() {
+    let m = Infinity;
+    for (const st of Object.values(this.stage.stations)) m = Math.min(m, this.camera.position.distanceTo(st.pos));
+    return Number.isFinite(m) ? m : 0;
+  }
+
   /** Post settings for the frame: less bloom, vignette and grain; dips go to white. */
   post(o) {
     const d = this.d;
-    o.bloom *= 1 - 0.85 * d;   // (a bright floor is over the bloom threshold: no haze over the subject) o.vignette *= 1 - 0.7 * d; o.grain *= 1 - 0.5 * d;
+    // (a bright floor is over the bloom threshold: no haze over the subject; grain on paper white
+    // reads as dirt and a dark vignette as smog)
+    o.bloom *= 1 - 0.85 * d;
+    o.vignette *= 1 - 0.7 * d;
+    o.grain *= 1 - 0.6 * d;
+    // (the cool anamorphic streak smears the bright floor sideways across whatever stands on it: on
+    // paper white it reads as a fog over the instruments' legs. Night only.)
+    o.streakScale = 1 - d;
     o.fadeLevel = 0.85 * d;
     return o;
   }

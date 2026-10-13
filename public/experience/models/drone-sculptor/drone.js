@@ -629,31 +629,80 @@ export function createSurveyDrone(options = {}) {
   }
 
   // ====================================================================== GIMBAL PAYLOAD
+  // A real 3-axis stack, as on the M350 RTK with a Zenmuse payload, every joint touching the next:
+  //   belly → damper plate (flush on the belly plate) → 4 rubber dampers → lower damper plate →
+  //   gimbal connector (quick release, red status LED) → YAW motor (axis vertical, at the top) →
+  //   yaw arm, back over the camera and down behind it → ROLL motor (axis fore-aft, behind the
+  //   camera, at the camera's centre height) → roll arm, a U round the back and both sides →
+  //   PITCH motors (axis left-right, through the camera's centre) → camera block.
+  // Each rotation is applied on its own node, whose origin is on that motor's axis, so a pose turns
+  // parts about their real joints and nothing separates from its parent. Gimbal-local y = 0 is the
+  // body's underside (the belly plate's bottom is at -0.003).
+  // Envelope: anything carried on 'gimbal-camera' must stay within 0.060 m of its origin in the
+  // y-z plane (the yaw arm is 0.064 above the pitch axis, the roll arm's rear bar 0.064 behind it) and
+  // within ±0.0695 m across (the pitch motors' inner faces).
+  const G_PITCH_Y = -0.134;     // pitch / roll centre, gimbal-local (world y 0.101 at rest)
+  const G_YAW_Y = -0.054;       // yaw motor top = connector bottom
   const gimbal = part('gimbal-payload', assembly, [0, BODY_Y0, 0], [0, -0.015, 0], { delay: 0.15, group: 'gimbal' });
   const gFrame = part('gimbal-damper-frame', gimbal, [0, 0, 0], [0, -0.03, 0], { delay: 0.15, group: 'gimbal' });
   {
-    add(gFrame, xf(rbox(0.07, 0.006, 0.06, 0.002), { p: [0, -0.004, 0] }), M.plastic);
-    const dy = -0.036;
-    for (const [x, z] of [[0.052, 0.032], [-0.052, 0.032], [0.052, -0.032], [-0.052, -0.032]]) {
-      add(gFrame, tubeThrough([[x * 0.5, -0.005, z * 0.7], [x * 0.85, -0.012, z * 0.95], [x, dy + 0.01, z]], 0.0032, 16, 8), M.plastic);
-      add(gFrame, xf(lathe([[0, -0.009], [0.006, -0.009], [0.0095, -0.005], [0.0085, 0], [0.0095, 0.005], [0.006, 0.009], [0, 0.009]], 20), { p: [x, dy, z] }), M.rubber);
-      add(gFrame, tubeThrough([[x, dy - 0.008, z], [x * 0.8, dy - 0.016, z * 0.8], [x * 0.35, -0.052, z * 0.5]], 0.0032, 16, 8), M.plastic);
+    add(gFrame, xf(rbox(0.112, 0.006, 0.086, 0.002), { p: [0, -0.0035, 0] }), M.anodized);      // upper plate, on the belly
+    for (const [x, z] of [[0.042, 0.03], [-0.042, 0.03], [0.042, -0.03], [-0.042, -0.03]]) {
+      add(gFrame, xf(lathe([[0, -0.0255], [0.0055, -0.0255], [0.0085, -0.0215], [0.0072, -0.016], [0.0085, -0.0105], [0.0055, -0.0065], [0, -0.0065]], 20), { p: [x, 0, z] }), M.rubber);
     }
-    for (const z of [0.036, -0.036]) add(gFrame, tubeThrough([[-0.052, dy + 0.008, z], [-0.035, -0.006, z * 1.05], [0, 0.0, z * 1.05], [0.035, -0.006, z * 1.05], [0.052, dy + 0.008, z]], 0.0028, 24, 8), M.plastic);
-    add(gFrame, xf(rbox(0.05, 0.005, 0.04, 0.002), { p: [0, -0.054, 0] }), M.plastic);
+    add(gFrame, xf(rbox(0.104, 0.005, 0.078, 0.002), { p: [0, -0.0275, 0] }), M.anodized);     // lower plate
+    for (const sx of [1, -1]) add(gFrame, xf(rbox(0.004, 0.018, 0.05, 0.0015), { p: [sx * 0.052, -0.0165, 0] }), M.plastic); // travel stops
   }
-  const gQR = part('gimbal-connector', gimbal, [0, -0.057, 0], [0, -0.06, 0], { delay: 0.2, group: 'gimbal' });
-  add(gQR, lathe([[0, 0], [0.019, 0], [0.019, -0.012], [0.017, -0.014], [0.017, -0.022], [0.015, -0.026], [0, -0.026]], 32), M.anodized);
-  add(gQR, xf(cyl(0.0018, 0.0018, 0.002, 10), { p: [0, -0.007, 0.019], r: [Math.PI / 2, 0, 0] }), M.ledRed);
-  const gCam = part('gimbal-camera', gimbal, [0, 0.0725 - BODY_Y0, 0], [0, -0.13, 0], { delay: 0.25, group: 'gimbal', collider: { type: 'box', size: [0.165, 0.085, 0.075] } });
+  const gQR = part('gimbal-connector', gimbal, [0, -0.03, 0], [0, -0.06, 0], { delay: 0.2, group: 'gimbal' });
+  add(gQR, lathe([[0, 0], [0.023, 0], [0.023, -0.009], [0.0205, -0.011], [0.0205, -0.019], [0.0185, -0.024], [0, -0.024]], 32), M.anodized);
+  add(gQR, xf(cyl(0.0225, 0.0225, 0.0035, 32), { p: [0, -0.0145, 0] }), M.plastic);          // locking ring
+  add(gQR, xf(cyl(0.0018, 0.0018, 0.002, 10), { p: [0, -0.0055, 0.0228], r: [Math.PI / 2, 0, 0] }), M.ledRed);
+  // yaw: motor under the connector, the arm runs back over the camera and down behind it
+  const gYaw = part('gimbal-yaw', gimbal, [0, G_YAW_Y, 0], [0, -0.085, 0], { delay: 0.22, group: 'gimbal' });
+  const RY = G_PITCH_Y - G_YAW_Y; // roll / pitch centre in yaw-local y (-0.080)
+  // (sub-groups only so each piece gets its own tight box in the explode's contact test; an L-shaped
+  // single mesh boxes round the camera it frames and glues the stages together)
   {
-    const top = 0.0425;
-    add(gCam, xf(rbox(0.018, 0.044, 0.022, 0.004), { p: [0, top + 0.022, -0.004] }), M.housing);
-    add(gCam, xf(cyl(0.016, 0.016, 0.018, 28), { p: [0, top + 0.05, 0] }), M.anodized);
-    add(gCam, rbox(0.095, 0.085, 0.075, 0.009, 4), M.housing);
+    const motor = part('gimbal-yaw-motor', gYaw), arm = part('gimbal-yaw-arm', gYaw), drop = part('gimbal-yaw-drop', gYaw);
+    add(motor, xf(cyl(0.0235, 0.0235, 0.0035, 32), { p: [0, -0.00225, 0] }), M.anodized);        // rotor cap
+    add(motor, xf(cyl(0.0225, 0.0225, 0.0075, 32), { p: [0, -0.0072, 0] }), M.housing);         // stator can
+    add(arm, xf(rbox(0.05, 0.009, 0.05, 0.004), { p: [0, -0.0115, -0.004] }), M.housing);      // hub block under the motor
+    add(arm, xf(rbox(0.026, 0.009, 0.09, 0.004), { p: [0, -0.0115, -0.055] }), M.housing);      // arm, back over the camera
+    // the arm down behind the camera: a cast plate that widens past the camera's sides before it
+    // reaches the camera's top, so from the front the camera reads as hung in its yoke, not floating
+    {
+      const sh = new THREE.Shape(), T0 = -0.007, T1 = -0.033, B = RY - 0.024;
+      // (wound counter-clockwise, as the other extruded outlines here)
+      sh.moveTo(-0.054, B); sh.lineTo(0.054, B); sh.quadraticCurveTo(0.066, B, 0.066, B + 0.012);
+      sh.lineTo(0.066, T1); sh.lineTo(0.025, T0); sh.lineTo(-0.025, T0); sh.lineTo(-0.066, T1);
+      sh.lineTo(-0.066, B + 0.012); sh.quadraticCurveTo(-0.066, B, -0.054, B);
+      add(drop, xf(extrude(sh, 0.008, 0.002, 6), { p: [0, 0, -0.098] }), M.housing);
+    }
+    add(drop, xf(cyl(0.02, 0.02, 0.01, 32), { p: [0, RY, -0.083], r: [Math.PI / 2, 0, 0] }), M.housing); // roll motor stator
+    add(drop, xf(cyl(0.012, 0.012, 0.0015, 24), { p: [0, RY, -0.1008], r: [Math.PI / 2, 0, 0] }), M.anodized); // its end cap
+  }
+  // roll: rotor on the roll motor's front face, the U-shaped arm round the back and up both sides
+  const gRoll = part('gimbal-roll', gYaw, [0, RY, 0], [0, 0, 0.07], { delay: 0.24, group: 'gimbal' });
+  {
+    const bar = part('gimbal-roll-bar', gRoll);
+    add(bar, xf(cyl(0.019, 0.019, 0.006, 32), { p: [0, 0, -0.0745], r: [Math.PI / 2, 0, 0] }), M.anodized); // roll rotor
+    add(bar, xf(rbox(0.155, 0.02, 0.008, 0.003), { p: [0, 0, -0.068] }), M.housing);               // rear bar
     for (const sx of [1, -1]) {
-      add(gCam, xf(cyl(0.024, 0.024, 0.02, 36), { p: [sx * 0.0575, 0, -0.004], r: [0, 0, Math.PI / 2] }), M.housing);
-      add(gCam, xf(cyl(0.018, 0.018, 0.003, 36), { p: [sx * 0.068, 0, -0.004], r: [0, 0, Math.PI / 2] }), M.anodized);
+      const side = part(`gimbal-roll-${sx > 0 ? 'l' : 'r'}`, gRoll);
+      add(side, xf(rbox(0.008, 0.02, 0.074, 0.003), { p: [sx * 0.0735, 0, -0.035] }), M.housing); // side arm
+      // pitch motor (stator in the arm; the camera's side caps are the rotors)
+      add(side, xf(cyl(0.021, 0.021, 0.011, 32), { p: [sx * 0.0755, 0, 0], r: [0, 0, Math.PI / 2] }), M.housing);
+      add(side, xf(cyl(0.012, 0.012, 0.0015, 24), { p: [sx * 0.0815, 0, 0], r: [0, 0, Math.PI / 2] }), M.anodized);
+    }
+  }
+  // pitch: the camera block turns about the pitch motors' axis, which runs through its centre
+  const gCam = part('gimbal-camera', gRoll, [0, 0, 0], [0, -0.07, 0], { delay: 0.25, group: 'gimbal', collider: { type: 'box', size: [0.139, 0.085, 0.075] } });
+  {
+    add(gCam, rbox(0.095, 0.085, 0.075, 0.009, 4), M.housing);
+    const rotors = part('gimbal-camera-rotors', gCam);   // (own group: a tight box for the explode's contact test)
+    for (const sx of [1, -1]) {
+      add(gCam, xf(cyl(0.024, 0.024, 0.02, 36), { p: [sx * 0.0575, 0, 0], r: [0, 0, Math.PI / 2] }), M.housing);
+      add(rotors, xf(cyl(0.018, 0.018, 0.0025, 36), { p: [sx * 0.06775, 0, 0], r: [0, 0, Math.PI / 2] }), M.anodized); // pitch rotor, against the motor
     }
     const fz = 0.0375;
     const lens = (x, y, rOuter, rGlass, depth, glassMat) => {
@@ -762,8 +811,18 @@ export function createSurveyDrone(options = {}) {
     for (const r of runtime.rotors) { r.angle += r.dir * rotorSpeed * dt; r.node.rotation.y = r.angle; }
   };
   root.setLights = (on = true) => { M.ledWhite.emissiveIntensity = on ? 2.2 : 0; M.beacon.emissiveIntensity = on ? 1.2 : 0; M.ledRed.emissiveIntensity = on ? 2 : 0; };
-  root.setGimbal = (yawDeg = 0, pitchDeg = 0) => {
-    gCam.rotation.set(THREE.MathUtils.degToRad(-pitchDeg), THREE.MathUtils.degToRad(yawDeg), 0, 'YXZ');
+  // each axis on its own joint: yaw at the top (under the connector), roll behind the camera, pitch
+  // through the camera's centre (pitch + = nose up; roll + = right side down, as seen from behind)
+  // Mechanical stops, as a real gimbal has: roll ±15°, pitch 45° up / 120° down. Past them a corner
+  // of the camera (or of fly's larger payloads, the P1 lens barrel) would reach the yaw arm. Checked
+  // vertex-by-vertex, no part inside another, over yaw ±90°, pitch 45° up … 115° down and roll ±25°
+  // asked (±15° given). The film rolls ±9° and pitches 18° up … 85° down; fly's level-keeping can ask
+  // for more (its 25° bank and tilt limits on top of the stick).
+  const ROLL_STOP = 15, PITCH_UP = 45, PITCH_DOWN = 120;
+  root.setGimbal = (yawDeg = 0, pitchDeg = 0, rollDeg = 0) => {
+    gYaw.rotation.set(0, THREE.MathUtils.degToRad(yawDeg), 0);
+    gRoll.rotation.set(0, 0, THREE.MathUtils.degToRad(THREE.MathUtils.clamp(rollDeg, -ROLL_STOP, ROLL_STOP)));
+    gCam.rotation.set(THREE.MathUtils.degToRad(-THREE.MathUtils.clamp(pitchDeg, -PITCH_DOWN, PITCH_UP)), 0, 0);
   };
   root.getState = () => ({ explode: explodeT, fold: foldT, rotorSpeed });
   root.dispose = () => {

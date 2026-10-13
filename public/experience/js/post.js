@@ -218,7 +218,7 @@ export class Post {
    * @param {function} [o.after] draws more into the HDR target after the scene (e.g. an overlay pass)
    * @param {number} [o.smear] 0..1 radial motion smear
    */
-  render(scene, camera, { time = 0, bloom = 0.55, grain = 0.035, vignette = 0.55, fade = 1, smear = 0, fadeLevel = 0, after = null } = {}) {
+  render(scene, camera, { time = 0, bloom = 0.55, grain = 0.035, vignette = 0.55, fade = 1, smear = 0, fadeLevel = 0, streakScale = 1, after = null } = {}) {
     const r = this.renderer;
     r.setRenderTarget(this.sceneRT);
     r.clear();
@@ -262,6 +262,7 @@ export class Post {
     }
 
     const u = this.composite.uniforms;
+    u.streak.value = this.streakOn ? 0.12 * streakScale : 0;
     u.bloom.value = bloom; u.grain.value = grain; u.vignette.value = vignette; u.time.value = time; u.fade.value = fade; u.smear.value = smear; u.fadeCol.value.setScalar(fadeLevel);
     this.pass(this.composite, null);
   }
