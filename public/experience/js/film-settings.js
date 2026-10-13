@@ -16,7 +16,9 @@ if (root && btn && panel) {
   $('fset-tier').textContent = LABEL[Q.tier];
   $('fset-now').textContent = qualityBadge(Q);
   $('fset-why').textContent = fromUrl ? `Set by ?q=${Q.tier} in the address` : Q.reason.replace(/^auto: /, 'Auto: ');
-  for (const input of panel.querySelectorAll('input[name="fset-q"]')) {
+  // (phones: the same choice in the settings sheet, film.html #psheet; its own radio group)
+  if ($('psheet-qnow')) $('psheet-qnow').textContent = `· now ${LABEL[Q.tier]}`;
+  for (const input of document.querySelectorAll('input[name="fset-q"], input[name="psheet-q"]')) {
     input.checked = input.value === current;
     input.addEventListener('change', () => {
       if (!input.checked) return;

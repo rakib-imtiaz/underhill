@@ -587,3 +587,118 @@ body.ld-body .sf-offices, body.ld-body .mnav .mnav-foot { font-size: 12px; }
 .ld .ld-film__label { background: transparent; padding-left: 4px; }
 .ld .ld-film__play { background: rgba(10, 27, 46, 0.62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .ld .ld-gear__tag { border-radius: 6px; }
+
+/* ========================================================== phones + buttons, matching the rounded cards */
+/* buttons share the cards' softer corner */
+.ld .ld-btn { border-radius: 12px; }
+/* the device badge: a quiet status line (a soft pill, a live dot), not a boxed chip */
+.ld .ld-badge {
+  border: 0; border-radius: 999px; padding: 0 12px 0 10px; min-height: 30px;
+  background: color-mix(in srgb, var(--ld-accent) 8%, transparent); color: var(--ld-text);
+}
+.ld .ld-badge__dot { position: relative; margin-left: 0; }
+.ld .ld-badge[data-tier='high'] .ld-badge__dot::after, .ld .ld-badge[data-tier='balanced'] .ld-badge__dot::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid currentColor; color: inherit;
+  animation: ld-live 2.4s ease-out infinite;
+}
+.ld .ld-badge[data-tier='high'] .ld-badge__dot::after { color: #2fbf71; }
+.ld .ld-badge[data-tier='balanced'] .ld-badge__dot::after { color: #2aa7e8; }
+@keyframes ld-live { 0% { transform: scale(0.6); opacity: 0.9; } 70%, 100% { transform: scale(1.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ld .ld-badge__dot::after { animation: none; display: none; } }
+@media (max-width: 600px) {
+  /* the experience call to action: full width, the status line centred under it */
+  .ld .ld-exp__actions { justify-items: stretch; gap: 12px; }
+  .ld .ld-exp__actions .ld-btn { width: 100%; }
+  .ld .ld-exp__actions .ld-badge { justify-self: center; }
+}
+@media (max-width: 860px) {
+  /* the story photo: a rounded card inside the margins (its slanted edge fought the hero's slant above
+     and left a white wedge between them) */
+  .ld .ld-story__fig { margin: 6px var(--ld-gut) 30px; border-radius: var(--ld-r); overflow: hidden; }
+  .ld .ld-story__img, .ld.ld-js .is-in .ld-story__img.ld-wipe { clip-path: inset(0 round var(--ld-r)); }
+  .ld.ld-js .ld-story__img.ld-wipe { clip-path: inset(0 100% 0 0 round var(--ld-r)); }
+}
+@media (max-width: 600px) {
+  /* the film card on phones: one picture, like a video card. The still fills it, the title and line sit
+     on a soft gradient at the foot, and a round play button sits in the middle (it was a still on top
+     with a navy block of text under it, plus a chip row) */
+  .ld .ld-film { display: block; aspect-ratio: 4 / 5; }
+  .ld .ld-film__media { position: absolute; inset: 0; aspect-ratio: auto; }
+  .ld .ld-film__media picture, .ld .ld-film__media img { width: 100%; height: 100%; object-fit: cover; }
+  .ld .ld-film__shade { inset: 0; aspect-ratio: auto; background:
+    linear-gradient(0deg, rgba(8, 22, 38, 0.94) 0%, rgba(8, 22, 38, 0.6) 30%, rgba(8, 22, 38, 0) 58%),
+    linear-gradient(180deg, rgba(8, 22, 38, 0.3), rgba(8, 22, 38, 0) 26%); }
+  .ld .ld-film__body { position: absolute; left: 20px; right: 20px; bottom: 20px; gap: 8px; padding: 0; }
+  .ld .ld-film__title { font-size: 32px; }
+  .ld .ld-film__line { font-size: 14.5px; }
+  .ld .ld-film .ld-film__play {
+    left: 50%; top: 24%; right: auto; bottom: auto; translate: -50% -50%; height: 68px; width: 68px;
+    border-radius: 50%; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 14px 34px rgba(4, 12, 22, 0.4);
+  }
+  .ld .ld-film .ld-film__icon.ld-film__icon { width: 68px; height: 68px; margin: 0; aspect-ratio: auto; background: #0085ca; }
+  .ld .ld-film .ld-film__icon svg { width: 24px; height: 24px; }
+  .ld .ld-film .ld-film__label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ld .ld-film .ld-film__play::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.7);
+    animation: ld-live 2.6s ease-out infinite; animation-play-state: var(--ld-play, running);
+  }
+}
+/* the outline marks keyboard focus only (a tap left the card ringed in blue) */
+.ld .ld-gear__card:focus-within { outline: none; }
+.ld .ld-gear__card:has(:focus-visible) { outline: 2px solid var(--ld-accent); outline-offset: 2px; }
+@media (max-width: 600px) {
+  /* tool cards on phones: the photo leads (4:3, not a thin strip), the text is compact and the button
+     follows it directly, with no empty band under it */
+  .ld .ld-kit__list { align-items: flex-start; gap: 14px; }
+  .ld .ld-gear { flex: 0 0 84%; max-width: 330px; }
+  .ld .ld-gear__media { aspect-ratio: 4 / 3; }
+  .ld .ld-gear__body { padding: 18px 20px 20px; }
+  .ld .ld-gear__body .ld-gear__line { margin-bottom: 16px !important; }
+  .ld .ld-gear__more { margin-top: 0; }
+}
+
+/* tool cards, all sizes: the photo leads (4:3), the text is tight, and the call to action is a small
+   one-line pill (it was a short photo strip over a tall text block with an oversized button) */
+.ld .ld-gear__media { aspect-ratio: 4 / 3; }
+.ld .ld-gear__body { padding: 18px 20px 20px; }
+.ld .ld-gear__name { font-size: 17px; }
+.ld .ld-gear__line { font-size: 14px !important; }
+.ld .ld-gear__body .ld-gear__line { margin-bottom: 16px !important; }
+.ld .ld-gear__more {
+  gap: 8px; padding: 4px 12px 4px 4px; white-space: nowrap;
+  font-size: 11px; letter-spacing: 0.1em; border-width: 1px;
+}
+.ld .ld-gear__ico { width: 24px; height: 24px; }
+.ld .ld-gear__ico svg { width: 16px; height: 16px; }
+.ld .ld-gear__ico .ld-ico-play { width: 14px; height: 14px; }
+.ld .ld-gear__more .ld-arrow { width: 12px; height: 12px; }
+/* (two lines at most, so one long description no longer stretches every card in the rail) */
+.ld .ld-gear__line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+
+/* ===================================== tool cards as photo cards (the Land / Air / Water / Data size) */
+/* The photo fills a tall card; the name, one line and the call to action sit on a soft gradient at its
+   foot, in white. The body stays in the flow (so the name's full-card link still covers the card); the
+   photo sits behind it (the card isolates its own stacking). */
+.ld .ld-gear__card { height: 400px; justify-content: flex-end; isolation: isolate; border: 0; background: #0e2238; color: #fff; }
+@media (min-width: 1100px) { .ld .ld-gear__card { height: 421px; } }
+.ld .ld-gear__media.ld-gear__media { position: absolute; inset: 0; z-index: -1; aspect-ratio: auto; background: #0e2238; }
+.ld .ld-gear__media img, .ld .ld-gear__media picture { width: 100%; height: 100%; object-fit: cover; }
+.ld .ld-gear__media::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(6, 18, 33, 0) 30%, rgba(6, 18, 33, 0.55) 58%, rgba(6, 18, 33, 0.94) 100%); }
+.ld .ld-gear__body.ld-gear__body { flex: none; padding: 0 24px 24px; }
+.ld .ld-gear__card .ld-gear__name { color: #fff; font-size: 24px !important; }
+.ld .ld-gear__card .ld-gear__line { color: rgba(255, 255, 255, 0.86); }
+.ld .ld-gear__card .ld-gear__more { color: #fff; border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.12); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.ld .ld-gear__card .ld-gear__ico { background: #fff; }
+.ld .ld-gear__card .ld-gear__ico svg { stroke: #0078c0; }
+.ld .ld-gear__card .ld-gear__ico .ld-ico-play { fill: #0078c0; }
+.ld .ld-gear__card .ld-gear__more:not(.is-3d) .ld-gear__ico::after { border-color: #fff; }
+@media (hover: hover) and (pointer: fine) {
+  .ld .ld-gear__card:hover .ld-gear__more { background: #0078c0; border-color: #0078c0; color: #fff; box-shadow: 0 10px 24px rgba(0, 120, 192, 0.35); }
+  .ld .ld-gear__card:hover .ld-gear__ico { background: #fff; }
+  .ld .ld-gear__card:hover .ld-gear__ico svg { stroke: #0078c0; }
+  .ld .ld-gear__card:hover .ld-gear__ico .ld-ico-play { fill: #0078c0; }
+}
+@media (max-width: 600px) { .ld .ld-gear__card { height: 400px; } .ld .ld-kit__list { align-items: stretch; } }
+/* tool cards: the photo, the name and the button only (the description line read as clutter on the photo) */
+.ld .ld-gear__card .ld-gear__line { display: none; }
+.ld .ld-gear__card .ld-gear__name { margin-bottom: 16px !important; }

@@ -87,6 +87,15 @@ export class StagedExplode {
 
     // presentation lift: if the exploded assembly would sink through the floor, raise the whole
     // model first (before any part separates), so nothing passes through the ground.
+    this.floorMargin = floorMargin;
+    this.spread = 1;
+    this.measureLift();
+    this.t = 0;
+  }
+
+  /** The lift (and its phase) for the current spread: sampled over the whole explode. */
+  measureLift() {
+    const root = this.inst.root;
     this.lift = 0;
     this.liftPhase = 0;
     const box = new THREE.Box3();
@@ -103,10 +112,22 @@ export class StagedExplode {
     this.applyParts(0);
     root.position.y = saved;
     if (lowest < floor0 - 1e-4) {
-      this.lift = floor0 - lowest + floorMargin;
+      this.lift = floor0 - lowest + this.floorMargin;
       this.liftPhase = 0.12;          // first 12 % of the timeline is the lift
     }
-    this.t = 0;
+  }
+
+  /** How far apart the exploded view goes: 1 = the model's own explode; phones use a gentler one
+   *  (every part stops part-way along its own move, so the assembly stays compact and reads as one
+   *  object). The schedule is unchanged; the lift is measured again for the new spread. */
+  setSpread(s) {
+    s = clamp01(s) || 1;
+    if (Math.abs(s - this.spread) < 1e-4) return false;
+    const t = this.t;
+    this.spread = s;
+    this.measureLift();
+    this.apply(t);
+    return true;
   }
 
   /** Union units whose pieces overlap both at rest and fully exploded. Returns unit → cluster id. */
@@ -176,7 +197,7 @@ export class StagedExplode {
 
   applyParts(tp) {
     for (const u of this.units) {
-      const k = easeInOutCubic(clamp01((tp - u.t0) / (u.t1 - u.t0)));
+      const k = easeInOutCubic(clamp01((tp - u.t0) / (u.t1 - u.t0))) * this.spread;
       for (const m of u.movers) {
         if (m.dp) m.o.position.lerpVectors(m.rest.p, m.exp.p, k);
         if (m.dq) m.o.quaternion.slerpQuaternions(m.rest.q, m.exp.q, k);

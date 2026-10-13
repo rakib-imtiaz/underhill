@@ -29,7 +29,7 @@ const CARDS: Card[] = [
     const g = byId.get(f.id);
     return g ? [{ ...g, ...f }] : [];
   }),
-  ...KIT.filter((g) => !featuredIds.has(g.id)).map((g) => ({ ...g, title: g.name, ...(DRAFT_PHOTOS[g.id] || {}) })),
+  ...KIT.filter((g) => !featuredIds.has(g.id)).map((g) => ({ ...g, title: g.short, ...(DRAFT_PHOTOS[g.id] || {}) })),
 ]
   .filter((c) => !isUpcoming(c))
   // the ones you can explore in 3D lead the rail (stable: otherwise in the order above)
@@ -243,7 +243,7 @@ export default function Kit() {
                       <p className="ld-gear__line">{c.line}</p>
                       <span className={`ld-gear__more${c.status === "ready" ? " is-3d" : ""}`} aria-hidden="true">
                         <span className="ld-gear__ico">{c.status === "ready" ? <CubeIcon /> : <PlayIcon />}</span>
-                        {c.status === "ready" ? "Explore in 3D" : "See how it works"}
+                        {c.status === "ready" ? "Explore in 3D" : "How it works"}
                         <Arrow />
                       </span>
                     </div>

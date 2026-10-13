@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fly Lab D · CesiumJS — Underhill</title>
+  <meta name="description" content="Fly Lab scenario D: Underhill's drone over Metrotown, Burnaby, in CesiumJS with Cesium OSM Buildings and World Terrain. Needs your Cesium ion token.">
+  <meta name="theme-color" content="#0a1b2e">
+  <script src="./js/hidden-raf.js"></script>
+  <script src="./js/netmeter.js"></script>
+  <link rel="icon" href="../media/underhill-icon.png">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/Widgets/widgets.css">
+  <link rel="stylesheet" href="./css/lab.css">
+  <script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/';</script>
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/Cesium.js"></script>
+  <script type="importmap">
+    { "imports": {
+      "three": "../vendor/three/build/three.module.min.js",
+      "three/addons/": "../vendor/three/examples/jsm/",
+      "three/examples/jsm/": "../vendor/three/examples/jsm/"
+    } }
+  </script>
+</head>
+<body class="sc-d">
+  <main class="lab-stage" id="stage" aria-label="3D view: the drone over Metrotown, Burnaby"></main>
+  <script type="module" src="./js/d-main.js"></script>
+</body>
+</html>

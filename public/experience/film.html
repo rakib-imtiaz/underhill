@@ -150,6 +150,37 @@
       <button type="button" class="scroll-cue" id="scroll-cue" aria-label="Scroll to start the film"><span>Scroll</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6 L8 11 L13 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="loader" id="loader" role="status" aria-live="polite"><span class="loader__spin"></span><span id="loader-t">Building model…</span></div>
       <button type="button" id="lb-toggle" class="lb-toggle" aria-pressed="true" title="Letterbox bars on or off">Letterbox</button>
+
+      <!-- phones (portrait, under 600 px): the site header and the chapter rail give way to a quiet bar
+           over the picture (close, the chapter, settings) and one dock in the thumb zone (previous
+           chapter, play / pause, next chapter, the film's progress). Hidden on every other layout
+           (style.css "phone film UI"); wired in main.js. -->
+      <div class="ptop" id="ptop">
+        <a class="pbtn ptop__close" id="ptop-close" href="/" aria-label="Exit the film, back to the Underhill site">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>
+        </a>
+        <p class="ptop__ch" id="ptop-ch"><span class="ptop__n" id="ptop-n">01</span><span class="ptop__t" id="ptop-t">Drone</span></p>
+        <button type="button" class="pbtn ptop__more" id="ptop-more" aria-haspopup="dialog" aria-expanded="false" aria-controls="psheet" aria-label="Settings and chapters">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>
+        </button>
+      </div>
+      <div class="pdock" id="pdock" role="group" aria-label="Film controls">
+        <div class="pdock__pill">
+          <button type="button" class="pdock__btn" id="pdock-prev" data-dir="-1" aria-label="Previous chapter" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg>
+          </button>
+          <button type="button" class="pdock__play" id="pdock-play" aria-pressed="false" aria-label="Play the film">
+            <svg class="pdock__i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.6v10.8c0 .6.6.9 1.1.6l8.4-5.4c.5-.3.5-.9 0-1.2L10.1 6c-.5-.3-1.1 0-1.1.6z"/></svg>
+            <svg class="pdock__i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5v11M15 6.5v11"/></svg>
+          </button>
+          <button type="button" class="pdock__btn" id="pdock-next" data-dir="1" aria-label="Next chapter">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg>
+          </button>
+        </div>
+        <!-- the whole film: a fill to where it is now, a tick where each chapter starts -->
+        <div class="pdock__bar" aria-hidden="true"><i class="pdock__fill" id="pdock-fill"></i><span class="pdock__ticks" id="pdock-ticks"></span></div>
+      </div>
+      <p class="phint" id="phint" aria-hidden="true">Swipe up or tap <b>▶</b></p>
     </div>
 
   </div>
@@ -239,6 +270,52 @@
     <ul id="mnav-list"></ul>
     <a class="btn" id="mnav-join" href="https://underhill.ca/about-underhill-geomatics/careers/">Join The Team</a>
     <p class="mnav-foot">Est. <b>1913</b> — Vancouver · Kamloops · Vancouver Island · Whitehorse</p>
+  </div>
+
+  <!-- phones: one bottom sheet holds what the old control row crammed in (main.js "phone sheet"):
+       chapters, day / night, quality (js/film-settings.js wires its radios too) and full screen -->
+  <div class="psheet" id="psheet" role="dialog" aria-modal="true" aria-labelledby="psheet-t" hidden>
+    <div class="psheet__scrim" id="psheet-scrim"></div>
+    <div class="psheet__panel" id="psheet-panel">
+      <div class="psheet__grab" id="psheet-grab" aria-hidden="true"><i></i></div>
+      <h2 class="psheet__sr" id="psheet-t">Settings and chapters</h2>
+      <section class="psheet__sec">
+        <p class="psheet__k">Chapters</p>
+        <ol class="psheet__chapters" id="psheet-chapters"></ol>
+      </section>
+      <section class="psheet__sec psheet__row2">
+        <div class="psheet__look">
+          <p class="psheet__k" id="psheet-look-k">Look</p>
+          <div class="pseg" role="group" aria-labelledby="psheet-look-k">
+            <button type="button" class="pseg__b" id="psheet-night" aria-pressed="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.6A7.6 7.6 0 0 1 9.4 4.5a7.6 7.6 0 1 0 10.1 10.1z"/></svg>Night
+            </button>
+            <button type="button" class="pseg__b" id="psheet-day" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>Day
+            </button>
+          </div>
+        </div>
+        <div class="psheet__fsw" id="psheet-fsw" hidden>
+          <p class="psheet__k">Screen</p>
+          <button type="button" class="pseg__b psheet__fs" id="psheet-fs" aria-pressed="false">
+            <svg class="fsbtn__on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+            <svg class="fsbtn__off" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
+            <span id="psheet-fs-lbl">Full screen</span>
+          </button>
+        </div>
+      </section>
+      <section class="psheet__sec">
+        <p class="psheet__k">Quality <span class="psheet__now" id="psheet-qnow"></span></p>
+        <fieldset class="pseg pseg--q">
+          <legend class="psheet__sr">Choose the film's quality</legend>
+          <label><input type="radio" name="psheet-q" value="auto"><span>Auto</span></label>
+          <label><input type="radio" name="psheet-q" value="lite"><span>Lite</span></label>
+          <label><input type="radio" name="psheet-q" value="balanced"><span>Balanced</span></label>
+          <label><input type="radio" name="psheet-q" value="high"><span>High</span></label>
+        </fieldset>
+        <p class="psheet__note">A change reloads the film.</p>
+      </section>
+    </div>
   </div>
 
   <!-- the scroll track: one section per beat; its text is the accessible version of the captions -->

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fly Lab — Underhill</title>
+  <meta name="description" content="Four ways to fly Underhill's drone over a real city, tested side by side over Metrotown, Burnaby: three.js + OpenStreetMap, Google 3D Tiles, MapLibre + OpenFreeMap, CesiumJS.">
+  <meta name="theme-color" content="#f4f7fa">
+  <link rel="icon" href="../media/underhill-icon.png">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="./css/hub.css">
+</head>
+<body class="hub">
+  <header class="hub-head">
+    <div class="hub-wrap hub-head__in">
+      <a class="hub-logo" href="../fly.html" aria-label="Underhill fly mode"><img src="../media/Underhill-Horozontal-RGB.png" alt="Underhill Geomatics" width="150" height="34"></a>
+      <span class="hub-head__tag">Fly Lab · internal test bench</span>
+      <a class="hub-head__link" href="../fly.html">Fly mode &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hub-hero hub-wrap">
+      <p class="hub-kicker">Real-city flight · 4 scenarios · 8 tests each</p>
+      <h1>Which real city should the drone fly over?</h1>
+      <p class="hub-lede">The same drone (our M350 model), the same controls and the same scripted 20-second flight, over the same real place: <b>Metrotown, Burnaby</b>, between Hyatt Place and MetroPlace (49.2249° N, 123.0034° W), about 4 km west of Underhill's Burnaby office. Each scenario page runs the same eight tests and shows what passed, what failed and the measured numbers.</p>
+    </section>
+
+    <section class="hub-wrap" aria-labelledby="rec-h">
+      <div class="hub-rec">
+        <p class="hub-rec__k" id="rec-h">Recommendation</p>
+        <p class="hub-rec__big">Build the real-city mode on <b>A: three.js + OpenStreetMap</b>. Keep <b>B: Google 3D Tiles</b> as an optional “photo-real” switch, once you have tested it with your own key and accept per-visit billing.</p>
+        <ul class="hub-rec__why">
+          <li><b>A is free and ours.</b> No key, no account, no per-visit cost, and it works offline. It is the same engine as fly mode, so the drone, collision, LiDAR and night lighting carry over unchanged. It is the only scenario that passed all 8 tests: first frame in 2.1 s, 1.8 MB to download, and a median frame of 10.9 ms (p95 15.3 ms) on the scripted flight.</li>
+          <li><b>A looks like a clean architectural model, not a photo.</b> It has real footprints and heights, window grids, lit windows at night, roads, the SkyTrain guideway and trees. For a survey company that is on-brand: it is honest and it reads as a map. The cost is that it never looks like the actual street.</li>
+          <li><b>B is the only option that looks like the real place.</b> It needs your Google key and billing, and every visitor's view streams from Google. Daylight is baked into the photos, so there is no real night, and the mesh has no building or ground labels. It is untested here until you paste a key.</li>
+          <li><b>C and D did not earn the switch.</b> C (MapLibre) is free, but it stuttered while tiles streamed (p95 147 ms). Its camera cannot look at the horizon, and it has no 3D raycast of its own. D (Cesium) is a capable GIS globe, but its free tier is non-commercial. It adds a second engine of about 2.8 MB, ran slowest per frame (median 55 ms on fallback data), and its picking costs about 11 ms per ray.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="hub-wrap" aria-labelledby="sc-h">
+      <div class="hub-sec-head">
+        <h2 id="sc-h">The four scenarios</h2>
+        <p class="hub-src" id="hub-src">Results: the lab's own run (hidden browser tab). Your own runs in this browser replace them automatically.</p>
+      </div>
+      <div class="hub-cards" id="hub-cards"></div>
+    </section>
+
+    <section class="hub-wrap" aria-labelledby="cmp-h">
+      <div class="hub-sec-head">
+        <h2 id="cmp-h">Side by side</h2>
+        <p class="hub-src">Measured values come from the test runs. Rows marked <i>assessed</i> are judgements from building the scenarios.</p>
+      </div>
+      <div class="hub-table-wrap" tabindex="0" role="region" aria-label="Comparison table, scrolls sideways on small screens">
+        <table class="hub-table" id="hub-table"></table>
+      </div>
+    </section>
+
+    <section class="hub-wrap hub-two" aria-labelledby="tests-h">
+      <div>
+        <h2 id="tests-h">What each test does</h2>
+        <dl class="hub-tests">
+          <dt>Load time to first frame</dt><dd>Time from opening the page to the first drawn frame. For map engines there is a second number: when the first real map content (tiles) is on screen. Pass ≤ 3 s, partial ≤ 6 s.</dd>
+          <dt>Frame time, scripted 20 s flight</dt><dd>“Run tests” flies the same route everywhere: take off, fly between Hyatt Place and MetroPlace at 35 m, a climbing half orbit of Hyatt Place, then land (291 m, up to 20 m/s). 1,200 frames at a fixed 1/60 s step. Each frame waits for the GPU, and we report the median and the 95th percentile. Pass: p95 ≤ 16.7 ms (60 fps). Partial: p95 ≤ 33 ms.</dd>
+          <dt>Download size</dt><dd>Compressed bytes for the visit, including tiles streamed during the route. Pass ≤ 8 MB, partial ≤ 25 MB.</dd>
+          <dt>Building collision</dt><dd>Full forward stick at Hyatt Place from about 62 m out, 40 m up. It passes if the drone brakes and stops short of the wall without entering the footprint.</dd>
+          <dt>LiDAR raycast</dt><dd>From a hover in the gap, the lab casts 96 rays: 64 level and 32 sloping down. It counts building hits, times each ray, and checks the distances against the OpenStreetMap footprints.</dd>
+          <dt>Day / night</dt><dd>What the engine can do for night. The lab also measures the mean frame brightness from one viewpoint, day then night.</dd>
+          <dt>Phone viewport (390 px)</dt><dd>A 390 × 844 copy of the page checks for sideways scroll, a full-width 3D view, a folded panel, touch sticks and the attribution on screen. Touch feel still needs a real phone.</dd>
+          <dt>Attribution</dt><dd>The legally required credit (OpenStreetMap, Google, Cesium) is on screen, not covered, and has the right words.</dd>
+        </dl>
+      </div>
+      <div>
+        <h2>How to read the numbers</h2>
+        <ul class="hub-notes">
+          <li><b>Hidden tab.</b> The lab's own run happened in a background browser tab. Background tabs do not run the normal animation clock, so a worker clock drove the frames. Results marked <span class="hid">hidden tab</span> should be confirmed in a visible tab: open a scenario, press <b>Run tests</b>, and come back here.</li>
+          <li><b>Same machine for all four:</b> an AMD Radeon integrated GPU, a 1,638 × 1,135 px window at 1.1× pixel ratio. Other work shared the machine during the runs, so frame times vary by roughly ±30 % from run to run (D measured 39 ms and later 55 ms). The ranking matters more than the absolute numbers.</li>
+          <li><b>Sizes</b> come from the local dev server, which does not compress. A production server would send the 0.94 MB OpenStreetMap file at roughly 0.2 MB.</li>
+          <li><b>Keys stay in your browser.</b> B and D keep your key or token in localStorage on this machine. Nothing is written to the files.</li>
+        </ul>
+        <h2>Out of scope</h2>
+        <ul class="hub-notes">
+          <li><b>Mapbox GL JS.</b> Since v2 it is not open source. It needs a Mapbox token and is billed per map load after the free allowance. MapLibre (C) is its open fork and covers the same ground.</li>
+          <li><b>WebODM.</b> This is a photogrammetry pipeline, not a map source. It turns our own drone photos into a 3D model of one site. It fits later, for real Underhill job sites, but there are no Metrotown photos to feed it.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="hub-foot hub-wrap">
+    <p>Map data: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> (ODbL) · OpenFreeMap · © OpenMapTiles · Google · Cesium ion, as credited in each scenario. Fly Lab lives at <code>experience/fly-lab/</code>; it does not change fly mode.</p>
+  </footer>
+
+  <script type="module" src="./js/hub.js"></script>
+</body>
+</html>

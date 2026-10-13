@@ -158,6 +158,7 @@ function enableOverlayLayer() {
 // budget never drops below 3; Q.modelBudget (2 on lite) matters where builds swap (the gear page)
 const models = new Models(stage, { mobile: MOBILE, q: Q, defaults: BUILDS, budget: Math.max(3, Q.modelBudget) });
 models.onChange = (object, entry) => {
+  entry.staged?.setSpread(explodeSpread);   // (phones: the gentler exploded view, see layout)
   keyOutlines.clear();          // the fitted keys' outlines belong to the old build
   if (object === 'ts') placeLaserTarget(entry);
   enableOverlayLayer();
@@ -165,6 +166,15 @@ models.onChange = (object, entry) => {
   labels.invalidate();          // force the label set to rebuild against the new build
   needsRender = true;
 };
+
+/** The exploded views' spread on every resident build (phones: gentler; see PHONE_SPREAD). The fitted
+ *  camera keys frame the assembly as it stands at the key, so their outlines are measured again. */
+function setSpread(s) {
+  explodeSpread = s;
+  let changed = false;
+  for (const e of models.cache.values()) if (e.staged?.setSpread(s)) changed = true;
+  if (changed) { keyOutlines.clear(); needsRender = true; }
+}
 
 /* ----------------------------------------------------------------------------------- layout */
 const HEAD_H = 76;   // Underhill's header height (--uh-head-h)
@@ -186,15 +196,31 @@ const probe = (css) => {
 };
 const probeS = probe('height:100vh;height:100svh'), probeL = probe('height:100vh;height:100lvh');
 const probeSafe = probe('height:0;padding-bottom:env(safe-area-inset-bottom,0px)');
+const probeSafeT = probe('height:0;padding-top:env(safe-area-inset-top,0px)');
+// Phones (portrait, not a tablet: under 600 px wide) have their own calm UI (2026-10-14): no site
+// header and no control row, a quiet bar over the top of the picture (close, the chapter, settings:
+// PHONE.bar), and one dock in the thumb zone just above the caption card (‹ ▶ ›, the film's
+// progress: PHONE.dock). The caption card is shorter there (no kicker: the bar names the chapter).
+// style.css "phone film UI" draws them at exactly these sizes.
+const PHONE = { bar: 44, barPad: 8, cap: 84, dock: 72, gap: 8 };
+// phones: the exploded views spread less (explode.js setSpread), so each instrument stays one compact
+// object that can be framed large
+const PHONE_SPREAD = 0.55;
+let explodeSpread = 1;
 
 function layout() {
   const W = innerWidth;
   const hs = probeS.offsetHeight || innerHeight;
   const hl = Math.max(hs, probeL.offsetHeight || innerHeight);
   const safeB = probeSafe.offsetHeight || 0;
+  const safeT = probeSafeT.offsetHeight || 0;
   vhPx = hs;
   const portrait = W / hs < 0.8 || W < 760;
   const tablet = portrait && W >= 600;
+  const phone = portrait && !tablet;
+  document.body.classList.toggle('is-phone', phone);
+  setSpread(phone ? PHONE_SPREAD : 1);
+  if (!phone && sheetOn) setSheet(false);
   // letterbox bars are a landscape option: tall screens are always full-bleed
   // (by default only where there is height to spare: a short window, 585 px say, gives the picture
   // the whole height, so the drone still fits under the title)
@@ -214,7 +240,7 @@ function layout() {
   }
   const picTop = barT, picH = lb ? Math.max(120, hs - barT - barB) : hl;
   // the caption card's reserved height on tall screens (kicker, title and one line; tablets: two)
-  const capH = portrait ? (tablet ? 128 : 92) : 0;
+  const capH = portrait ? (tablet ? 128 : PHONE.cap) : 0;
   const root = document.documentElement.style;
   root.setProperty('--pic-top', `${picTop}px`);
   root.setProperty('--pic-h', `${picH}px`);
@@ -229,23 +255,29 @@ function layout() {
   renderer.setSize(W, picH, false);
   post.setSize(W, picH);
   // the chapter rail has its own band under the header: nothing is placed above its bottom edge
-  const railBottom = HEAD_H + (portrait ? 14 : THREE.MathUtils.clamp(hs * 0.024, 10, 22)) + 16;
+  // (phones: no header and no rail; the top bar is all there is above the picture's free area)
+  const railBottom = phone ? safeT + PHONE.barPad * 2 + PHONE.bar
+    : HEAD_H + (portrait ? 14 : THREE.MathUtils.clamp(hs * 0.024, 10, 22)) + 16;
   root.setProperty('--rail-bottom', `${railBottom}px`);
-  const top = railBottom + 10 - picTop;                       // picture px
+  const top = railBottom + (phone ? 4 : 10) - picTop;        // picture px
   const capTop = hs - capH - 10 - safeB - picTop;             // the caption card's top edge (portrait)
+  // phones: the dock stands on the caption card, PHONE.gap above it
+  const dockTop = phone ? capTop - PHONE.gap - PHONE.dock : capTop;
+  root.setProperty('--dock-top', `${dockTop + picTop}px`);
   // the stage: the free area the subject is framed into (main camera, see frameCamera)
   let stage;
   if (lb) stage = { x0: 0, y0: 0, x1: W, y1: picH };
-  else if (portrait) stage = { x0: 0, y0: top, x1: W, y1: capTop - 10 };
+  else if (portrait) stage = { x0: 0, y0: top, x1: W, y1: dockTop - 10 };
   else stage = { x0: 0, y0: top, x1: W, y1: hs - 214 - picTop };
-  Object.assign(view, { w: W, h: picH, hs, portrait, tablet, picTop, stage, capTop });
+  Object.assign(view, { w: W, h: picH, hs, portrait, tablet, phone, picTop, stage, capTop, dockTop, barBottom: railBottom - picTop });
   view.bandTop = lb ? 10 : top; view.bandBottom = lb ? picH - 10 : stage.y1;
   view.colTop = lb ? Math.max(picH * 0.07, 10) : top + 4; view.colBottom = lb ? picH * 0.93 : stage.y1 - 8;
   // the title: the title block at the top, the drone framed between it and the scroll cue, never
   // behind the text (the stage eases to the regular one as the title fades)
   const sub = $('.title-card__sub');
   const tb = sub.offsetTop + sub.offsetHeight;
-  view.titleStage = { x0: 0, y0: tb + 18, x1: W, y1: Math.min(picH, hs - picTop) - 64 - safeB - 10 };
+  // (phones: down to the dock; the hint line under it sits where the caption card will be)
+  view.titleStage = { x0: 0, y0: tb + 18, x1: W, y1: phone ? dockTop - 10 : Math.min(picH, hs - picTop) - 64 - safeB - 10 };
   cards?.invalidate();
   // scroll track: one section per beat, heights in px from the stable viewport height
   for (const el of trackSections) el.style.height = `${(Number(el.dataset.u1) - Number(el.dataset.u0) + (el.dataset.last ? 1 : 0)) * vhPx}px`;
@@ -373,6 +405,11 @@ function updateRail(chapter) {
   $('#rail-name').textContent = k >= 0 ? RAIL_NAMES[k] : '';
   $('#rail').classList.toggle('is-intro', k < 0);
   railBtns.forEach((b, i) => b.setAttribute('aria-current', i === k ? 'step' : 'false'));
+  // phones: the quiet chapter label in the top bar ("01 · Drone"); gone under the title, which names itself
+  $('#ptop-n').textContent = String(k + 1).padStart(2, '0');
+  $('#ptop-t').textContent = k >= 0 ? RAIL_NAMES[k] : '';
+  $('#ptop-ch').classList.toggle('is-intro', k < 0);
+  sheetMarkChapter();
 }
 
 /* ---------------------------------------- previous / next chapter: the arrows by the rail */
@@ -449,12 +486,23 @@ function updateNav(loading) {
   const key = `${prev}|${next}`;
   if (key === navKey) return;
   navKey = key;
-  const [bp, bn] = navBtns;
-  bp.disabled = prev < 0; bn.disabled = next < 0;
   const name = (i) => stopLabel(CHAPTERS[i].first).k;
-  bp.setAttribute('aria-label', prev < 0 ? 'Previous chapter' : `Previous chapter: ${name(prev)}`);
-  bn.setAttribute('aria-label', next < 0 ? 'Next chapter' : `Next chapter: ${name(next)}`);
+  // (the rail's arrows, and the phone dock's)
+  for (const [bp, bn] of [navBtns, dockBtns]) {
+    bp.disabled = prev < 0; bn.disabled = next < 0;
+    bp.setAttribute('aria-label', prev < 0 ? 'Previous chapter' : `Previous chapter: ${name(prev)}`);
+    bn.setAttribute('aria-label', next < 0 ? 'Next chapter' : `Next chapter: ${name(next)}`);
+  }
   if (navHot) showNavTip(navHot);
+}
+/* phones: the dock's ‹ › (the same chapter jumps as the rail's arrows; no tips on touch) */
+const dockBtns = [$('#pdock-prev'), $('#pdock-next')];
+for (const btn of dockBtns) {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    const i = chapterTarget(Number(btn.dataset.dir));
+    if (i >= 0) goChapter(i);
+  });
 }
 $('#lb-toggle').addEventListener('click', () => {
   letterbox = !document.body.classList.contains('no-letterbox') ? false : true;
@@ -800,17 +848,53 @@ function titleSpot(u) {
   fx.shaft.update(_shaftAt, camera.position, 0.3 * spot * night);
 }
 
+/* Phones: an exploded view names one part at a time (labels.js "spot"): a small marker on the part, a
+   thin leader and its name in free space; the caption card says which (n / N). While the parts are
+   coming out, the one that has just arrived is shown; once they are all out, the next one every
+   SPOT_HOLD seconds, in number order. It holds while the film is held (the clock stops) and under
+   reduced motion; a tap on the name or on the caption card shows the next one at once. */
+const SPOT_HOLD = 2.5;
+const spot = { key: null, id: null, seen: new Set(), t: 0 };
+function spotPick(key, L, alpha, dt) {
+  if (spot.key !== key) { spot.key = key; spot.id = null; spot.seen.clear(); spot.t = 0; }
+  const out = L.filter((l) => (alpha.get(l.id) || 0) > 0.5);
+  if (!out.length) { spot.id = null; spot.seen.clear(); return null; }
+  // (a part that has just come out takes the spot; scrubbing back, the latest one still out keeps it)
+  const fresh = out.filter((l) => !spot.seen.has(l.id));
+  spot.seen = new Set(out.map((l) => l.id));
+  if (fresh.length) { spot.id = fresh.reduce((b, l) => (l.arrive > b.arrive ? l : b)).id; spot.t = 0; }
+  else if (!spot.seen.has(spot.id)) { spot.id = out.reduce((b, l) => (l.arrive > b.arrive ? l : b)).id; spot.t = 0; }
+  else if (!REDUCED && dt > 0) {
+    spot.t += dt;
+    if (spot.t >= SPOT_HOLD) spotNext(out);
+  }
+  return spot.id;
+}
+/** the next part that is out, in number order (wraps) */
+function spotNext(out) {
+  const entry = spot.key ? models.active(spot.key) : null;
+  if (!entry) return;
+  out = out || entry.labels.filter((l) => labels.items.get(l.id)?.a > 0.5);
+  if (!out.length) return;
+  const i = out.findIndex((l) => l.id === spot.id);
+  spot.id = out[(i + 1) % out.length].id;
+  spot.t = 0;
+  needsRender = true;
+}
+labels.onSpotTap = () => spotNext();
+
 function updateLabels(s, dt = 0) {
   const key = s.labelsFor;
   const entry = key ? models.active(key) : null;
-  if (!entry) { labels.set(null, []); return; }
+  if (!entry) { labels.set(null, []); labels.hideSpot(); return; }
   labels.set(entry.key, entry.labels);
   const gate = s[key].labels;
   const t = s[key].explode;
   const alpha = new Map();
-  // tall screens: numbered dots, at most 3 parts at a time, in step with the explode (each part's
-  // dot leaves just before the third part after it arrives)
-  const dots = view.portrait;
+  // tablets in portrait: numbered dots, at most 3 parts at a time, in step with the explode (each
+  // part's dot leaves just before the third part after it arrives). Phones: one part at a time (spot)
+  const phone = view.phone;
+  const dots = view.portrait && !phone;
   const L = entry.labels;
   L.forEach((l, i) => {
     // (the window ends by t = 1: the last parts to settle, the gimbal camera's, arrive so late that
@@ -830,7 +914,7 @@ function updateLabels(s, dt = 0) {
     const x = (c.x * 0.5 + 0.5) * view.w; minX = Math.min(minX, x); maxX = Math.max(maxX, x);
   }
   labels.update(camera, view, alpha, {
-    mode: dots ? 'dots' : 'columns',
+    mode: phone ? 'spot' : dots ? 'dots' : 'columns', spot: phone ? spotPick(entry.key, L, alpha, dt) : null,
     subject, subjectBox: { minY, maxY, minX, maxX }, root: entry.inst.root, occlusion: true,
     forceOcclusion: DEBUG_FRAME !== null || REDUCED, dt: REDUCED ? 0 : dt,
     bandTop: view.bandTop, bandBottom: view.bandBottom, colTop: view.colTop, colBottom: view.colBottom,
@@ -944,11 +1028,26 @@ const FINALE_SHORT = { drone: 'Drone', gnss: 'GNSS base', ts: 'Total station' };
 function toggleFinale(id) { finaleHi = finaleHi === id ? null : id; legendKey = ''; needsRender = true; }
 function updateCaptionCard(capA) {
   if (!view.portrait) { capEl.style.removeProperty('--calm'); capEl.style.removeProperty('--extra'); capEl.style.visibility = ''; return; }
-  let legend = labels.inView(), hi = labels.highlight, toggle = (id) => labels.toggle(id);
+  let legend = view.phone ? [] : labels.inView(), hi = labels.highlight, toggle = (id) => labels.toggle(id);
   if (!legend.length && finaleLegend) { legend = finaleLegend; hi = finaleHi; toggle = toggleFinale; }
   const facts = cards.line || fieldLine;
+  // phones, in an exploded view: the part named in the picture, and which of how many (a tap on the
+  // card names the next one: capEl's click, below)
+  const part = view.phone ? labels.spotInfo : null;
   let extra = 0;
-  if (legend.length) {
+  if (part) {
+    const key = `part|${part.id}|${part.N}`;
+    if (key !== legendKey) {
+      legendKey = key;
+      legendEl.innerHTML = '<button type="button" class="cap-part"><span class="cap-part__t"></span><span class="cap-part__n"></span>'
+        + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg></button>';
+      legendEl.querySelector('.cap-part__t').textContent = part.text;
+      legendEl.querySelector('.cap-part__n').textContent = `${part.n} / ${part.N}`;
+      legendEl.firstChild.setAttribute('aria-label', `${part.text}, part ${part.n} of ${part.N}. Show the next part`);
+    }
+    extra = part.a;
+    legendEl.style.visibility = 'visible'; factsEl.style.visibility = 'hidden';
+  } else if (legend.length) {
     const key = legend.map((l) => l.id).join(',') + '|' + hi;
     if (key !== legendKey) {
       legendKey = key;
@@ -982,6 +1081,7 @@ function updateCaptionCard(capA) {
   capEl.style.visibility = show > 0.01 ? 'visible' : 'hidden';
 }
 labels.onChange = () => { legendKey = ''; needsRender = true; };
+capEl.addEventListener('click', () => { if (view.phone && labels.spotInfo) spotNext(); });
 
 /* ------------------------------------------------------------- the end-cards (the last stop) */
 // "Fly the drone yourself", "Try the kit" and "Back to Underhill": they come up as the film settles on
@@ -1074,6 +1174,13 @@ function updateDom(s) {
   const cue = $('#scroll-cue');
   cue.style.opacity = s.title.toFixed(3);
   cue.style.visibility = s.title > 0.02 ? 'visible' : 'hidden';
+  // phones: no cue; one soft line under the dock instead, with the title, until the first interaction
+  // (and the dock's progress line)
+  if (view.phone) {
+    const h = hinted ? 0 : Math.round(s.title * 100) / 100;
+    if (h !== hintA) { hintA = h; hintEl.style.opacity = String(h); hintEl.style.visibility = h > 0.02 ? 'visible' : 'hidden'; }
+    updateDock(u);
+  }
 
   // captions crossfade (reduced motion: hard cuts between stills)
   const cur = TL.beatAt(u);
@@ -1108,6 +1215,7 @@ function updateDom(s) {
   // laser readout next to the prism
   const ro = s.readout * (models.active('ts') ? 1 : 0);
   readoutEl.style.opacity = ro.toFixed(3);
+  if (view.phone) readoutEl.style.visibility = ro > 0.001 ? 'visible' : 'hidden';   // (phoneGuard may hide it)
   if (ro > 0.001) {
     const p = project(fx.laser.end);
     $('#readout-v').textContent = `${fx.laser.distance.toFixed(3)} m`;
@@ -1116,7 +1224,8 @@ function updateDom(s) {
 
   updateFieldDom(s);
   updateCards(s);
-  finaleLegend = view.portrait && s.finale > 0.01
+  // (tablets: numbered dots and chips; phones: a plain name under each instrument, no chips)
+  finaleLegend = view.portrait && !view.phone && s.finale > 0.01
     ? tagEls.filter((el) => models.active(el.dataset.station)).map((el) => ({ id: el.dataset.station, n: el.querySelector('.tag__n').textContent, text: FINALE_SHORT[el.dataset.station], a: s.finale }))
     : null;
   if (!finaleLegend) finaleHi = null;
@@ -1128,14 +1237,53 @@ function updateDom(s) {
     const k = el.dataset.station;
     const a = s.finale * (models.active(k) ? 1 : 0);
     el.style.opacity = a.toFixed(3);
+    if (view.phone) el.style.visibility = a > 0.001 ? 'visible' : 'hidden';   // (phoneGuard may hide it)
     if (a > 0.001) {
       const p = project(tmpV.copy(stage.stations[k].group.position).add(new THREE.Vector3(0, 0, 0.62)));
-      // (tall screens: a numbered dot on the floor in front of the instrument; its name is a chip)
-      el.style.transform = view.portrait ? `translate3d(calc(${p.x.toFixed(1)}px - 50%), calc(${p.y.toFixed(1)}px - 50%), 0)`
+      // (tablets in portrait: a numbered dot on the floor in front of the instrument; its name is a
+      // chip. Phones: its name alone, in a small pill under it)
+      const dot = view.portrait && !view.phone;
+      if (view.phone) { el._px = p.x; el._py = p.y + 6; }   // (for phoneGuard's measure)
+      el.style.transform = dot ? `translate3d(calc(${p.x.toFixed(1)}px - 50%), calc(${p.y.toFixed(1)}px - 50%), 0)`
         : `translate3d(calc(${p.x.toFixed(1)}px - 50%), ${(p.y + 6).toFixed(1)}px, 0)`;
     }
-    el.classList.toggle('is-on', view.portrait && finaleHi === k);
-    el.style.pointerEvents = view.portrait && a > 0.3 ? 'auto' : 'none';
+    el.classList.toggle('is-on', view.portrait && !view.phone && finaleHi === k);
+    el.style.pointerEvents = view.portrait && !view.phone && a > 0.3 ? 'auto' : 'none';
+  }
+  if (view.phone) phoneGuard();
+}
+
+/* Phones: the top bar, the dock and the caption card own their bands of the screen. Anything placed on
+   a projected point (field tags, the readout, the finale's names, a card's pin, the part's name)
+   that would reach into one of them, or into the end-cards, is hidden for that frame rather than drawn
+   under a control. (The bands are fixed in layout: nothing here forces a layout but the first measure
+   of each tag, as in cardObstacles.) */
+const GUARD_SEL = '#ftags > *, #readout, #tags > .tag, #uleads > g, #labels > .spot';
+function guardRect(el) {
+  if (el._px === undefined) {
+    const r = el.getBoundingClientRect();
+    return r.width && r.height ? { x0: r.left, y0: r.top, x1: r.right, y1: r.bottom } : null;
+  }
+  const key = `${el.className}|${el.textContent}|${view.w}`;
+  if (el._geomKey !== key) {
+    const r = el.getBoundingClientRect();
+    el._geom = { ox: r.left - el._px, oy: r.top - el._py, w: r.width, h: r.height };
+    el._geomKey = key;
+  }
+  const g = el._geom;
+  return g.w && g.h ? { x0: el._px + g.ox, y0: el._py + g.oy, x1: el._px + g.ox + g.w, y1: el._py + g.oy + g.h } : null;
+}
+function phoneGuard() {
+  const top = view.barBottom, bottom = view.dockTop;
+  const end = endShown > 0.01 ? endEl.getBoundingClientRect() : null;
+  for (const el of document.querySelectorAll(GUARD_SEL)) {
+    const st = el.style;
+    if (st.visibility === 'hidden' || (st.opacity !== '' && !(Number(st.opacity) > 0.01))) continue;
+    const r = el.classList.contains('spot') && labels._spotRect ? labels._spotRect : guardRect(el);
+    if (!r) continue;
+    const bad = r.y0 < top + 2 || r.y1 > bottom - 2 || r.x0 < 2 || r.x1 > view.w - 2
+      || (end && r.x0 < end.right + 6 && r.x1 > end.left - 6 && r.y0 < end.bottom + 6 && r.y1 > end.top - 6);
+    if (bad) st.visibility = 'hidden';
   }
 }
 
@@ -1350,7 +1498,7 @@ function stepFrame(dt) {
 const stepperOn = () => DEBUG_FRAME === null && !window.__intro?.playing && !document.querySelector('.site-head.menu-open');
 /** does a gesture in this direction belong to the film? (past the last stop it is the page's) */
 function engaged(dir) {
-  if (!stepperOn()) return false;
+  if (!stepperOn() || sheetOn) return false;
   if (step) return true;
   const u = uNow();
   if (u > STOPS[LAST_STOP] + 0.02) return false;            // below the film: the page scrolls on
@@ -1501,6 +1649,11 @@ function apWrite(u) {
 function apUi() {
   const on = AP.on;
   document.documentElement.classList.toggle('is-autoplay', on);
+  // (phones: the dock's big ▶ / ❚❚)
+  dockPlay.classList.toggle('is-playing', on);
+  dockPlay.setAttribute('aria-pressed', String(on));
+  dockPlay.setAttribute('aria-label', on ? 'Pause the film' : 'Play the film');
+  if (on) hintDone();
   if (!apBtn) return;
   apBtn.classList.toggle('is-playing', on);
   apBtn.setAttribute('aria-pressed', String(on));
@@ -1574,6 +1727,8 @@ function apFrame(dt) {
   needsRender = true;
 }
 apBtn?.addEventListener('click', () => { showNavTip(null); apToggle(); });
+const dockPlay = $('#pdock-play');
+dockPlay.addEventListener('click', () => { hintDone(); apToggle(); });
 // a click or tap on the picture pauses the film where it is, and plays it on (only while it plays or
 // is held: on a resting film a click does nothing). A brief mark in the middle says which.
 const apFlash = document.createElement('div');
@@ -1639,8 +1794,14 @@ addEventListener('keydown', (e) => {
       btn.title = on ? 'Exit full screen (F)' : 'Full screen (F)';
       $('#fsbtn-lbl').textContent = on ? 'Exit full screen' : 'Full screen';
       document.body.classList.toggle('is-fullscreen', on);
+      // (phones: the same switch in the settings sheet)
+      sbtn.setAttribute('aria-pressed', String(on));
+      $('#psheet-fs-lbl').textContent = on ? 'Exit full screen' : 'Full screen';
     };
+    const sbtn = $('#psheet-fs');
+    $('#psheet-fsw').hidden = false;
     btn.addEventListener('click', toggle);
+    sbtn.addEventListener('click', toggle);
     document.addEventListener('fullscreenchange', sync);
     document.addEventListener('webkitfullscreenchange', sync);
     addEventListener('keydown', (e) => {
@@ -1652,10 +1813,114 @@ addEventListener('keydown', (e) => {
   }
 }
 
+/* ------------------------------------------------------- phones: the dock, the hint, the sheet */
+// (2026-10-14) Phones get a calm, video-player UI (film.html .ptop / .pdock / .phint / .psheet; sizes
+// in PHONE, styles in style.css "phone film UI"). The header's controls are still in the page (header.js
+// needs them) but hidden there; everything below drives the same machinery as they do.
+
+// The dock's progress line: the whole film to its last stop, a tick where each chapter starts. Written
+// from updateDom, only when it changes by a thousandth.
+const dockFill = $('#pdock-fill');
+let dockP = -1;
+$('#pdock-ticks').innerHTML = CHAPTERS.slice(1).map((c) => `<i style="left:${((100 * c.at) / STOPS[LAST_STOP]).toFixed(2)}%"></i>`).join('');
+function updateDock(u) {
+  const p = Math.round(THREE.MathUtils.clamp(u / STOPS[LAST_STOP], 0, 1) * 1000) / 1000;
+  if (p === dockP) return;
+  dockP = p;
+  dockFill.style.transform = `scaleX(${p})`;
+  if (u > 0.8) hintDone();   // (the film has really started: the title is going)
+}
+
+// The hint ("Swipe up or tap ▶"): with the title, until the reader first does anything
+const hintEl = $('#phint');
+let hinted = false, hintA = -1;
+function hintDone() { if (!hinted) { hinted = true; needsRender = true; } }
+for (const ev of ['touchstart', 'wheel', 'keydown', 'pointerdown']) addEventListener(ev, hintDone, { passive: true, once: true });
+
+// The sheet: chapters, day / night, quality (film-settings.js) and full screen (above), under ⋯.
+// It closes on the scrim, Esc, a swipe down on it, or a chapter. While it is open the film's own
+// gestures and keys are off (engaged, the wheel and the keys check sheetOn); autoplay plays on.
+const sheet = $('#psheet'), sheetPanel = $('#psheet-panel'), moreBtn = $('#ptop-more'), sheetCh = $('#psheet-chapters');
+let sheetOn = false, sheetHideT = 0;
+function setSheet(on) {
+  if (on === sheetOn) return;
+  sheetOn = on;
+  clearTimeout(sheetHideT);
+  moreBtn.setAttribute('aria-expanded', String(on));
+  sheetPanel.style.transform = '';
+  if (on) {
+    sheet.hidden = false;
+    void sheet.offsetWidth;   // (from the closed state, so the slide-up plays)
+    sheet.classList.add('is-open');
+    sheetMarkChapter(); syncSheetLook();
+    sheetPanel.scrollTop = 0;
+    (sheetCh.querySelector('[aria-current="true"]') || sheetPanel.querySelector('button'))?.focus({ preventScroll: true });
+  } else {
+    sheet.classList.remove('is-open');
+    sheetHideT = setTimeout(() => { sheet.hidden = true; }, REDUCED ? 0 : 340);
+    if (sheet.contains(document.activeElement)) moreBtn.focus({ preventScroll: true });
+  }
+}
+moreBtn.addEventListener('click', () => { hintDone(); setSheet(!sheetOn); });
+$('#psheet-scrim').addEventListener('click', () => setSheet(false));
+addEventListener('keydown', (e) => { if (sheetOn && e.key === 'Escape') { e.preventDefault(); setSheet(false); } });
+// chapters: the opening and the five, the current one marked; a tap plays that chapter (goChapter)
+CHAPTERS.forEach((c, i) => {
+  const li = document.createElement('li');
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'psheet__ch'; b.dataset.i = String(i);
+  b.innerHTML = '<span class="psheet__chn"></span><span class="psheet__cht"></span>';
+  b.firstChild.textContent = String(i).padStart(2, '0');
+  b.lastChild.textContent = i === 0 ? 'Opening' : RAIL_NAMES[i - 1];
+  b.addEventListener('click', () => { setSheet(false); goChapter(i); });
+  li.appendChild(b); sheetCh.appendChild(li);
+});
+function sheetMarkChapter() {
+  const k = chapterSlot();
+  for (const li of sheetCh.children) { const b = li.firstChild; b.setAttribute('aria-current', String(Number(b.dataset.i) === k)); }
+}
+// day / night: the header's own switch does the work (its 3D ease, its saved choice), clicked for us
+const lookDay = $('#psheet-day'), lookNight = $('#psheet-night');
+function syncSheetLook() {
+  const d = document.body.classList.contains('is-day');
+  lookDay.setAttribute('aria-pressed', String(d)); lookNight.setAttribute('aria-pressed', String(!d));
+}
+lookDay.addEventListener('click', () => { if (!document.body.classList.contains('is-day')) $('#daylight').click(); });
+lookNight.addEventListener('click', () => { if (document.body.classList.contains('is-day')) $('#daylight').click(); });
+new MutationObserver(syncSheetLook).observe($('#daylight'), { attributes: true, attributeFilter: ['aria-pressed'] });
+// a swipe down on the sheet closes it (it follows the finger; past a quarter of its height, or
+// 120 px, it goes). A sheet with nothing to scroll never lets the page under it move.
+let dragY0 = NaN, dragDy = 0;
+sheetPanel.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 1) return;
+  dragY0 = e.touches[0].clientY; dragDy = 0;
+}, { passive: true });
+sheetPanel.addEventListener('touchmove', (e) => {
+  if (!Number.isFinite(dragY0)) return;
+  const dy = e.touches[0].clientY - dragY0;
+  if (dy > 0 && sheetPanel.scrollTop <= 0) {
+    dragDy = dy;
+    sheetPanel.classList.add('is-drag');
+    sheetPanel.style.transform = `translateY(${dy.toFixed(1)}px)`;
+    if (e.cancelable) e.preventDefault();
+  } else if (sheetPanel.scrollHeight <= sheetPanel.clientHeight + 1 && e.cancelable) e.preventDefault();
+}, { passive: false });
+const dragEnd = () => {
+  if (!Number.isFinite(dragY0)) return;
+  dragY0 = NaN;
+  sheetPanel.classList.remove('is-drag');
+  if (dragDy > Math.min(120, sheetPanel.offsetHeight * 0.25)) setSheet(false);
+  else sheetPanel.style.transform = '';
+  dragDy = 0;
+};
+sheetPanel.addEventListener('touchend', dragEnd, { passive: true });
+sheetPanel.addEventListener('touchcancel', dragEnd, { passive: true });
+$('#psheet-scrim').addEventListener('touchmove', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+
 // wheel / trackpad: one gesture, one step; the inertia tail of a gesture is ignored
 let wheelAcc = 0, lastWheel = 0, wheelBlocked = false;
 addEventListener('wheel', (e) => {
-  if (e.ctrlKey) return;
+  if (e.ctrlKey || sheetOn) return;
   if (AP.on) {
     // autoplay: the gesture only pauses it, and the rest of the gesture (its inertia tail) is ignored
     e.preventDefault(); apPause();
@@ -1686,8 +1951,8 @@ addEventListener('touchmove', (e) => {
   if (tKind === 'none') {
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
     // autoplay: a drag pauses it where the film is, and the swipe is spent on that
-    if (AP.on && !e.target.closest?.('.mnav')) { apPause(); tKind = 'step'; tFired = true; }
-    else tKind = !e.target.closest?.('.mnav') && engaged(dir) ? 'step' : 'native';
+    if (AP.on && !e.target.closest?.('.mnav, .psheet')) { apPause(); tKind = 'step'; tFired = true; }
+    else tKind = !e.target.closest?.('.mnav, .psheet') && engaged(dir) ? 'step' : 'native';
     if (tKind === 'native') return;
   }
   if (e.cancelable) e.preventDefault();
@@ -1697,7 +1962,7 @@ addEventListener('touchend', () => { tKind = 'none'; }, { passive: true });
 addEventListener('touchcancel', () => { tKind = 'none'; }, { passive: true });
 // keys: arrows, Page Up / Down, Space (Shift+Space back); Home / End jump. Esc stays with the menu and the intro.
 addEventListener('keydown', (e) => {
-  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || sheetOn) return;
   const t = e.target;
   if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
   // Space: play / pause (a focused button or link keeps its own Space; below the film the page scrolls)

@@ -1224,3 +1224,229 @@ body.is-day .apflash { background: rgba(255, 255, 255, 0.82); border-color: rgba
   .filmexit:hover, body.is-day .filmexit:hover { background: #006aa6; border-color: #006aa6; color: #fff; }
 }
 .filmexit:focus-visible { outline: 2px solid #5cc0f5; outline-offset: 2px; }
+
+/* ========================================================================= phone film UI (2026-10-14) */
+/* Phones (portrait, under 600 px: main.js layout's `phone`) get a calm, video-player UI instead of the
+   site header and its control row: a quiet bar over the top of the picture (close, the chapter,
+   settings), one dock in the thumb zone just above the caption card (previous chapter, play / pause,
+   next chapter, the film's progress), and one bottom sheet for the rest (chapters, day / night,
+   quality, full screen). Controls are round, translucent and blurred over the picture (dark at night,
+   white by day); the one solid control is Underhill blue: play. The sizes match main.js PHONE. The
+   header stays in the page (header.js needs it), hidden. Every other layout is untouched. */
+.ptop, .pdock, .phint, .psheet { display: none; }
+.spot { position: absolute; left: 0; top: 0; visibility: hidden; opacity: 0; }
+@media (max-width: 599.98px) {
+  .site-head, .mnav, .scroll-cue { display: none !important; }
+
+  /* --- the top bar: close, the chapter, settings (44 px rounds, safe-area aware) --- */
+  .ptop {
+    display: flex; position: absolute; left: 0; right: 0; top: 0; z-index: 4; box-sizing: border-box; height: calc(60px + env(safe-area-inset-top, 0px));
+    padding: calc(8px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 8px calc(12px + env(safe-area-inset-left, 0px));
+    align-items: center; justify-content: space-between; gap: 12px; pointer-events: none;
+    transition: opacity 0.6s ease 0.3s;
+  }
+  .pbtn {
+    pointer-events: auto; position: relative; flex: 0 0 44px; width: 44px; height: 44px; box-sizing: border-box; margin: 0; padding: 0;
+    display: grid; place-items: center; border-radius: 50%; cursor: pointer; text-decoration: none; color: #f2f6f9;
+    background: rgba(10, 18, 28, 0.36); border: 1px solid rgba(255, 255, 255, 0.14); box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+    transition: background-color 0.2s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .pbtn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .ptop__more svg { fill: currentColor; stroke: none; }
+  .pbtn:active { transform: scale(0.93); background: rgba(10, 18, 28, 0.56); }
+  .pbtn:focus-visible { outline: 2px solid #5cc0f5; outline-offset: 2px; }
+  .ptop__ch {
+    flex: 1 1 auto; min-width: 0; margin: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font: 500 12px/1 var(--sh-mono); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(238, 244, 248, 0.84);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5); transition: opacity 0.4s ease;
+  }
+  .ptop__n { color: #5cc0f5; }
+  .ptop__t::before { content: '·'; margin: 0 0.6em 0 0.7em; opacity: 0.55; }
+  .ptop__ch.is-intro { opacity: 0; }
+
+  /* --- the dock: ‹ ▶ › in one pill, the progress line under it, on the caption card --- */
+  .pdock { display: block; position: absolute; left: 0; right: 0; top: var(--dock-top, 70%); height: 72px; z-index: 3; pointer-events: none; transition: opacity 0.6s ease 0.3s; }
+  .pdock__pill {
+    pointer-events: auto; position: absolute; left: 50%; top: 0; transform: translateX(-50%); box-sizing: border-box; height: 60px; padding: 0 3px;
+    display: flex; align-items: center; gap: 10px; border-radius: 999px;
+    background: rgba(10, 18, 28, 0.4); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  }
+  .pdock__btn, .pdock__play {
+    position: relative; display: grid; place-items: center; margin: 0; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .pdock__btn { width: 48px; height: 48px; background: transparent; color: #f2f6f9; }
+  .pdock__btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .pdock__btn:disabled { opacity: 0.28; cursor: default; }
+  .pdock__btn:not(:disabled):active { background: rgba(255, 255, 255, 0.12); transform: scale(0.92); }
+  .pdock__play { width: 54px; height: 54px; background: #0082ca; color: #fff; box-shadow: 0 6px 18px rgba(0, 130, 202, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+  .pdock__play svg { width: 24px; height: 24px; }
+  .pdock__i-play { fill: currentColor; transform: translateX(1px); }   /* (optically centred) */
+  .pdock__i-pause { display: none; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+  .pdock__play.is-playing .pdock__i-play { display: none; }
+  .pdock__play.is-playing .pdock__i-pause { display: block; }
+  .pdock__play:active { transform: scale(0.94); background: #006aa6; }
+  .pdock__btn:focus-visible, .pdock__play:focus-visible { outline: 2px solid #5cc0f5; outline-offset: 2px; }
+  .pdock__bar {
+    position: absolute; left: calc(12px + env(safe-area-inset-left, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); bottom: 0; height: 6px;
+    max-width: 640px; margin: 0 auto;
+  }
+  .pdock__bar::before { content: ''; position: absolute; left: 0; right: 0; top: 2px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
+  .pdock__fill { position: absolute; left: 0; right: 0; top: 2px; height: 2px; border-radius: 2px; background: #5cc0f5; transform-origin: 0 50%; transform: scaleX(0); }
+  .pdock__ticks i { position: absolute; top: 0; width: 2px; height: 6px; margin-left: -1px; border-radius: 1px; background: rgba(255, 255, 255, 0.5); }
+
+  /* --- the hint: where the caption card will be, with the title, until the first interaction --- */
+  .phint {
+    display: flex; align-items: center; justify-content: center; gap: 0.4em; position: absolute; left: 0; right: 0; margin: 0;
+    top: calc(var(--dock-top, 70%) + 80px); height: var(--cap-h, 84px); pointer-events: none; opacity: 0; visibility: hidden;
+    font: 500 13.5px/1.3 var(--uh-font-body); letter-spacing: 0.01em; color: rgba(238, 244, 248, 0.78); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+  }
+  .phint[style*='visible'] { transition: opacity 0.5s ease, visibility 0s; }
+  .phint b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #0082ca; color: #fff; font-size: 9px; padding-left: 1px; box-sizing: border-box; }
+
+  /* until the film is ready, the bar and the dock stay out of the way (as the rail does) */
+  body.is-booting .ptop, body.is-booting .pdock { opacity: 0; visibility: hidden; transition: none; }
+
+  /* --- the caption card: no kicker (the bar names the chapter), the title, one line; 18 px corners --- */
+  body.is-portrait .captions { border-radius: 18px; }
+  body.is-portrait .caption { padding: 15px 16px 0; }
+  body.is-portrait .caption__kicker { display: none; }
+  body.is-portrait .caption__title { font-size: 17.5px; line-height: 1.2; }
+  body.is-portrait .caption__line { left: 16px; right: 16px; top: 43px; }
+  body.is-portrait .cap-extra { left: 16px; right: 12px; top: 41px; height: 38px; }
+  body.is-portrait .cap-facts { top: 2px; }
+  /* an exploded view: the part named in the picture, and which of how many; a tap shows the next */
+  .cap-part {
+    all: unset; box-sizing: border-box; position: relative; display: flex; align-items: center; gap: 10px; width: 100%; height: 30px; cursor: pointer;
+    padding-left: 10px; border-left: 2px solid var(--accent);
+  }
+  .cap-part::after { content: ''; position: absolute; left: -16px; right: -12px; top: -8px; bottom: -8px; }
+  .cap-part__t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14.5px/1.2 var(--uh-font-body); color: var(--panel-ink); }
+  .cap-part__n { flex: 0 0 auto; font: 500 12px/1 var(--sh-mono); letter-spacing: 0.08em; color: var(--accent); }
+  .cap-part svg { flex: 0 0 auto; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--ink-2); }
+  .cap-part:focus-visible { outline: 2px solid #5cc0f5; outline-offset: 3px; }
+
+  /* --- the title: no kicker, the title, one short line, below the bar; the drone is the hero --- */
+  body.is-portrait .title-card { padding-top: calc(var(--rail-bottom, 60px) - var(--pic-top, 0px) + 26px); }
+  body.is-portrait .title-card__kicker { display: none; }
+  body.is-portrait .title-card__sub { margin-top: 12px; }
+  /* the boot screen's title stands where the first frame's will be; its way out is at the top */
+  .fallback { padding-top: calc(env(safe-area-inset-top, 0px) + 86px); }
+  .fallback__kicker { display: none; }
+  .boot-exit { top: calc(env(safe-area-inset-top, 0px) + 14px); left: 12px; height: 44px; padding: 0 16px; border-radius: 999px; }
+
+  /* --- the finale (three instruments): a plain name under each, no numbers, no chips; no wordmark --- */
+  body.is-portrait .finale-card { display: none; }
+  body.is-portrait .tag { padding: 7px 12px; border-radius: 999px; background: var(--panel); box-shadow: 0 0 0 1px var(--panel-line), 0 6px 18px rgba(0, 0, 0, 0.25); cursor: default; }
+  body.is-portrait .tag::after { content: none; }
+  body.is-portrait .tag__n, body.is-portrait .tag__b { display: none; }
+  body.is-portrait .tag__t { display: block; position: static; transform: none; padding: 0; background: none; border: 0; font: 600 13px/1.1 var(--uh-font-body); color: var(--panel-ink); }
+
+  /* --- the end-cards: one row just above the dock (they never cover it), 18 px corners --- */
+  body.is-portrait .endcards, body.is-portrait.no-letterbox .endcards { bottom: calc(100% + 8px + 72px + 8px); }   /* (PHONE.gap, .dock, and 8 px of air) */
+  body.is-portrait .endcard { border-radius: 999px; }
+
+  /* --- the part named in an exploded view (labels.js spot mode) --- */
+  .spot {
+    margin: 0; border: 0; white-space: nowrap; cursor: pointer; pointer-events: auto; padding: 8px 13px; border-radius: 999px;
+    font: 600 13px/1 var(--uh-font-body); letter-spacing: 0.01em; color: var(--panel-ink); background: var(--panel);
+    box-shadow: 0 0 0 1px var(--panel-line), 0 6px 20px rgba(0, 0, 0, 0.28);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  .spot::after { content: ''; position: absolute; left: -4px; right: -4px; top: -8px; bottom: -8px; }   /* a 44 px tall target */
+  .spot-lead { fill: none; stroke: var(--accent); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .spot-dot { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
+  .spot-ring { fill: none; stroke: var(--accent); stroke-width: 1.2; transform-box: fill-box; transform-origin: center; animation: spot-ring 2.4s ease-out infinite; }
+  @keyframes spot-ring { 0% { transform: scale(0.7); } 70%, 100% { transform: scale(1.35); } }
+
+  /* --- the sheet --- */
+  .psheet { display: block; position: fixed; inset: 0; z-index: 400; }
+  .psheet[hidden] { display: none; }
+  .psheet__scrim { position: absolute; inset: 0; background: rgba(2, 6, 12, 0.5); opacity: 0; transition: opacity 0.3s ease; touch-action: none; }
+  .psheet__panel {
+    position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 48px - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain;
+    box-sizing: border-box; padding: 0 calc(16px + env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+    border-radius: 22px 22px 0 0; background: rgba(9, 16, 26, 0.94); color: #eef4f8; box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3);
+    transform: translateY(100%); transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+    font-family: var(--uh-font-body);
+  }
+  .psheet.is-open .psheet__scrim { opacity: 1; }
+  .psheet.is-open .psheet__panel { transform: translateY(0); }
+  .psheet__panel.is-drag { transition: none; }
+  .psheet__grab { display: flex; justify-content: center; padding: 10px 0 6px; touch-action: none; }
+  .psheet__grab i { width: 38px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.28); }
+  .psheet__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+  .psheet__sec { padding: 12px 0 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+  .psheet__sec:last-child { border-bottom: 0; padding-bottom: 4px; }
+  .psheet__k { margin: 0 0 10px; font: 500 12px/1 var(--sh-mono); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(238, 244, 248, 0.58); }
+  .psheet__now { letter-spacing: 0.08em; color: #5cc0f5; }
+  .psheet__chapters { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .psheet__ch {
+    all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 46px; padding: 0 14px; border-radius: 14px; cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  .psheet__chn { font: 500 12px/1 var(--sh-mono); letter-spacing: 0.1em; color: rgba(238, 244, 248, 0.5); min-width: 2ch; }
+  .psheet__cht { font: 600 15px/1.2 var(--uh-font-head); color: #eef4f8; }
+  .psheet__ch[aria-current='true'] { background: rgba(92, 192, 245, 0.12); }
+  .psheet__ch[aria-current='true'] .psheet__chn { color: #5cc0f5; }
+  .psheet__ch[aria-current='true']::after { content: ''; margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: #5cc0f5; }
+  .psheet__ch:active { background: rgba(255, 255, 255, 0.08); }
+  .psheet__ch:focus-visible { outline: 2px solid #5cc0f5; outline-offset: -2px; }
+  .psheet__row2 { display: flex; gap: 12px; align-items: flex-end; }
+  .psheet__look { flex: 1 1 auto; }
+  .psheet__fsw { flex: 0 0 auto; }
+  .psheet__fsw[hidden] { display: none; }
+  .pseg { display: flex; gap: 4px; margin: 0; padding: 4px; border: 0; border-radius: 16px; background: rgba(255, 255, 255, 0.06); }
+  .pseg__b, .pseg label {
+    flex: 1 1 0; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 10px; margin: 0;
+    border: 0; border-radius: 12px; background: transparent; color: rgba(238, 244, 248, 0.78); cursor: pointer; box-sizing: border-box;
+    font: 600 14px/1 var(--uh-font-body); transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .pseg__b svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  #psheet-night svg { fill: currentColor; stroke: none; }
+  .pseg__b[aria-pressed='true'], .pseg label:has(input:checked) { background: rgba(255, 255, 255, 0.14); color: #fff; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset; }
+  .pseg--q { gap: 2px; }
+  .pseg label { padding: 0 4px; font-size: 13.5px; }
+  .pseg label input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  .pseg label:has(input:focus-visible), .pseg__b:focus-visible { outline: 2px solid #5cc0f5; outline-offset: 1px; }
+  .psheet__fs { background: rgba(255, 255, 255, 0.06); border-radius: 16px; min-height: 52px; padding: 0 16px; }
+  .psheet__fs .fsbtn__off, .psheet__fs[aria-pressed='true'] .fsbtn__on { display: none; }
+  .psheet__fs[aria-pressed='true'] .fsbtn__off { display: block; }
+  .psheet__note { margin: 10px 2px 0; font-size: 12px; color: rgba(238, 244, 248, 0.5); }
+
+  /* --- daylight: white translucent controls, navy marks, a paper sheet --- */
+  body.is-day .pbtn, body.is-day .pdock__pill { background: rgba(255, 255, 255, 0.62); border-color: rgba(20, 32, 46, 0.1); color: #14202e; box-shadow: 0 6px 22px rgba(20, 32, 46, 0.12); }
+  body.is-day .pbtn:active { background: rgba(255, 255, 255, 0.85); }
+  body.is-day .pdock__btn { color: #14202e; }
+  body.is-day .pdock__btn:not(:disabled):active { background: rgba(20, 32, 46, 0.08); }
+  body.is-day .ptop__ch { color: rgba(20, 32, 46, 0.78); text-shadow: 0 1px 8px rgba(255, 255, 255, 0.7); }
+  body.is-day .ptop__n, body.is-day .psheet__now { color: #0069a3; }
+  body.is-day .pdock__bar::before { background: rgba(20, 32, 46, 0.14); }
+  body.is-day .pdock__fill { background: #0069a3; }
+  body.is-day .pdock__ticks i { background: rgba(20, 32, 46, 0.4); }
+  body.is-day .phint { color: #3a4857; text-shadow: none; }
+  body.is-day .psheet__scrim { background: rgba(20, 32, 46, 0.28); }
+  body.is-day .psheet__panel { background: rgba(255, 255, 255, 0.96); color: #14202e; border-top-color: rgba(20, 32, 46, 0.06); box-shadow: 0 -12px 40px rgba(20, 32, 46, 0.18); }
+  body.is-day .psheet__grab i { background: rgba(20, 32, 46, 0.2); }
+  body.is-day .psheet__sec { border-bottom-color: rgba(20, 32, 46, 0.08); }
+  body.is-day .psheet__k, body.is-day .psheet__note { color: rgba(20, 32, 46, 0.6); }
+  body.is-day .psheet__cht { color: #0a1b2e; }
+  body.is-day .psheet__chn { color: rgba(20, 32, 46, 0.5); }
+  body.is-day .psheet__ch[aria-current='true'] { background: rgba(0, 105, 163, 0.08); }
+  body.is-day .psheet__ch[aria-current='true'] .psheet__chn { color: #0069a3; }
+  body.is-day .psheet__ch[aria-current='true']::after { background: #0069a3; }
+  body.is-day .psheet__ch:active { background: rgba(20, 32, 46, 0.06); }
+  body.is-day .pseg, body.is-day .psheet__fs { background: rgba(20, 32, 46, 0.05); }
+  body.is-day .pseg__b, body.is-day .pseg label { color: rgba(20, 32, 46, 0.72); }
+  body.is-day .pseg__b[aria-pressed='true'], body.is-day .pseg label:has(input:checked) { background: #fff; color: #0a1b2e; box-shadow: 0 1px 4px rgba(20, 32, 46, 0.14); }
+}
+@media (max-width: 599.98px) and (prefers-reduced-motion: reduce) {
+  .pbtn, .pdock__btn, .pdock__play, .psheet__panel, .psheet__scrim, .phint, .ptop, .pdock { transition: none; }
+  .spot-ring { animation: none; }
+}
+body.is-reduced .spot-ring { animation: none; }

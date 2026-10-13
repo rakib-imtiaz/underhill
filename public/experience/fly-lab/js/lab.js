@@ -43,6 +43,8 @@ const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length 
 const fmtMs = (v) => (v >= 100 ? v.toFixed(0) : v.toFixed(1)) + ' ms';
 const fmtMB = (b) => (b / 1048576).toFixed(b > 10485760 ? 1 : 2) + ' MB';
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// hidden tabs throttle setTimeout to 1 s: yield task by task until the time is up instead
+const waitMs = async (ms) => { const t = performance.now() + ms; if (!document.hidden) return new Promise((r) => setTimeout(r, ms)); while (performance.now() < t) await nextTask(); };
 const nextTask = () => new Promise((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
 
 try { performance.setResourceTimingBufferSize(20000); } catch { /* ignore */ }
@@ -173,7 +175,7 @@ export class Lab {
     ui.innerHTML = `
       <aside class="lab-panel lab-ui" id="lab-panel" data-open="${matchMedia('(max-width: 700px)').matches ? 'false' : 'true'}">
         <header class="lab-panel__head">
-          <a class="lab-back" href="./">&larr; Fly Lab</a>
+          <a class="lab-back" href="./index.html">&larr; Fly Lab</a>
           <button type="button" class="lab-fold" id="lab-fold" aria-expanded="true" aria-controls="lab-body"><span class="lab-fold__sum" id="lab-sum">Tests</span><b aria-hidden="true">&#9662;</b></button>
         </header>
         <div class="lab-panel__body" id="lab-body">
@@ -232,6 +234,7 @@ export class Lab {
   setStatus(s, text) { const c = this.$('lab-status').querySelector('.chip'); c.dataset.s = s; c.textContent = text; }
 
   set(id, r) {
+    if (this.info?.testNote && !['pending', 'running'].includes(r.status) && !(r.detail || '').startsWith(this.info.testNote)) r = { ...r, detail: this.info.testNote + ' ' + (r.detail || ''), fallback: true };
     this.results[id] = { ...r, at: Date.now() };
     const li = this.$('lab-tests').querySelector(`[data-id="${id}"]`);
     if (li) {
@@ -258,7 +261,7 @@ export class Lab {
     let gpu = 'unknown GPU';
     try { const c = document.createElement('canvas').getContext('webgl'); const e = c.getExtension('WEBGL_debug_renderer_info'); gpu = e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : c.getParameter(c.RENDERER); } catch { /* ignore */ }
     gpu = String(gpu).replace(/^ANGLE \((.*)\)$/, '$1').replace(/ Direct3D.*$/, '').slice(0, 80);
-    return { hidden: document.hidden, w: innerWidth, h: innerHeight, dpr: Math.round(devicePixelRatio * 100) / 100, gpu, ua: navigator.userAgent.replace(/.*(Chrome\/[\d.]+).*/, '$1') };
+    return { hidden: document.hidden || !!this.hiddenSeen, hiddenRaf: !!window.__hiddenRafUsed, w: innerWidth, h: innerHeight, dpr: Math.round(devicePixelRatio * 100) / 100, gpu, ua: navigator.userAgent.replace(/.*(Chrome\/[\d.]+).*/, '$1') };
   }
 
   // ------------------------------------------------------------------------------------ boot
@@ -289,7 +292,9 @@ export class Lab {
     const tFirst = performance.now();
     this.firstRenderMs = tFirst - tR;
     this.loadMs = { first: tFirst, init: tFirst - t0 };
-    if (info.mode === 'nokey') this.setStatus('blocked', 'Needs key'); else this.setStatus('pass', info.mode === 'fallback' ? 'Works (fallback)' : 'Works');
+    if (info.mode === 'nokey') this.setStatus('blocked', 'Needs key');
+    else if (info.mode === 'fallback') this.setStatus('blocked', 'Needs token · fallback running');
+    else this.setStatus('pass', 'Works');
     this.startLoop();
     if (PROBE) return this.probeReport();
     // content (first tiles) time, when the engine has one
@@ -316,13 +321,15 @@ export class Lab {
 
   // ------------------------------------------------------------------------------------ loop
   startLoop() {
+    if (qs.has('noloop')) return;
     this.hiddenSeen = document.hidden;
     const frame = () => this.tick();
     const raf = () => { if (!document.hidden && !this.busy) frame(); requestAnimationFrame(raf); };
     requestAnimationFrame(raf);
     // hidden: a worker clock at ~30 Hz keeps the scene (and tile streaming) alive
     this.worker = workerClock(33);
-    this.worker.onmessage = () => { if (document.hidden && !this.busy) { this.hiddenSeen = true; frame(); } };
+    // coalesce: a slow frame must not leave a backlog of clock messages behind it
+    this.worker.onmessage = () => { if (document.hidden && !this.busy && performance.now() - (this.tickEnd || 0) > 20) { this.hiddenSeen = true; frame(); this.tickEnd = performance.now(); } };
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.hiddenSeen = true; });
   }
 
@@ -399,6 +406,7 @@ export class Lab {
     this.togglePanel(true);
     try {
       if (!this.results.load) this.recordLoad();
+      if (this.a.droneReady) await this.a.droneReady; // D exports its drone after the first frame
       for (const t of ['frames', 'size', 'collide', 'lidar', 'daynight', 'mobile', 'attrib']) {
         this.set(t, { status: 'running', value: '' });
         try { await this['test_' + t](); } catch (err) { console.error(err); this.set(t, { status: 'fail', value: 'error', detail: String(err?.message || err).slice(0, 160) }); }
@@ -408,7 +416,10 @@ export class Lab {
     } finally {
       this.mode = 'idle'; btn.disabled = false; btn.textContent = 'Run tests again';
       this.flight.reset(LAND.x, 0, LAND.z, 0); this.chase.init = false;
-      this.save();
+      const rec = this.save();
+      // dev only: ?sink=<port> also posts the record to a local collector (how the hub's baseline was made)
+      const sink = qs.get('sink');
+      if (sink && /^\d+$/.test(sink)) fetch(`http://127.0.0.1:${sink}/result`, { method: 'POST', body: JSON.stringify(rec) }).catch(() => {});
       this.toast('Tests done. Results saved in this browser; the hub shows them.');
     }
   }
@@ -470,11 +481,15 @@ export class Lab {
     let total = 0, unknown = 0;
     const add = (cat, b) => { cats[cat] = (cats[cat] || 0) + b; total += b; };
     if (nav) add('page', nav.encodedBodySize || nav.transferSize || 0);
-    for (const e of entries) {
-      const u = e.name;
+    const net = window.__net || new Map();
+    const seen = new Set();
+    const list = entries.map((e) => ({ u: e.name, b: e.encodedBodySize || e.transferSize || 0 }));
+    // cross-origin downloads Resource Timing could not size (or never saw): js/netmeter.js counted them
+    for (const [u, v] of net) if (!list.some((x) => x.u === u && x.b)) list.push({ u, b: v.bytes });
+    for (const { u, b } of list) {
       if (u.startsWith('blob:') || u.startsWith('data:')) continue;
-      const b = e.encodedBodySize || e.transferSize || 0;
-      if (!b) { unknown++; continue; }
+      if (!b) { if (!net.has(u)) unknown++; continue; }
+      if (seen.has(u)) continue; seen.add(u);
       const c0 = this.a.sizeCategory ? this.a.sizeCategory(u) : undefined;
       const cat = c0 === undefined ? defaultCategory(u) : c0;
       if (cat === null) continue; // not part of this scenario (the lab's reference data)
@@ -569,7 +584,8 @@ export class Lab {
     const cam = { pos: { x: V.x, y: V.y + g, z: V.z }, target: { x: V.tx, y: V.ty + g, z: V.tz }, fov: 55 };
     const shoot = async (d) => {
       this.setDay(d);
-      for (let i = 0; i < 4; i++) { this.a.setCamera(cam); this.a.render(); await nextTask(); }
+      // ~1.5 s of frames: style changes in map engines can re-process tiles in workers first
+      for (let i = 0; i < 24; i++) { this.a.setCamera(cam); this.a.render(); await waitMs(60); }
       this.a.setCamera(cam); this.a.render();
       return this.a.readLuma();
     };

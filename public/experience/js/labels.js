@@ -2,9 +2,13 @@
 // Layout runs every frame against the live camera, so labels follow the parts while they settle.
 //  · columns mode (landscape): labels split left/right of the subject, sorted by anchor height,
 //    then relaxed so they never overlap; leaders run horizontally out of the column, then diagonally.
-//  · dots mode (portrait screens): no text in the picture and no leader lines at all. Each part in
-//    view gets a numbered dot on its anchor; the names are a legend of numbered chips in the caption
-//    card (main.js), and a tap on a chip or a dot shows that part's name beside its dot.
+//  · dots mode (tablets in portrait): no text in the picture and no leader lines at all. Each part
+//    in view gets a numbered dot on its anchor; the names are a legend of numbered chips in the
+//    caption card (main.js), and a tap on a chip or a dot shows that part's name beside its dot.
+//  · spot mode (phones, 2026-10-14): one part at a time (main.js picks it and cycles): a small marker
+//    on its anchor, one thin leader and its name in a pill, out to the side of the part away from the
+//    subject's middle. A change of part fades the old name out and the new one in. A tap on the name
+//    calls onSpotTap (main.js shows the next part).
 // An anchor hidden behind another part keeps full-contrast text, with a dashed leader.
 import * as THREE from 'three';
 
@@ -70,6 +74,23 @@ export class Labels {
     this.svg = svg;
     this.items = new Map();     // id → { el, path, dot, side, … }
     this.frame = 0;
+    // spot mode: one name, one leader, one marker (shared by every part)
+    this.spotEl = document.createElement('button');
+    this.spotEl.type = 'button';
+    this.spotEl.className = 'spot';
+    this.spotEl.tabIndex = -1;   // (the caption card's part line is the keyboard's way: main.js)
+    this.spotEl.addEventListener('click', () => this.onSpotTap?.());
+    layer.appendChild(this.spotEl);
+    this.spotLead = document.createElementNS(SVGNS, 'polyline');
+    this.spotLead.setAttribute('class', 'spot-lead');
+    this.spotRing = document.createElementNS(SVGNS, 'circle');
+    this.spotRing.setAttribute('class', 'spot-ring'); this.spotRing.setAttribute('r', '9');
+    this.spotDot = document.createElementNS(SVGNS, 'circle');
+    this.spotDot.setAttribute('class', 'spot-dot'); this.spotDot.setAttribute('r', '4');
+    svg.append(this.spotLead, this.spotRing, this.spotDot);
+    this.spot = { shown: null, k: 0, side: 0, w: 0, h: 0, on: true };
+    this.spotInfo = null;   // { id, text, n, N, a } of the part named now (main.js: the caption line)
+    this.hideSpot();
   }
 
   /** Install a new label set (model swap / chapter change). */
@@ -145,7 +166,7 @@ export class Labels {
       it.sx = (tmp.x * 0.5 + 0.5) * view.w;
       it.sy = (-tmp.y * 0.5 + 0.5) * view.h;
       it.a = a;
-      if (opt.mode === 'dots') { vis.push(it); continue; }
+      if (opt.mode === 'dots' || opt.mode === 'spot') { vis.push(it); continue; }
       if (!it.measured || it.modeMeasured !== opt.mode) {
         it.el.style.visibility = 'hidden'; it.el.style.opacity = '0';
         it.el.dataset.mode = opt.mode;
@@ -154,8 +175,10 @@ export class Labels {
       }
       vis.push(it);
     }
+    if (opt.mode !== 'spot' || !vis.length) this.hideSpot();
     if (!vis.length) return;
     if (opt.mode === 'dots') { this.layoutDots(vis, view); return; }
+    if (opt.mode === 'spot') { this.layoutSpot(vis, view, opt); return; }
     for (const it of vis) this.hideDot(it);
 
     // occlusion: is something else in front of the anchor? A raycast through a whole model costs a
@@ -184,6 +207,82 @@ export class Labels {
     const cx = (c.x * 0.5 + 0.5) * view.w; const cy = (-c.y * 0.5 + 0.5) * view.h;
     if (opt.mode === 'bands') this.layoutBands(vis, view, cx, cy, opt);
     else this.layoutColumns(vis, view, cx, opt);
+  }
+
+  hideSpot() {
+    this.spotInfo = null;
+    if (!this.spot.on && this.spot.shown === null) return;
+    this.spotEl.style.visibility = 'hidden'; this.spotEl.style.opacity = '0';
+    for (const e of [this.spotLead, this.spotRing, this.spotDot]) e.style.visibility = 'hidden';
+    this.spot.on = false; this.spot.shown = null; this.spot.k = 0;
+  }
+
+  /** Spot mode: the one part opt.spot (an id) named beside it; every other part unmarked. */
+  layoutSpot(vis, view, opt) {
+    for (const it of vis) {
+      if (it.shown) { it.el.style.opacity = '0'; it.el.style.visibility = 'hidden'; it.path.style.opacity = '0'; it.dot.style.opacity = '0'; it.shown = false; }
+      this.hideDot(it);
+    }
+    const S = this.spot, dt = this.dt;
+    // the change of part: the name shown fades out (0.14 s), then the new one fades in (0.22 s)
+    // (a still or review frame: at once)
+    if (S.shown !== (opt.spot ?? null)) {
+      if (dt > 0 && S.shown !== null && S.k > 0) S.k = Math.max(0, S.k - dt / 0.14);
+      else S.k = 0;
+      if (S.k <= 0) {
+        S.shown = opt.spot ?? null;
+        const it = S.shown !== null ? this.items.get(S.shown) : null;
+        if (it) {
+          this.spotEl.textContent = it.short || it.text;
+          this.spotEl.style.visibility = 'hidden';
+          S.w = this.spotEl.offsetWidth; S.h = this.spotEl.offsetHeight;
+          S.side = 0;
+        }
+        if (dt <= 0) S.k = 1;
+      }
+    } else if (S.shown !== null) S.k = dt > 0 ? Math.min(1, S.k + dt / 0.22) : 1;
+    const it = S.shown !== null ? vis.find((v) => v.id === S.shown) : null;
+    const inBand = it && it.sy > view.bandTop + 6 && it.sy < view.bandBottom - 6 && it.sx > 6 && it.sx < view.w - 6;
+    if (!inBand) {
+      this.spotEl.style.visibility = 'hidden';
+      for (const e of [this.spotLead, this.spotRing, this.spotDot]) e.style.visibility = 'hidden';
+      S.on = false; this.spotInfo = null; this._spotRect = null;
+      return;
+    }
+    const W = view.w, top = view.bandTop + 8, bottom = view.bandBottom - 8, M = 12;
+    const ax = it.sx, ay = it.sy, w = S.w, h = S.h;
+    // the side: away from the subject's middle (kept while there is room, so it never flips per frame)
+    const box = opt.subjectBox, cx = box && Number.isFinite(box.minX) ? (box.minX + box.maxX) / 2 : W / 2;
+    const fits = (side) => (side < 0 ? ax - 34 - w >= M : ax + 34 + w <= W - M);
+    let side = S.side || (ax < cx ? -1 : 1);
+    if (!fits(side) && fits(-side)) side = -side;
+    S.side = side;
+    let lx, ly, ex, ey, run;
+    if (fits(side)) {
+      // beside it, a little above: the leader rises out of the marker and runs level into the name
+      lx = side < 0 ? ax - 34 - w : ax + 34;
+      ly = Math.min(bottom - h, Math.max(top, ay - 22 - h / 2));
+      ey = ly + h / 2; ex = side < 0 ? lx + w : lx; run = ex + (side < 0 ? 10 : -10);
+    } else {
+      // no room either side (a long name on a part near the middle): above it, or below it near the top
+      lx = Math.min(W - M - w, Math.max(M, ax - w / 2));
+      const above = ay - 40 - h >= top;
+      ly = above ? ay - 40 - h : Math.min(bottom - h, ay + 40);
+      ex = Math.min(lx + w - 14, Math.max(lx + 14, ax)); ey = above ? ly + h : ly; run = null;
+    }
+    const a = Math.min(1, it.a * 1.15) * S.k;
+    this.spotEl.style.transform = `translate3d(${lx.toFixed(1)}px, ${ly.toFixed(1)}px, 0)`;
+    this.spotEl.style.opacity = a.toFixed(3);
+    this.spotEl.style.visibility = a > 0.01 ? 'visible' : 'hidden';
+    this.spotEl.style.pointerEvents = a > 0.5 ? 'auto' : 'none';
+    const pts = run === null ? [[ax, ay], [ex, ey]] : [[ax, ay], [run, ey], [ex, ey]];
+    this.spotLead.setAttribute('points', pts.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' '));
+    for (const c of [this.spotRing, this.spotDot]) { c.setAttribute('cx', ax.toFixed(1)); c.setAttribute('cy', ay.toFixed(1)); }
+    this.spotLead.style.opacity = a.toFixed(3); this.spotDot.style.opacity = a.toFixed(3); this.spotRing.style.opacity = (a * 0.55).toFixed(3);
+    for (const e of [this.spotLead, this.spotRing, this.spotDot]) e.style.visibility = a > 0.01 ? 'visible' : 'hidden';
+    S.on = true;
+    this._spotRect = { x0: lx, y0: ly, x1: lx + w, y1: ly + h, ax, ay };
+    this.spotInfo = { id: it.id, text: it.short || it.text, n: it.n, N: this.items.size, a: it.a };
   }
 
   hide(it) {

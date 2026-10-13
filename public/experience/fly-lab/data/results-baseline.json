@@ -1,0 +1,570 @@
+{
+ "_about": "Fly Lab baseline: the lab run of 2026-10-14 (hidden Chrome tab, AMD Radeon integrated GPU, 1638x1135 @1.1). The hub shows these unless this browser has a newer run (localStorage).",
+ "A": {
+  "id": "A",
+  "title": "three.js + OpenStreetMap buildings",
+  "at": "2026-10-13T19:41:49.262Z",
+  "mode": "full",
+  "modeNote": "875 buildings · 22k triangles · 3369 trees · 1843 road / path ways",
+  "env": {
+   "hidden": true,
+   "hiddenRaf": true,
+   "w": 1638,
+   "h": 1135,
+   "dpr": 1.1,
+   "gpu": "AMD, AMD Radeon(TM) Graphics (0x00001638)",
+   "ua": "Chrome/154.0.0.0"
+  },
+  "tests": {
+   "load": {
+    "status": "pass",
+    "hidden": true,
+    "value": "first frame 2.13 s",
+    "detail": "From navigation start. Pass ≤ 3 s, partial ≤ 6 s.",
+    "ms": {
+     "first": 2125.0999999940395,
+     "content": 2125.0999999940395
+    },
+    "at": 1791920487943
+   },
+   "frames": {
+    "status": "pass",
+    "hidden": true,
+    "value": "median 10.9 ms · p95 15.3 ms",
+    "detail": "1200 frames of the 291 m route (take-off, between Hyatt Place and MetroPlace, orbit, landing), fixed 1/60 s steps, each frame GPU-synced. Pass: p95 ≤ 16.7 ms (60 fps); partial ≤ 33 ms.",
+    "ms": {
+     "median": 10.899999991059303,
+     "p95": 15.299999997019768,
+     "n": 1200,
+     "displayMedian": null
+    },
+    "at": 1791920502029
+   },
+   "size": {
+    "status": "pass",
+    "value": "1.84 MB total",
+    "detail": "map data 0.94 MB · three.js 0.69 MB · lab page 0.12 MB · drone 0.09 MB · fonts 0.00 MB · page 0.00 MB. Compressed bytes over the wire for this visit (includes tiles streamed during the route; cached files still count by their size). Pass ≤ 8 MB, partial ≤ 25 MB.",
+    "bytes": {
+     "total": 1930816,
+     "cats": {
+      "page": 1295,
+      "lab page": 129244,
+      "three.js": 728041,
+      "drone": 89799,
+      "map data": 980937,
+      "fonts": 1500
+     }
+    },
+    "at": 1791920502034
+   },
+   "collide": {
+    "status": "pass",
+    "value": "stopped 1.5 m from the wall",
+    "detail": "Full forward stick at Hyatt Place from 62 m out (OSM wall distance), 40 m up. Top speed 15.0 m/s; stopped after 5.4 s; travelled 60.7 m (1.5 m short of the OSM wall). Obstacle probe 0.0 ms per call.",
+    "m": {
+     "gap": 1.4999999999999978,
+     "travelled": 60.65013510472441,
+     "osmWall": 62.150135104724434,
+     "maxSp": 14.98408406781738,
+     "probeMs": 0
+    },
+    "at": 1791920506586
+   },
+   "lidar": {
+    "status": "pass",
+    "value": "60/96 rays hit buildings · 0.318 ms/ray",
+    "detail": "From a hover in the gap at 40 m: 64 level rays over ±50° towards Hyatt Place + 32 rays sloping down. Ground hits 12, misses 24. Median distance difference to the OSM footprints 0.00 m (n = 60). Mesh raycast (plain THREE.Raycaster, no BVH) against the extruded building meshes, the ground and the guideway (trees and road ribbons left out). A BVH (three-mesh-bvh) would make it far faster. Collision uses the same footprints as 2.5D prisms.",
+    "m": {
+     "bld": 60,
+     "gnd": 12,
+     "miss": 24,
+     "perRayMs": 0.3177083333333333,
+     "medDevM": 3.621780919615958e-7
+    },
+    "at": 1791920506987
+   },
+   "daynight": {
+    "status": "pass",
+    "value": "full · brightness 0.52 → 0.10",
+    "detail": "Our own sky, sun / moon, fog and exposure; lit windows (random per floor and column), a warm street glow on the roads, the drone's nav lights and strobe. Mean frame brightness from the same viewpoint, day then night.",
+    "m": {
+     "lDay": 0.5157395714064857,
+     "lNight": 0.10347213860152786
+    },
+    "at": 1791920507108
+   },
+   "mobile": {
+    "status": "pass",
+    "value": "6/6 checks at 390 × 844",
+    "detail": "✓ viewport 390 px (390×844) · ✓ no sideways scroll (scrollWidth 390) · ✓ 3D view fills the width (390×844) · ✓ test panel folded (6% of screen) · ✓ touch sticks (112 px) · ✓ attribution on screen (187×21 px). Layout sanity in a 390 px frame (the probe copy skips remote map data); touch feel needs a real phone.",
+    "checks": [
+     {
+      "name": "viewport 390 px",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "no sideways scroll",
+      "ok": true,
+      "v": "scrollWidth 390"
+     },
+     {
+      "name": "3D view fills the width",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "test panel folded",
+      "ok": true,
+      "v": "6% of screen"
+     },
+     {
+      "name": "touch sticks",
+      "ok": true,
+      "v": "112 px"
+     },
+     {
+      "name": "attribution on screen",
+      "ok": true,
+      "v": "187×21 px"
+     }
+    ],
+    "at": 1791920509223
+   },
+   "attrib": {
+    "status": "pass",
+    "value": "shows © OpenStreetMap contributors",
+    "detail": "OSM (ODbL) asks for “© OpenStreetMap contributors” with a link to the copyright page, visible on the map. Checked: on screen, not covered, contains the required text.",
+    "at": 1791920509255
+   }
+  }
+ },
+ "B": {
+  "id": "B",
+  "title": "Google Photorealistic 3D Tiles in three.js",
+  "at": "2026-10-13T19:42:54.250Z",
+  "mode": "nokey",
+  "modeNote": "No key: drone, controls and engine only. Paste a Google Maps Platform key in the box above to load the city.",
+  "env": {
+   "hidden": true,
+   "hiddenRaf": true,
+   "w": 1638,
+   "h": 1135,
+   "dpr": 1.1,
+   "gpu": "AMD, AMD Radeon(TM) Graphics (0x00001638)",
+   "ua": "Chrome/154.0.0.0"
+  },
+  "tests": {
+   "load": {
+    "status": "blocked",
+    "hidden": true,
+    "value": "first frame 1.77 s",
+    "detail": "Without a key only the engine and the drone load. From navigation start. Pass ≤ 3 s, partial ≤ 6 s.",
+    "ms": {
+     "first": 1766.6000000089407,
+     "content": 1766.6000000089407
+    },
+    "at": 1791920561241
+   },
+   "frames": {
+    "status": "blocked",
+    "hidden": true,
+    "value": "median 6.1 ms · p95 7.5 ms",
+    "detail": "1200 frames of the 291 m route (take-off, between Hyatt Place and MetroPlace, orbit, landing), fixed 1/60 s steps, each frame GPU-synced. Pass: p95 ≤ 16.7 ms (60 fps); partial ≤ 33 ms. Without a key there is no city to draw, so this number is not comparable.",
+    "ms": {
+     "median": 6.0999999940395355,
+     "p95": 7.5,
+     "n": 1200,
+     "displayMedian": null
+    },
+    "at": 1791920569054
+   },
+   "size": {
+    "status": "partial",
+    "value": "0.89 MB total",
+    "detail": "three.js 0.69 MB · lab page 0.11 MB · drone 0.09 MB · fonts 0.00 MB · page 0.00 MB. Compressed bytes over the wire for this visit (includes tiles streamed during the route; cached files still count by their size). Without a key the map data is missing, so the real total is higher. Pass ≤ 8 MB, partial ≤ 25 MB.",
+    "bytes": {
+     "total": 931206,
+     "cats": {
+      "page": 1393,
+      "lab page": 110473,
+      "three.js": 728041,
+      "drone": 89799,
+      "fonts": 1500
+     }
+    },
+    "at": 1791920569060
+   },
+   "collide": {
+    "status": "blocked",
+    "value": "no buildings without a key",
+    "detail": "Full forward stick at Hyatt Place from 62 m out (OSM wall distance), 40 m up. Top speed 15.0 m/s; stopped after —; travelled 111.9 m (49.7 m past the OSM wall). Obstacle probe 0.0 ms per call.",
+    "m": {
+     "gap": null,
+     "travelled": 111.8743726125646,
+     "osmWall": 62.150135104724434,
+     "maxSp": 14.999992770960244,
+     "probeMs": 0
+    },
+    "at": 1791920572019
+   },
+   "lidar": {
+    "status": "blocked",
+    "value": "0/96 rays hit buildings · 0.002 ms/ray",
+    "detail": "From a hover in the gap at 40 m: 64 level rays over ±50° towards Hyatt Place + 32 rays sloping down. Ground hits 0, misses 96. Mesh raycast against the streamed photogrammetry (three.js Raycaster, first hit). The Google mesh carries no building / ground labels: a hit counts as “building” when it is more than 3 m above the pad and on a steep surface.",
+    "m": {
+     "bld": 0,
+     "gnd": 0,
+     "miss": 96,
+     "perRayMs": 0.002083333364377419,
+     "medDevM": null
+    },
+    "at": 1791920572223
+   },
+   "daynight": {
+    "status": "partial",
+    "value": "partial · brightness 0.45 → 0.06",
+    "detail": "The tiles are photographs with daylight and shadows baked in: night is only a blue tint over them (no lit windows, no street lights, shadows stay). Sky, fog and the drone's lights do change. Mean frame brightness from the same viewpoint, day then night. (No key: sky and drone only.)",
+    "m": {
+     "lDay": 0.4500491622381729,
+     "lNight": 0.05964833063637078
+    },
+    "at": 1791920572288
+   },
+   "mobile": {
+    "status": "pass",
+    "value": "6/6 checks at 390 × 844",
+    "detail": "✓ viewport 390 px (390×844) · ✓ no sideways scroll (scrollWidth 390) · ✓ 3D view fills the width (390×844) · ✓ test panel folded (6% of screen) · ✓ touch sticks (112 px) · ✓ attribution on screen (275×21 px). Layout sanity in a 390 px frame (the probe copy skips remote map data); touch feel needs a real phone.",
+    "checks": [
+     {
+      "name": "viewport 390 px",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "no sideways scroll",
+      "ok": true,
+      "v": "scrollWidth 390"
+     },
+     {
+      "name": "3D view fills the width",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "test panel folded",
+      "ok": true,
+      "v": "6% of screen"
+     },
+     {
+      "name": "touch sticks",
+      "ok": true,
+      "v": "112 px"
+     },
+     {
+      "name": "attribution on screen",
+      "ok": true,
+      "v": "275×21 px"
+     }
+    ],
+    "at": 1791920574225
+   },
+   "attrib": {
+    "status": "blocked",
+    "value": "nothing to attribute yet (needs key)",
+    "detail": "Nothing to attribute until Google tiles are loaded (needs a key). Checked: on screen, not covered, contains the required text.",
+    "at": 1791920574244
+   }
+  }
+ },
+ "C": {
+  "id": "C",
+  "title": "MapLibre GL JS + OpenFreeMap 3D buildings",
+  "at": "2026-10-13T19:53:02.307Z",
+  "mode": "full",
+  "modeNote": "OpenFreeMap tiles, no key",
+  "env": {
+   "hidden": true,
+   "hiddenRaf": true,
+   "w": 1638,
+   "h": 1135,
+   "dpr": 1.1,
+   "gpu": "AMD, AMD Radeon(TM) Graphics (0x00001638)",
+   "ua": "Chrome/154.0.0.0"
+  },
+  "tests": {
+   "load": {
+    "status": "partial",
+    "hidden": true,
+    "value": "first frame 3.16 s · map content 5.97 s",
+    "detail": "From navigation start. Pass ≤ 3 s, partial ≤ 6 s.",
+    "ms": {
+     "first": 3157.5,
+     "content": 5970.0999999940395
+    },
+    "at": 1791921100798
+   },
+   "frames": {
+    "status": "fail",
+    "hidden": true,
+    "value": "median 26.8 ms · p95 147 ms",
+    "detail": "1200 frames of the 291 m route (take-off, between Hyatt Place and MetroPlace, orbit, landing), fixed 1/60 s steps, each frame GPU-synced. Pass: p95 ≤ 16.7 ms (60 fps); partial ≤ 33 ms.",
+    "ms": {
+     "median": 26.799999997019768,
+     "p95": 146.90000000596046,
+     "n": 1200,
+     "displayMedian": null
+    },
+    "at": 1791921155972
+   },
+   "size": {
+    "status": "pass",
+    "value": "2.30 MB total",
+    "detail": "vector tiles 0.92 MB · three.js 0.69 MB · style, fonts, icons 0.29 MB · MapLibre 0.21 MB · lab page 0.10 MB · drone 0.09 MB · fonts 0.00 MB · page 0.00 MB. Compressed bytes over the wire for this visit (includes tiles streamed during the route; cached files still count by their size). Pass ≤ 8 MB, partial ≤ 25 MB.",
+    "bytes": {
+     "total": 2411220,
+     "cats": {
+      "page": 1339,
+      "lab page": 103905,
+      "MapLibre": 220655,
+      "three.js": 728041,
+      "drone": 89799,
+      "fonts": 1500,
+      "vector tiles": 962800,
+      "style, fonts, icons": 303181
+     }
+    },
+    "at": 1791921156364
+   },
+   "collide": {
+    "status": "pass",
+    "value": "stopped 1.5 m from the wall",
+    "detail": "Full forward stick at Hyatt Place from 62 m out (OSM wall distance), 40 m up. Top speed 15.0 m/s; stopped after 5.3 s; travelled 60.6 m (1.6 m short of the OSM wall). Obstacle probe 0.0 ms per call.",
+    "m": {
+     "gap": 1.4999999999999967,
+     "travelled": 60.56387750520918,
+     "osmWall": 62.150135104724434,
+     "maxSp": 14.983594384874966,
+     "probeMs": 0
+    },
+    "at": 1791921171715
+   },
+   "lidar": {
+    "status": "pass",
+    "value": "49/96 rays hit buildings · 0.037 ms/ray",
+    "detail": "From a hover in the gap at 40 m: 64 level rays over ±50° towards Hyatt Place + 32 rays sloping down. Ground hits 13, misses 34. Median distance difference to the OSM footprints 0.06 m (n = 49). MapLibre has no 3D raycast: the rays are cast (exactly) against the building polygons of the loaded vector tiles, extruded to render_height, which is the geometry MapLibre draws.",
+    "m": {
+     "bld": 49,
+     "gnd": 13,
+     "miss": 34,
+     "perRayMs": 0.03749999993791183,
+     "medDevM": 0.061259825262396816
+    },
+    "at": 1791921172772
+   },
+   "daynight": {
+    "status": "partial",
+    "value": "partial · brightness 0.82 → 0.16",
+    "detail": "Night is a re-coloured style (every plain colour in the OpenFreeMap style darkened, MapLibre's light and sky changed). MapLibre has no lighting model for lit windows or street lights; those would need extra hand-made layers. Mean frame brightness from the same viewpoint, day then night.",
+    "m": {
+     "lDay": 0.8212985173719949,
+     "lNight": 0.16461987924946772
+    },
+    "at": 1791921177109
+   },
+   "mobile": {
+    "status": "pass",
+    "value": "6/6 checks at 390 × 844",
+    "detail": "✓ viewport 390 px (390×844) · ✓ no sideways scroll (scrollWidth 390) · ✓ 3D view fills the width (390×844) · ✓ test panel folded (6% of screen) · ✓ touch sticks (112 px) · ✓ attribution on screen (311×20 px). Layout sanity in a 390 px frame (the probe copy skips remote map data); touch feel needs a real phone.",
+    "checks": [
+     {
+      "name": "viewport 390 px",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "no sideways scroll",
+      "ok": true,
+      "v": "scrollWidth 390"
+     },
+     {
+      "name": "3D view fills the width",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "test panel folded",
+      "ok": true,
+      "v": "6% of screen"
+     },
+     {
+      "name": "touch sticks",
+      "ok": true,
+      "v": "112 px"
+     },
+     {
+      "name": "attribution on screen",
+      "ok": true,
+      "v": "311×20 px"
+     }
+    ],
+    "at": 1791921182247
+   },
+   "attrib": {
+    "status": "pass",
+    "value": "shows OpenFreeMap · OpenMapTiles · OpenStreetMap",
+    "detail": "MapLibre shows the tiles' own attribution (OpenFreeMap, © OpenMapTiles, OpenStreetMap), expanded, as OpenFreeMap and the ODbL ask. Checked: on screen, not covered, contains the required text.",
+    "at": 1791921182300
+   }
+  }
+ },
+ "D": {
+  "id": "D",
+  "title": "CesiumJS + OSM Buildings + World Terrain",
+  "at": "2026-10-13T19:50:41.936Z",
+  "mode": "fallback",
+  "modeNote": "No token: Cesium on a plain globe with our local OSM extrusions (fallback) · ",
+  "env": {
+   "hidden": true,
+   "hiddenRaf": true,
+   "w": 1638,
+   "h": 1135,
+   "dpr": 1.1,
+   "gpu": "AMD, AMD Radeon(TM) Graphics (0x00001638)",
+   "ua": "Chrome/154.0.0.0"
+  },
+  "tests": {
+   "load": {
+    "status": "partial",
+    "hidden": true,
+    "value": "first frame 1.34 s · map content 5.95 s",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. From navigation start. Pass ≤ 3 s, partial ≤ 6 s.",
+    "ms": {
+     "first": 1338.6000000089407,
+     "content": 5950.9000000059605
+    },
+    "fallback": true,
+    "at": 1791920894240
+   },
+   "frames": {
+    "status": "fail",
+    "hidden": true,
+    "value": "median 55.2 ms · p95 94.7 ms",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. 1200 frames of the 291 m route (take-off, between Hyatt Place and MetroPlace, orbit, landing), fixed 1/60 s steps, each frame GPU-synced. Pass: p95 ≤ 16.7 ms (60 fps); partial ≤ 33 ms.",
+    "ms": {
+     "median": 55.20000000298023,
+     "p95": 94.70000000298023,
+     "n": 1200,
+     "displayMedian": null
+    },
+    "fallback": true,
+    "at": 1791920975354
+   },
+   "size": {
+    "status": "pass",
+    "value": "4.55 MB total",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. CesiumJS 2.71 MB · map data (fallback) 0.94 MB · three.js 0.69 MB · lab page 0.10 MB · drone 0.09 MB · glTF exporter 0.02 MB · fonts 0.00 MB · page 0.00 MB. Compressed bytes over the wire for this visit (includes tiles streamed during the route; cached files still count by their size). Pass ≤ 8 MB, partial ≤ 25 MB.",
+    "bytes": {
+     "total": 4772650,
+     "cats": {
+      "page": 1462,
+      "lab page": 105906,
+      "CesiumJS": 2846413,
+      "three.js": 728041,
+      "drone": 89799,
+      "map data (fallback)": 980937,
+      "fonts": 1500,
+      "glTF exporter": 18592
+     }
+    },
+    "fallback": true,
+    "at": 1791920975436
+   },
+   "collide": {
+    "status": "pass",
+    "value": "stopped 1.5 m from the wall",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. Full forward stick at Hyatt Place from 62 m out (OSM wall distance), 40 m up. Top speed 15.0 m/s; stopped after 5.4 s; travelled 60.7 m (1.5 m short of the OSM wall). Obstacle probe 18.1 ms per call.",
+    "m": {
+     "gap": 1.4962955905036732,
+     "travelled": 60.65150283926945,
+     "osmWall": 62.150135104724434,
+     "maxSp": 14.98408406781738,
+     "probeMs": 18.100000008940697
+    },
+    "fallback": true,
+    "at": 1791921025827
+   },
+   "lidar": {
+    "status": "pass",
+    "value": "60/96 rays hit buildings · 11.0 ms/ray",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. From a hover in the gap at 40 m: 64 level rays over ±50° towards Hyatt Place + 32 rays sloping down. Ground hits 12, misses 24. Median distance difference to the OSM footprints 0.00 m (n = 60). Cesium scene.pickFromRay() per ray (it renders a small pick pass for each ray, so it is slow); it hits whatever Cesium draws (3D Tiles, primitives).",
+    "m": {
+     "bld": 60,
+     "gnd": 12,
+     "miss": 24,
+     "perRayMs": 11.004166666728755,
+     "medDevM": 0.000780614256441936
+    },
+    "fallback": true,
+    "at": 1791921028612
+   },
+   "daynight": {
+    "status": "partial",
+    "value": "partial · brightness 0.60 → 0.21",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. Cesium places the real sun (and moon, stars, atmosphere) for a date and time, with real shadows by day; at night the city goes dark, but there are no lit windows or street lights without extra work (custom shaders on the 3D Tiles). Mean frame brightness from the same viewpoint, day then night.",
+    "m": {
+     "lDay": 0.596552548460323,
+     "lNight": 0.21496258156735515
+    },
+    "fallback": true,
+    "at": 1791921036766
+   },
+   "mobile": {
+    "status": "pass",
+    "value": "6/6 checks at 390 × 844",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. ✓ viewport 390 px (390×844) · ✓ no sideways scroll (scrollWidth 390) · ✓ 3D view fills the width (390×844) · ✓ test panel folded (6% of screen) · ✓ touch sticks (112 px) · ✓ attribution on screen (279×11 px). Layout sanity in a 390 px frame (the probe copy skips remote map data); touch feel needs a real phone.",
+    "checks": [
+     {
+      "name": "viewport 390 px",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "no sideways scroll",
+      "ok": true,
+      "v": "scrollWidth 390"
+     },
+     {
+      "name": "3D view fills the width",
+      "ok": true,
+      "v": "390×844"
+     },
+     {
+      "name": "test panel folded",
+      "ok": true,
+      "v": "6% of screen"
+     },
+     {
+      "name": "touch sticks",
+      "ok": true,
+      "v": "112 px"
+     },
+     {
+      "name": "attribution on screen",
+      "ok": true,
+      "v": "279×11 px"
+     }
+    ],
+    "fallback": true,
+    "at": 1791921041605
+   },
+   "attrib": {
+    "status": "pass",
+    "value": "shows OpenStreetMap",
+    "detail": "FALLBACK (no token): Cesium engine with our OSM extract, not Cesium OSM Buildings / World Terrain. Fallback: Cesium's credit bar with our “© OpenStreetMap contributors”. Checked: on screen, not covered, contains the required text.",
+    "fallback": true,
+    "at": 1791921041830
+   }
+  }
+ }
+}

@@ -13,7 +13,7 @@ const adapter = {
   engine: 'three.js r170 (our engine, vendored) · footprints and heights from OpenStreetMap, saved once to a static file',
   data: 'Data: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> (ODbL), one Overpass bbox query on 2026-10-13, 908 buildings / parts. Heights: OSM <code>height</code>, else levels × 3.2 m.',
   chaseDist: 7,
-  raycastNote: 'Mesh raycast (plain THREE.Raycaster, no BVH) against the extruded building meshes, roads and the guideway; trees left out. A BVH (three-mesh-bvh) would make it far faster. Collision uses the same footprints as 2.5D prisms.',
+  raycastNote: 'Mesh raycast (plain THREE.Raycaster, no BVH) against the extruded building meshes, the ground and the guideway (trees and road ribbons left out). A BVH (three-mesh-bvh) would make it far faster. Collision uses the same footprints as 2.5D prisms.',
 
   async init({ host, lab }) {
     const canvas = document.createElement('canvas');
@@ -56,7 +56,7 @@ const adapter = {
     scene.add(this.hemi);
     this.env = { day: droneEnv(r, 1), night: droneEnv(r, 0) };
     this.raycaster = new THREE.Raycaster();
-    this.rayTargets = city.group.children.filter((o) => ['building', 'ground'].includes(o.userData.kind) || o.name === 'lab:guideway');
+    this.rayTargets = city.group.children.filter((o) => o.userData.kind === 'building' || o.name === 'lab:ground' || o.name === 'lab:guideway');
     this.pix = null;
     this.setDaylight(1);
     return { mode: 'full', note: `${city.stats.buildings} buildings · ${Math.round(city.stats.tris / 1000)}k triangles · ${city.stats.trees} trees · ${city.stats.roads} road / path ways` };

@@ -155,7 +155,7 @@ export default function Footer({ onSent, band = true }: Props) {
             <Link className="sf-logo" to="/"><img src="/assets/uploads/2024/12/REV-UG-Horozontal-RGB.png" alt="Underhill Geomatics" /></Link>
             <span className="sf-rule" aria-hidden="true" />
             <p>Advanced geospatial solutions backed by more than a century of experience.</p>
-            <p className="sf-offices"><span>Vancouver ·</span> <span>Vancouver Island ·</span> <span>Kamloops ·</span> <span>Whitehorse</span></p>
+            <p className="sf-offices"><span>Vancouver</span> <span>Vancouver Island</span> <span>Kamloops</span> <span>Whitehorse</span></p>
           </div>
           {COLUMNS.map((col) => (
             <nav key={col.title} className={`sf-col${shut.has(col.title) ? " is-shut" : ""}`} aria-label={col.title}>

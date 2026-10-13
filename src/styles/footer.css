@@ -179,3 +179,50 @@
 @media (prefers-reduced-motion: reduce) {
   .sf-band *, .sf-band *::before, .sf-band *::after { transition-duration: 0.01ms !important; animation: none !important; }
 }
+
+/* the logo file carries clear space at its left (71 of 1000 px) and top: pull it back so the mark lines
+   up with the text under it */
+.sf-logo img { margin-left: -7.1%; margin-top: -7px; }
+.sf-logo { display: block; width: 190px; }
+.sf-logo img { width: 100%; }
+/* the offices: each with its own small marker, so a wrapped line never starts or ends on a stray "·" */
+.sf-brand .sf-offices { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.sf-offices span { position: relative; padding-left: 12px; }
+.sf-offices span::before { content: ""; position: absolute; left: 0; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: #3aa9e8; }
+@media (max-width: 600px) { .sf-brand .sf-offices { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 8px 22px; } }
+
+/* ================================================================ footer, refreshed (2026-10-14) */
+/* More depth and contrast: a navy with a soft Underhill-blue glow (it was one flat, faded navy), brighter
+   type (headings white, links near-white, the brand line readable), a thin blue line along the top,
+   headings that never wrap, and sky-blue accents. Layout unchanged. */
+.sf-foot {
+  background:
+    radial-gradient(1100px 520px at 8% -10%, rgba(0, 130, 202, 0.26), rgba(0, 130, 202, 0) 62%),
+    radial-gradient(900px 480px at 100% 110%, rgba(92, 192, 245, 0.12), rgba(92, 192, 245, 0) 60%),
+    linear-gradient(180deg, #0c2340 0%, #071629 100%);
+  color: rgba(232, 241, 248, 0.84);
+}
+.sf-foot::before { opacity: 0.05; }
+.sf-foot::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, #0082ca 0%, #5cc0f5 45%, rgba(92, 192, 245, 0) 100%);
+}
+.sf-brand p { color: rgba(236, 244, 250, 0.9); }
+.sf-brand .sf-rule { background: #3aa9e8; }
+.sf-brand .sf-offices { color: rgba(214, 231, 243, 0.78); }
+.sf-offices span::before { background: #5cc0f5; box-shadow: 0 0 0 3px rgba(92, 192, 245, 0.18); }
+.sf-col h4, .sf-social h4 { white-space: nowrap; letter-spacing: 0.2em; }
+.sf-col-toggle::after, .sf-social h4::after { width: 24px; background: linear-gradient(90deg, #0082ca, #5cc0f5); }
+.sf-col li a { color: rgba(232, 241, 248, 0.86); }
+.sf-col li a:hover { color: #5cc0f5; }
+.sf-col { border-bottom-color: rgba(255, 255, 255, 0.12); }
+.sf-social a { background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28); }
+.sf-social a:hover { background: #0082ca; box-shadow: 0 8px 22px rgba(0, 130, 202, 0.4); }
+.sf-bottom { border-top-color: rgba(255, 255, 255, 0.12); color: rgba(214, 231, 243, 0.68); }
+.sf-bottom a { color: rgba(236, 244, 250, 0.88); }
+.sf-bottom a:hover { color: #5cc0f5; }
+.sf-grid { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; letter-spacing: 0.04em; color: rgba(127, 208, 255, 0.82); }
+.sf-peaks { color: #5cc0f5; }
+@media (min-width: 861px) {
+  .sf-social { border-left-color: rgba(255, 255, 255, 0.14); }
+}

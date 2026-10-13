@@ -24,7 +24,7 @@ const adapter = {
   id: 'C', title: 'MapLibre GL JS + OpenFreeMap 3D buildings',
   engine: 'MapLibre GL JS 4.7.1 (jsDelivr) · OpenFreeMap vector tiles (OpenMapTiles schema, building heights from OSM) · our drone in a three.js custom layer',
   data: 'Data: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> (free, no key, no limits, donation-funded) · <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>.',
-  chaseDist: 7,
+  chaseDist: 10, // MapLibre's camera has a fixed 36.9 deg vertical field of view (the others use 55)
   raycastKind: 'prism',
   raycastNote: 'MapLibre has no 3D raycast: the rays are cast (exactly) against the building polygons of the loaded vector tiles, extruded to render_height, which is the geometry MapLibre draws.',
 
@@ -32,9 +32,20 @@ const adapter = {
     if (!ml) throw new Error('MapLibre did not load (CDN blocked?)');
     const div = document.createElement('div'); div.className = 'lab-canvas'; host.prepend(div);
     const probeStyle = { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#e4e8ea' } }] };
+    // vector tiles through a main-thread fetch, so the download-size test can count their bytes
+    // (OpenFreeMap sends no Timing-Allow-Origin, and MapLibre's workers fetch outside Resource Timing)
+    if (!ml.__ofm) {
+      ml.__ofm = true;
+      ml.addProtocol('ofm', async (params, ac) => {
+        const r = await fetch(params.url.replace(/^ofm:/, 'https:'), { signal: ac.signal });
+        if (!r.ok) throw new Error('tile ' + r.status);
+        return { data: await r.arrayBuffer() };
+      });
+    }
     const map = this.map = new ml.Map({
+      transformRequest: (url, type) => (type === 'Tile' && url.startsWith('https://tiles.openfreemap.org/') && url.endsWith('.pbf') ? { url: url.replace(/^https:/, 'ofm:') } : undefined),
       container: div, style: PROBE ? probeStyle : STYLE, center: [PLACE.lon, PLACE.lat], zoom: 17, pitch: 70, bearing: 45,
-      interactive: false, maxZoom: 24, maxPitch: 85, fadeDuration: 0, antialias: true,
+      interactive: false, maxZoom: 22, maxPitch: 85, fadeDuration: 0, antialias: true,
       attributionControl: { compact: false, customAttribution: PROBE ? OFM_ATTR : undefined },
     });
     this.canvas = map.getCanvas();
@@ -74,11 +85,15 @@ const adapter = {
     map.on('style.load', () => {
       map.addLayer(this.layer);
       if (PROBE) return;
+      // a flight view, not a street map: no POI icons and labels
+      for (const l of map.getStyle().layers) if (l.type === 'symbol' && /^poi|^airport|^aeroway|label_other|housenumber/.test(l.id)) map.setLayoutProperty(l.id, 'visibility', 'none');
       // stronger 3D buildings: opaque, coloured by height
       if (map.getLayer('building-3d')) {
         map.setPaintProperty('building-3d', 'fill-extrusion-opacity', 1);
         map.setPaintProperty('building-3d', 'fill-extrusion-color', ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 0], 0, '#ddd6ca', 20, '#cfc9bf', 60, '#b8c0c6', 140, '#97aab8']);
         map.setLayerZoomRange('building-3d', 13, 24);
+        // outlines that also have building:part pieces are flagged hide_3d: drawing both z-fights
+        map.setFilter('building-3d', ['!=', ['get', 'hide_3d'], true]);
       }
       this.styleSnapshot();
       this.setDaylight(this.day ?? 1);
@@ -111,7 +126,7 @@ const adapter = {
     const list = [];
     for (const f of feats) {
       const h = f.properties.render_height || 0, minH = f.properties.render_min_height || 0;
-      if (h <= 0) continue;
+      if (h <= 0 || f.properties.hide_3d) continue;
       const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [];
       for (const p of polys) { const rings = ringsToLab(p); if (rings[0]?.length >= 3) list.push({ rings, h, minH, props: f.properties }); }
     }
@@ -169,7 +184,7 @@ const adapter = {
   attribution() { return { el: document.querySelector('.maplibregl-ctrl-attrib'), required: ['OpenFreeMap', 'OpenMapTiles', 'OpenStreetMap'], note: 'MapLibre shows the tiles\' own attribution (OpenFreeMap, © OpenMapTiles, OpenStreetMap), expanded, as OpenFreeMap and the ODbL ask.' }; },
   sizeCategory(u) {
     const url = new URL(u, location.href);
-    if (url.hostname === 'tiles.openfreemap.org') return url.pathname.includes('/fonts/') || url.pathname.includes('/sprites/') ? 'style, fonts, icons' : 'vector tiles';
+    if (url.hostname === 'tiles.openfreemap.org' || url.protocol === 'ofm:') return url.pathname.includes('/fonts/') || url.pathname.includes('/sprites/') ? 'style, fonts, icons' : 'vector tiles';
     if (url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('maplibre')) return 'MapLibre';
     if (url.pathname.endsWith('metrotown-osm.geojson')) return null;
     return undefined;
