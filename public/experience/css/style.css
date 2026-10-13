@@ -942,3 +942,70 @@ body.is-booting .head-rail { opacity: 0; visibility: hidden; transition: none; }
 /* the hand-off: the progress block, the sheet and the strip clear first (0.4 s) so the first frame's
    subtitle comes up into clean space while the title stays put; then the backdrop cross-fades (0.9 s) */
 body.is-ready .boot, body.is-ready .boot-bg { opacity: 0; transition: opacity 0.4s ease; }
+
+/* ======================================== chapter arrows: previous / next stop (2026-10-13) */
+/* Two square buttons by the chapter rail: the same glide to the previous or next stop as a wheel tick
+   or an arrow key (main.js). They sit in the rail's own band under the header, which nothing in the
+   picture ever uses (captions, cards and labels all stay below --rail-bottom), so they cannot cover
+   any of them at any size. The rail's name keeps the width of its longest name, so the buttons never
+   move under the pointer when the chapter changes. The tip under them names the stop they go to. */
+.rail__name { min-width: calc(13ch + 2.1em); }
+.filmnav { position: relative; display: inline-flex; vertical-align: middle; gap: 4px; margin-left: 14px; pointer-events: auto; }
+.filmnav__btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 30px; min-width: 44px; padding: 0 12px; margin: 0; box-sizing: border-box; cursor: pointer;
+  border: 1px solid rgba(190, 214, 230, 0.34); border-radius: 0; background: rgba(7, 16, 28, 0.66); color: #eef4f8;
+  font: 500 12px/1 var(--sh-mono); letter-spacing: 0.14em; text-transform: uppercase;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.filmnav__btn::after { content: ''; position: absolute; inset: -7px 0; }   /* a 44 × 44 px target */
+.filmnav__btn svg { flex: 0 0 auto; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: square; stroke-linejoin: miter; }
+.filmnav__lbl { padding-top: 1px; }
+.filmnav__btn:focus-visible { outline: 2px solid #5cc0f5; outline-offset: 2px; }
+.filmnav__btn:disabled { cursor: default; opacity: 0.36; }
+@media (hover: hover) and (pointer: fine) {
+  .filmnav__btn:not(:disabled):hover { background: var(--uh-blue); border-color: var(--uh-blue); color: #fff; }
+}
+.filmnav__btn:not(:disabled):active { background: var(--uh-blue-deep); border-color: var(--uh-blue-deep); color: #fff; }
+/* the tip: where the hovered (or focused) button goes */
+.filmnav__tip {
+  position: absolute; left: 0; top: calc(100% + 10px); z-index: 4; margin: 0; padding: 8px 12px 9px; min-width: 100%; box-sizing: border-box;
+  display: grid; gap: 4px; white-space: nowrap; pointer-events: none;
+  background: rgba(7, 16, 28, 0.9); border: 1px solid rgba(140, 200, 235, 0.24); border-left: 2px solid #5cc0f5;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0.16s;
+}
+.filmnav__tip.is-on { opacity: 1; visibility: visible; transform: none; transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s; }
+.filmnav__tip[data-dir='1'] { left: auto; right: 0; }
+.filmnav__k { font: 500 12px/1 var(--sh-mono); letter-spacing: 0.14em; text-transform: uppercase; color: #5cc0f5; }
+.filmnav__t { font: 600 14px/1.25 var(--uh-font-head); color: #eef4f8; }
+/* daylight: paper and navy, the same blue on hover */
+body.is-day .filmnav__btn { background: rgba(255, 255, 255, 0.86); border-color: rgba(20, 32, 46, 0.26); color: #14202e; }
+body.is-day .filmnav__btn:focus-visible { outline-color: #0069a3; }
+@media (hover: hover) and (pointer: fine) {
+  body.is-day .filmnav__btn:not(:disabled):hover { background: var(--uh-blue); border-color: var(--uh-blue); color: #fff; }
+}
+body.is-day .filmnav__btn:not(:disabled):active { background: var(--uh-blue-deep); border-color: var(--uh-blue-deep); color: #fff; }
+body.is-day .filmnav__tip { background: rgba(255, 255, 255, 0.97); border-color: rgba(20, 32, 46, 0.14); border-left-color: #0069a3; box-shadow: 0 8px 24px rgba(20, 32, 46, 0.12); }
+body.is-day .filmnav__k { color: #0069a3; }
+body.is-day .filmnav__t { color: #14202e; }
+/* narrow screens: the arrows alone (the tip still names the stop), a tighter rail, and the quality
+   chip shows only its gear, so rail, arrows and chip share one row at 390 px */
+@media (max-width: 759px), (orientation: portrait) and (max-width: 900px) {
+  /* the pair stands at the row's right end, just left of the gear: fixed there, whatever the name */
+  .filmnav { position: absolute; right: 36px; top: 50%; transform: translateY(-50%); margin: 0; }
+  .filmnav__btn { min-width: 40px; padding: 0; }
+  .filmnav__btn::after { inset: -7px -2px; }   /* 44 x 44 px */
+  .filmnav__lbl { display: none; }
+  .filmnav__tip, .filmnav__tip[data-dir='1'] { left: auto; right: 0; }   /* (never past the screen's edge) */
+  .rail { gap: 8px; }
+  .rail__ticks { gap: 2px; }
+  .rail__ticks button { width: 8px; }
+  .rail__name { min-width: 0; }
+  .fset__tier { display: none; }
+  .fset__btn { padding: 0 6px; }
+}
+/* the narrowest phones: the number and the name; the arrows step through the chapters instead */
+@media (max-width: 379px) { .rail__ticks { display: none; } }
+@media (prefers-reduced-motion: reduce) { .filmnav__btn, .filmnav__tip, .filmnav__tip.is-on { transition: none; } }

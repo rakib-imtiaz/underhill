@@ -128,8 +128,15 @@ export class Labels {
     this.frame++;
     this.dt = opt.dt ?? 0;   // seconds since the last frame (0 = a still / review frame: no easing)
     const vis = [];
+    // a label's arrival follows the explode, and during a move the explode runs through a label's
+    // fade window in two or three frames: it popped on. Its alpha now eases over about a tenth of a
+    // second on the clock (still frames and review frames: exact)
+    const ka = this.dt > 0 ? 1 - Math.exp(-this.dt / 0.08) : 1;
     for (const it of this.items.values()) {
-      const a = alpha.get(it.id) || 0;
+      const target = alpha.get(it.id) || 0;
+      it.aS = ka >= 1 || it.aS === undefined ? target : it.aS + (target - it.aS) * ka;
+      if (Math.abs(it.aS - target) < 0.004) it.aS = target;
+      const a = it.aS;
       if (a <= 0.003 || !it.obj) { this.hide(it); continue; }
       it.obj.updateWorldMatrix(true, false);
       it.world = (it.world || new THREE.Vector3()).copy(it.local).applyMatrix4(it.obj.matrixWorld);
@@ -225,7 +232,10 @@ export class Labels {
     // closer to the screen edge than a label needs, nor further out than the old fixed columns
     const box = opt.subjectBox;
     const gapX = Math.max(44, W * 0.035);
-    const wl = Math.max(0, ...vis.map((v) => v.w));
+    // (the widest label of the whole set, not of those on screen now: when the widest one faded out,
+    // both columns used to shift sideways by the difference in one frame)
+    let wl = 0;
+    for (const it of this.items.values()) if (it.measured) wl = Math.max(wl, it.w);
     let leftEdge = pad + colW, rightEdge = W - pad - colW;
     if (box && Number.isFinite(box.minX)) {
       leftEdge = Math.max(pad + wl, Math.min(W * 0.5 - 40, box.minX - gapX));
@@ -239,6 +249,10 @@ export class Labels {
     const L = vis.filter((v) => v.side < 0), R = vis.filter((v) => v.side > 0);
     while (L.length - R.length > 1) { L.sort((a, b) => b.sx - a.sx); const m = L.shift(); m.side = 1; R.push(m); }
     while (R.length - L.length > 1) { R.sort((a, b) => a.sx - b.sx); const m = R.shift(); m.side = -1; L.push(m); }
+    // a label that changes column (the camera swung its anchor across the subject) used to jump across
+    // the picture in one frame; it fades out of its old place and in at the new one instead
+    if (this.dt > 0) for (const it of vis) { if (it.shown && it.drawnSide && it.drawnSide !== it.side) { it.aS = 0; it.a = 0; } }
+    for (const it of vis) it.drawnSide = it.side;
     const top = opt.colTop ?? H * 0.08, bottom = opt.colBottom ?? H * 0.92;
     for (const [list, side] of [[L, -1], [R, 1]]) {
       list.sort((a, b) => a.sy - b.sy);

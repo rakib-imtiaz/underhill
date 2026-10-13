@@ -79,10 +79,37 @@ const STREAK = /* glsl */`
 const COMPOSITE = /* glsl */`
   uniform sampler2D tScene; uniform sampler2D tBloom; uniform sampler2D tStreak; uniform float streak;
   uniform float bloom; uniform float vignette; uniform float grain; uniform float time; uniform float aspect;
-  uniform vec2 resolution; uniform float fade; uniform float smear; uniform vec3 fadeCol;
+  uniform vec2 resolution; uniform float fade; uniform float smear; uniform vec3 fadeCol; uniform float fxaa;
   varying vec2 vUv;
   float hash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
   vec3 lit(vec2 uv) { return texture2D(tScene, uv).rgb + texture2D(tBloom, uv).rgb * bloom; }
+  // luma as the eye will see it after tone mapping (HDR compressed to 0..1), for edge detection
+  float lum(vec3 c) { float l = dot(c, vec3(0.299, 0.587, 0.114)); return l / (1.0 + l); }
+  // FXAA (the compact 5-tap form) on the scene, for the tiers that draw without MSAA: edges and thin
+  // lines are blended along their direction, so they slide instead of stepping pixel to pixel while the
+  // camera moves. In the composite itself: no extra pass and no extra target.
+  vec3 sceneAA(vec2 uv) {
+    vec3 m = texture2D(tScene, uv).rgb;
+    if (fxaa < 0.5) return m;
+    vec2 px = 1.0 / resolution;
+    vec3 nw = texture2D(tScene, uv + vec2(-1.0, -1.0) * px).rgb, ne = texture2D(tScene, uv + vec2(1.0, -1.0) * px).rgb;
+    vec3 sw = texture2D(tScene, uv + vec2(-1.0, 1.0) * px).rgb, se = texture2D(tScene, uv + vec2(1.0, 1.0) * px).rgb;
+    float lNW = lum(nw), lNE = lum(ne), lSW = lum(sw), lSE = lum(se), lM = lum(m);
+    float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE))), lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+    // no edge here: leave the pixel alone. (A soft threshold: a hard one switched a faint line's pixels
+    // between filtered and not from one frame to the next as it slid, a flicker of its own.)
+    float th = max(0.03, lMax * 0.1);
+    float edge = smoothstep(th * 0.5, th * 1.5, lMax - lMin);
+    if (edge <= 0.0) return m;
+    vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+    float red = max((lNW + lNE + lSW + lSE) * 0.03125, 1.0 / 128.0);
+    float rcp = 1.0 / (min(abs(dir.x), abs(dir.y)) + red);
+    dir = clamp(dir * rcp, vec2(-8.0), vec2(8.0)) * px;
+    vec3 a = 0.5 * (texture2D(tScene, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture2D(tScene, uv + dir * (2.0 / 3.0 - 0.5)).rgb);
+    vec3 b = a * 0.5 + 0.25 * (texture2D(tScene, uv - dir * 0.5).rgb + texture2D(tScene, uv + dir * 0.5).rgb);
+    float lB = lum(b);
+    return mix(m, (lB < lMin || lB > lMax) ? a : b, edge);
+  }
   void main() {
     vec3 c;
     if (smear > 0.001) {
@@ -94,7 +121,7 @@ const COMPOSITE = /* glsl */`
       }
       c /= wsum;
     } else {
-      c = lit(vUv);
+      c = sceneAA(vUv) + texture2D(tBloom, vUv).rgb * bloom;
     }
     // anamorphic streak: a faint, cool horizontal flare on the brightest sources
     c += texture2D(tStreak, vUv).rgb * streak * vec3(0.7, 0.9, 1.2);
@@ -147,6 +174,8 @@ export class Post {
       tStreak: { value: this.streakRTs[0].texture }, streak: { value: this.streakOn ? 0.12 : 0 },
       bloom: { value: 0.55 }, vignette: { value: 0.55 }, grain: { value: 0.035 }, time: { value: 0 },
       aspect: { value: 1 }, resolution: { value: new THREE.Vector2(1, 1) }, fade: { value: 1 }, smear: { value: 0 }, fadeCol: { value: new THREE.Color(0, 0, 0) },
+      // FXAA where the scene is drawn without MSAA (lite, balanced); a uniform, so switching it compiles nothing
+      fxaa: { value: Q.msaa ? 0 : 1 },
     });
     this.composite.toneMapped = true;
   }

@@ -187,6 +187,17 @@
         </span>
         <span class="rail__name" id="rail-name">Drone</span>
       </nav>
+      <!-- previous / next stop (js/main.js): the same glide as a wheel tick or an arrow key; the tip
+           names the stop it goes to. Hidden with the rail while the film boots. -->
+      <div class="filmnav" id="filmnav" role="group" aria-label="Move through the film">
+        <button type="button" class="filmnav__btn" id="filmnav-prev" data-dir="-1" aria-label="Previous stop" disabled>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg><span class="filmnav__lbl">Prev</span>
+        </button>
+        <button type="button" class="filmnav__btn" id="filmnav-next" data-dir="1" aria-label="Next stop">
+          <span class="filmnav__lbl">Next</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>
+        </button>
+        <p class="filmnav__tip" id="filmnav-tip" aria-hidden="true"><span class="filmnav__k" id="filmnav-k"></span><span class="filmnav__t" id="filmnav-t"></span></p>
+      </div>
       <!-- quality: Auto / Lite / Balanced / High (js/film-settings.js; applies on reload) -->
       <div class="fset" id="fset">
         <button type="button" class="fset__btn" id="fset-btn" aria-expanded="false" aria-controls="fset-panel" aria-label="Quality settings">

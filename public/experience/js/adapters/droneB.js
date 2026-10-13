@@ -11,11 +11,12 @@ import { ruleOf, makeRotorDisc, makeMotorRing, disposeOwned } from './common.js'
 const ARM_IDS = ['fl', 'fr', 'rl', 'rr'];
 const DEG = Math.PI / 180;
 const ROTOR_RAD_S = 30;   // flight speed of the rotors (the blur discs carry the rest)
-// Rotor states, by speed01 (the host eases it over about a second): 0 = parked (blades still, in their
-// rest pose, no disc); blades turning on their own up to BLADES_UNTIL, then the blur disc alone (blades
-// drawn at one angle per frame strobe like a wagon wheel). On the way down, below SETTLE_AT each rotor
-// brakes evenly onto its park angle, so a stopped prop always rests in the same clean pose.
-const BLADES_UNTIL = 0.34, SETTLE_AT = 0.3;
+// Rotor states, by each rotor's own speed (it follows speed01, which the host eases over about a
+// second): stopped = blades still, in their rest pose, no disc; blades turning on their own up to
+// BLADES_UNTIL of flight speed, then the blur disc alone (blades drawn at one angle per frame strobe
+// like a wagon wheel). On the way down, once speed01 falls below SETTLE_AT each rotor brakes evenly onto
+// its park angle (within half a second), so a stopped prop always rests in the same clean pose.
+const BLADES_UNTIL = 0.34, SETTLE_AT = 0.5;
 const discAlpha = (s) => { const t = Math.min(1, Math.max(0, (s - 0.12) / 0.3)); return 0.42 * t * t * (3 - 2 * t); };
 
 /**
@@ -172,8 +173,9 @@ export default {
     // flat fin), 2° of droop at rest, and both blades of each motor parked across the view (along the
     // drone's left-right axis, ±15° mirrored per motor), so each motor clearly shows two opposite blades
     const bladeGeo = new Map();
-    const bladesOf = [];
     for (const r of rt.rotors || []) {
+      r.bladeMeshes = [];
+      r.disc = discs.find((x) => x.rotorNode === r.node)?.d;
       for (const pv of r.blades) {
         pv.userData.droop = -2 * DEG;   // the model's applyRotorPose sets the whole Euler with it
         pv.rotation.z = -2 * DEG;
@@ -185,7 +187,7 @@ export default {
           if (!bladeGeo.has(key)) bladeGeo.set(key, airfoilBlade(R, r.dir));
           o.geometry.dispose();
           o.geometry = bladeGeo.get(key);
-          bladesOf.push(o);
+          r.bladeMeshes.push(o);
         });
       }
       const arm = (rt.arms || []).find((a) => a.key === r.key);
@@ -223,6 +225,10 @@ export default {
     floorRough(MM.thermal, 0.16, 0.18);
     floorRough(MM.laser, 0.2, 0.22);
     floorRough(MM.chrome, 0.3, null);
+    // the carbon tubes: a tight clearcoat line along each thin tube, over a deep weave bump, crawled as
+    // the camera moved (measured: 22 % fewer popping pixels in the orbit to the exploded view with a
+    // softer coat and half the bump; the weave still reads from its colour map)
+    if (MM.carbon) { floorRough(MM.carbon, null, 0.24); MM.carbon.bumpScale = Math.min(MM.carbon.bumpScale, 0.9); }
     const gCam = rt.nodes['gimbal-camera'];
     let speed = 0, lastSpeed = 0, fold = 0;
 
@@ -281,19 +287,25 @@ export default {
       spin(dt, speed01) {
         const rising = speed01 > lastSpeed + 1e-5;
         speed = speed01; lastSpeed = speed01;
-        if (dt > 0 && fold <= 0.001) {
-          for (const r of rt.rotors || []) {
+        for (const r of rt.rotors || []) {
+          if (dt <= 0) {
+            // a still frame (review frames, the pre-roll, reduced motion): the rotor shows the commanded
+            // speed's look and does not turn
+            if (!r.settle) r.w = ROTOR_RAD_S * speed01;
+          } else if (fold > 0.001) {
+            r.w = 0; r.settle = false;   // folded: the model parks the blades itself
+          } else {
             if (rising || speed01 >= SETTLE_AT) {
               // driven: the rotor follows the commanded speed (eased, so a change of mind mid-stop is smooth)
               r.settle = false;
               r.w += (ROTOR_RAD_S * speed01 - r.w) * (1 - Math.exp(-dt / 0.12));
               r.angle += r.dir * r.w * dt;
             } else if (r.w > 1e-4) {
-              // stopping: brake evenly onto the next park angle ahead (at least ~35° of runway)
+              // stopping: brake evenly onto the next park angle ahead (at least 20° of runway)
               if (!r.settle) {
                 const TAU = Math.PI * 2;
                 let rem = ((r.dir * (r.park - r.angle)) % Math.PI + Math.PI) % Math.PI;
-                if (rem < 0.6) rem += Math.PI;
+                if (rem < 0.35) rem += Math.PI;
                 r.remain = rem; r.decel = (r.w * r.w) / (2 * rem); r.settle = true;
                 r.angle = ((r.angle % TAU) + TAU) % TAU;
               }
@@ -307,18 +319,17 @@ export default {
             }
             r.node.rotation.y = r.angle;
           }
+          // the look follows the rotor's own speed: the disc (still, the same every frame at flight
+          // speed) fades in as its blades get fast; above a third of flight speed only the disc is drawn
+          // (blades drawn at one angle per frame strobe like a wagon wheel)
+          const eff = Math.min(1, r.w / ROTOR_RAD_S);
+          const a = discAlpha(eff);
+          r.disc.visible = a > 0.004;
+          r.disc.material.opacity = a;
+          r.disc.position.copy(r.node.position);   // (rides the rotor when the explode lifts it)
+          const solid = eff < BLADES_UNTIL;
+          for (const b of r.bladeMeshes) if (b.visible !== solid) b.visible = solid;
         }
-        // the disc: still, the same every frame at flight speed; it fades in as the blades get fast
-        const a = discAlpha(speed01);
-        for (const { d, rotorNode } of discs) {
-          d.visible = a > 0.004;
-          d.material.opacity = a;
-          d.position.copy(rotorNode.position);   // (rides the rotor when the explode lifts it)
-        }
-        // at speed the blades are a blur: drawing the geometry at one angle per frame strobes (a
-        // wagon-wheel flicker), so above a third of flight speed only the disc is drawn
-        const solid = speed01 < BLADES_UNTIL;
-        for (const b of bladesOf) if (b.visible !== solid) b.visible = solid;
       },
       get spinning() { return speed > 0.02; },
       dispose() {

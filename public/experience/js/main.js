@@ -347,6 +347,54 @@ function updateRail(chapter) {
   $('#rail').classList.toggle('is-intro', k < 0);
   railBtns.forEach((b, i) => b.setAttribute('aria-current', i === k ? 'step' : 'false'));
 }
+
+/* ------------------------------------------- previous / next stop: the arrows by the rail */
+// A click is a wheel tick: it glides to the stop before or after (stepBy, the checkpoint stepper),
+// and a click during a move queues the next one, as a gesture does. ← → and Page Up / Down already
+// step (the keydown handler below). Disabled at the ends, while the intro or the menu has the page, and
+// while an instrument is still being built; hidden with the rail while the film boots (style.css).
+const navBtns = [$('#filmnav-prev'), $('#filmnav-next')];
+const navTip = $('#filmnav-tip');
+let navKey = '', navHot = null;
+/** what a stop is called: the chapter (number and name) and the beat's title */
+function stopLabel(i) {
+  const b = TL.BEATS[i];
+  const ch = RAIL[b.chapter] ?? 0;
+  return ch < 0 ? { k: 'Opening', t: 'Ground Truth' } : { k: `${String(ch + 1).padStart(2, '0')} ${RAIL_NAMES[ch]}`, t: b.title || '' };
+}
+function showNavTip(btn) {
+  navHot = btn;
+  const dir = Number(btn?.dataset.dir || 0);
+  const k = btn && !btn.disabled ? nextStop(dir) : -1;
+  if (k < 0 || k > LAST_STOP) { navTip.classList.remove('is-on'); return; }
+  const l = stopLabel(k);
+  $('#filmnav-k').textContent = `${dir < 0 ? 'Back to' : 'Next'} · ${l.k}`;
+  $('#filmnav-t').textContent = l.t;
+  navTip.dataset.dir = String(dir);
+  navTip.classList.add('is-on');
+}
+for (const btn of navBtns) {
+  const dir = Number(btn.dataset.dir);
+  btn.addEventListener('click', () => { if (!btn.disabled) { stepBy(dir); needsRender = true; } });
+  btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showNavTip(btn); });
+  btn.addEventListener('pointerleave', () => { if (navHot === btn && document.activeElement !== btn) showNavTip(null); });
+  btn.addEventListener('focus', () => { if (btn.matches(':focus-visible')) showNavTip(btn); });
+  btn.addEventListener('blur', () => { if (navHot === btn) showNavTip(null); });
+}
+/** per frame: which way the arrows can go now, their names, and the tip (DOM written on change only) */
+function updateNav(loading) {
+  const on = stepperOn() && !loading;
+  const prev = on ? nextStop(-1) : -1, next = on ? nextStop(1) : LAST_STOP + 1;
+  const key = `${prev}|${next}`;
+  if (key === navKey) return;
+  navKey = key;
+  const [bp, bn] = navBtns;
+  bp.disabled = prev < 0; bn.disabled = next > LAST_STOP;
+  const name = (i) => { const l = stopLabel(i); return `${l.t} (${l.k})`; };
+  bp.setAttribute('aria-label', prev < 0 ? 'Previous stop' : `Previous stop: ${name(prev)}`);
+  bn.setAttribute('aria-label', next > LAST_STOP ? 'Next stop' : `Next stop: ${name(next)}`);
+  if (navHot) showNavTip(navHot);
+}
 $('#lb-toggle').addEventListener('click', () => {
   letterbox = !document.body.classList.contains('no-letterbox') ? false : true;
   store.set('gt.letterbox', letterbox);
@@ -555,11 +603,13 @@ function apply(u, dt, clock, { instant = false } = {}) {
   camera.updateMatrixWorld();
 
   // rotors: the scroll sets the target (parked 0, flying 1); the speed ramps to it on the clock, about
-  // a second up and a little less down, so they spin up and wind down the same way whatever the scroll
+  // a second up and a little less down, so they spin up and wind down the same way whatever the scroll.
+  // (scrolling back into the exploded view, the drone starts to come apart before a slow wind-down
+  // would end: once it does, the props stop within a few tenths of a second, long before they move)
   const droneEntry = models.active('drone');
   if (droneEntry) {
     const target = s.drone.spin;
-    const rate = target > rotor.speed ? 1 / 1.0 : 1 / 0.8;
+    const rate = target > rotor.speed ? 1 / 1.0 : s.drone.explode > 0.001 ? 1 / 0.2 : 1 / 0.6;
     rotor.speed = instant ? target : rotor.speed + THREE.MathUtils.clamp(target - rotor.speed, -rate * dt, rate * dt);
     if (Math.abs(rotor.speed - target) < 0.002) rotor.speed = target;
     // parked props are stowed while the arms are folded, and return to their modelled angle as they unfold
@@ -636,7 +686,10 @@ function updateLabels(s, dt = 0) {
   const dots = view.portrait;
   const L = entry.labels;
   L.forEach((l, i) => {
-    let a = THREE.MathUtils.smoothstep(t, l.arrive - 0.035, l.arrive + 0.06);
+    // (the window ends by t = 1: the last parts to settle, the gimbal camera's, arrive so late that
+    // their label used to rest at about half opacity in the fully exploded view)
+    const hi = Math.min(1, l.arrive + 0.06), lo = Math.min(hi - 0.04, l.arrive - 0.035);
+    let a = THREE.MathUtils.smoothstep(t, lo, hi);
     if (dots && i + 3 < L.length) { const nx = L[i + 3].arrive; a *= 1 - THREE.MathUtils.smoothstep(t, nx - 0.07, nx - 0.04); }
     alpha.set(l.id, a * gate);
   });
@@ -921,6 +974,7 @@ function updateDom(s) {
   const want = ['drone', 'gnss', 'ts'].includes(s.chapter) ? s.chapter : null;
   const loading = want && (models.isLoading(want) || !models.active(want));
   $('#loader').classList.toggle('is-on', !!loading && document.body.classList.contains('is-ready'));
+  updateNav(!!loading);
 
   // laser readout next to the prism
   const ro = s.readout * (models.active('ts') ? 1 : 0);
