@@ -376,8 +376,8 @@ function updateRail(chapter) {
 }
 
 /* ---------------------------------------- previous / next chapter: the arrows by the rail */
-// A click cuts straight to the first stop of the previous / next chapter (cutTo; it also stops
-// autoplay). The wheel, swipes and ← → / Page Up / Down still step stop by stop (stepBy). Disabled at
+// A click cuts to the previous / next chapter's opening and plays the chapter (goChapter, CHAPTERS;
+// it replaces any autoplay). The wheel, swipes and ← → / Page Up / Down still step stop by stop (stepBy). Disabled at
 // the ends, while the intro or the menu has the page, and while an instrument is still being built;
 // hidden with the rail while the film boots (style.css).
 const navBtns = [$('#filmnav-prev'), $('#filmnav-next')];
@@ -395,7 +395,7 @@ function showNavTip(btn) {
     // the play button's tip: what it will do
     const end = uNow() >= STOPS[LAST_STOP] - 0.02;
     $('#filmnav-k').textContent = AP.on ? (AP.until >= 0 ? 'Playing the chapter' : 'Autoplay · playing') : 'Autoplay';
-    $('#filmnav-t').textContent = AP.on ? 'Pause here (or press Space)' : end ? 'Play again from the opening' : 'Play the film to the end';
+    $('#filmnav-t').textContent = AP.on ? 'Pause here (or press Space)' : frozen ? 'Carry on from here' : end ? 'Play again from the opening' : 'Play the film to the end';
     navTip.dataset.dir = '0';
     navTip.classList.add('is-on');
     return;
@@ -1179,6 +1179,7 @@ addEventListener('scroll', () => {
   // the page moved, and not by autoplay's own hand (the scrollbar, find-in-page, a middle-click…):
   // the reader has taken over (AP and apPause: the autoplay section below)
   if (AP.on && Math.abs(scrollY - AP.top) > 3) apPause();
+  if (frozen && Math.abs(scrollY - frozenTop) > 3) unfreeze();
   readScroll(); needsRender = true;
 }, { passive: true });
 
@@ -1264,6 +1265,7 @@ function withHolds(a, b, plan) {
   return { dur, map };
 }
 function stepTo(k, { jump = false, speed = 1 } = {}) {
+  unfreeze();
   k = Math.max(0, Math.min(LAST_STOP, k));
   // (a gesture mid-move queues the next stop and hurries this move along; the speed eases up, so the
   // camera's velocity never jumps)
@@ -1317,6 +1319,7 @@ function chapterTarget(dir) {
 /** cut to chapter i's opening and play it (see CHAPTERS) */
 function goChapter(i) {
   const c = CHAPTERS[i];
+  unfreeze();
   apStop();
   step = null; queued = null;
   const u = REDUCED || i === 0 ? STOPS[c.first] : c.entry;
@@ -1328,11 +1331,8 @@ function goChapter(i) {
   if (Math.abs(u - STOPS[c.first]) < 1e-3 && c.until === c.first) return;   // already resting there
   AP.on = true; AP.until = c.until; AP.top = scrollY;
   apUi();
-  // a beat on the slate (or the chapter's first frame), then on through the chapter
-  AP.k = c.first - 1; AP.phase = 'dwell'; AP.t = 0; AP.dur = c.slate ? 1.0 : 0.4;
-  AP.next = Math.abs(u - STOPS[c.first]) < 1e-3 ? null : planMove(u, STOPS[c.first]);
-  if (!AP.next) { apArrive(c.first); return; }
-  AP.cycT = 0; AP.cycDur = AP.dur + AP.next.dur;
+  // from the slate (held: the move's slate hold) on through the chapter, as one glide
+  apRunFrom(u, c.until);
 }
 /** advance the running move (from the frame loop) */
 function stepFrame(dt) {
@@ -1359,8 +1359,10 @@ function engaged(dir) {
   return true;
 }
 /* -------------------------------------------------------------------------------- autoplay */
-// ▶ PLAY, by the chapter arrows: the film plays itself from here to the end. A move to each stop,
-// then a dwell long enough to read its caption and card (3.5–6 s by the length of the text), then on.
+// ▶ PLAY, by the chapter arrows: the film plays itself from here to the end, as one continuous glide.
+// It never stops at a stop: it slows through each one (a reading window of 1.6–3.2 s by the length
+// of its text, spread over a few hundredths of u either side, so the caption and card are fully up)
+// and flows on into the next move (buildRun).
 // It drives the very progress the scroll drives (the page's scroll position and uTarget, as the
 // stepper does), from the frame loop with time-based steps: a slow frame neither hurries nor slows
 // it. While it plays, the stepper is idle and CSS scroll snapping is off (html.is-autoplay), so
@@ -1373,16 +1375,89 @@ function engaged(dir) {
 // a move (the drone's push-in, 04→05) autoplay passes through them briskly and the camera's own pace
 // stays even; the whole move then follows cineEase (a steady glide, at rest at both ends). Moves with
 // an authored duration (the take-off and the strips) keep their own even pace.
-const AP = { on: false, phase: 'idle', k: 0, t: 0, dur: 0, a: 0, b: 0, plan: null, next: null, cycT: 0, cycDur: 1, top: NaN, meter: -1, until: -1 };
+const AP = { on: false, phase: 'idle', k: 0, t: 0, run: null, top: NaN, meter: -1, until: -1, resume: null };
+// Pause is an inspection hold: the film freezes on the very frame (the clock-driven life too: the
+// rotors, the scan sweep, the hover drift), and Play carries on from there with what was playing (the
+// rest of the chapter, or of the film). Any other move of the reader's (a scroll, a step, a chapter
+// jump) lets go of the hold.
+let frozen = false, frozenTop = NaN;
+function unfreeze() { if (frozen) { frozen = false; AP.resume = null; needsRender = true; } }
 const apBtn = $('#filmnav-play'), apMeter = $('#filmnav-meter'), apLbl = $('#filmnav-play-lbl');
-const AP_TITLE_DWELL = 4.2;   // the opening title (and the hand-off from the boot screen)
-/** Seconds at stop k: by what there is to read (the caption, and a third of an information card's text). */
+const AP_TITLE_DWELL = 3.0;   // the opening title (and the hand-off from the boot screen)
+/** Reading seconds through stop k: by what there is to read (the caption, and a third of an
+ *  information card's text). Spent slowing through the stop, never standing on it. */
 function dwellFor(k) {
   if (k === 0) return AP_TITLE_DWELL;
   const b = TL.BEATS[k];
   let chars = (b.title || '').length + (b.copy || '').length;
   for (const it of cards.items) if (cards.alpha(it.spec, STOPS[k]) > 0.5) chars += 0.35 * Math.min(220, it.el.textContent.trim().length || 120);
-  return Math.round(THREE.MathUtils.clamp(1.9 + 0.0165 * chars, 3.5, 6) * 100) / 100;
+  return Math.round(THREE.MathUtils.clamp(0.8 + 0.0105 * chars, 1.6, 3.2) * 100) / 100;
+}
+const AP_MOVE = 0.88;   // the moves themselves, a little brisker than the stepper's (authored ones keep their pace)
+const AP_W = 0.035;     // the reading window either side of a stop (u): the overlays are fully up inside it
+/** share of a stop's reading time spent before x (u from the stop): a raised-cosine bump's integral */
+const bumpF = (x) => (x <= -AP_W ? 0 : x >= AP_W ? 1 : 0.5 * (x / AP_W + Math.sin((Math.PI * x) / AP_W) / Math.PI + 1));
+/** The continuous run from u0 to stop `end`: the time at each of a fine row of u samples. Each move's
+ *  own time shape (planMove: camera pace, slate holds, authored pace) plus, around every stop, its
+ *  reading time as a smooth slow-down: the speed dips and recovers but never reaches zero. */
+function buildRun(u0, end) {
+  const ends = [u0], stops = [];
+  for (let k = 0; k <= end; k++) {
+    if (STOPS[k] > u0 + 1e-3) ends.push(STOPS[k]);
+    if (STOPS[k] > u0 - AP_W) stops.push({ k, u: STOPS[k], d: dwellFor(k) });
+  }
+  const U = [u0], T = [0], SUB = 6;
+  let t = 0;
+  for (let g = 0; g < ends.length - 1; g++) {
+    const a = ends[g], b = ends[g + 1];
+    const p = planMove(a, b), M = p.map, n = M ? M.length - 1 : 48;
+    const scale = authoredMove(a, b) ? 1 : AP_MOVE;
+    for (let i = 1; i <= n; i++) {
+      const base = (p.dur * (M ? M[i] - M[i - 1] : 1 / n) * scale) / SUB;
+      for (let j = 1; j <= SUB; j++) {
+        const ua = a + ((b - a) * (i - 1 + (j - 1) / SUB)) / n, ub = a + ((b - a) * (i - 1 + j / SUB)) / n;
+        let dt = base;
+        for (const st of stops) if (Math.abs(st.u - ua) < AP_W + 0.2) dt += st.d * (bumpF(ub - st.u) - bumpF(ua - st.u));
+        t += dt; U.push(ub); T.push(t);
+      }
+    }
+  }
+  // (at a stop with nothing after it, the run is just its reading time there)
+  if (U.length === 1) { const st = stops.find((x) => Math.abs(x.u - u0) < 1e-3); t = st ? st.d / 2 : 0; U.push(u0); T.push(t); }
+  const uEnd = U[U.length - 1];
+  // Resample on an even clock and smooth the speed (a Gaussian over ~0.4 s, at rest before the start
+  // and after the end): every slow-down and pick-up then takes about a second, never a jolt, and the
+  // run eases in and out. The distance is kept (the speed is rescaled to land exactly on the end).
+  const H = 1 / 60, N = Math.max(2, Math.ceil(t / H));
+  const raw = new Float64Array(N + 1);
+  for (let i = 0, lo = 0; i <= N; i++) {
+    const ti = Math.min(t, i * H);
+    while (lo < T.length - 2 && T[lo + 1] <= ti) lo++;
+    const f = T[lo + 1] > T[lo] ? (ti - T[lo]) / (T[lo + 1] - T[lo]) : 0;
+    raw[i] = U[lo] + (U[lo + 1] - U[lo]) * Math.min(1, Math.max(0, f));
+  }
+  const v = new Float64Array(N);
+  for (let i = 0; i < N; i++) v[i] = raw[i + 1] - raw[i];
+  const SIG = 0.4 / H, R = Math.ceil(3 * SIG), ker = [];
+  for (let j = -R; j <= R; j++) ker.push(Math.exp(-(j * j) / (2 * SIG * SIG)));
+  const kSum = ker.reduce((x, y) => x + y, 0);
+  const Us = new Float64Array(N + 1);
+  Us[0] = u0;
+  for (let i = 0; i < N; i++) {
+    let acc = 0;
+    for (let j = -R; j <= R; j++) { const q = i + j; if (q >= 0 && q < N) acc += v[q] * ker[j + R]; }
+    Us[i + 1] = Us[i] + acc / kSum;
+  }
+  const gain = Us[N] - u0 > 1e-9 ? (uEnd - u0) / (Us[N] - u0) : 0;
+  for (let i = 1; i <= N; i++) Us[i] = u0 + (Us[i] - u0) * gain;
+  const at = (uu) => { let i = 0; while (i < N && Us[i] < uu - 1e-6) i++; return i * H; };
+  return { Us, H, dur: N * H, end, stopT: stops.map((x) => ({ k: x.k, t: at(x.u) })) };
+}
+/** u at time t of the run */
+function runU(run, t) {
+  const { Us, H } = run, n = Us.length - 1;
+  const x = Math.min(n, Math.max(0, t / H)), i = Math.min(n - 1, Math.floor(x));
+  return Us[i] + (Us[i + 1] - Us[i]) * (x - i);
 }
 /** The plan of the move a → b: its duration and the map from eased time to u. */
 function planMove(a, b) {
@@ -1419,7 +1494,7 @@ function planU(plan, a, b, e) {
   return a + (b - a) * ((lo + THREE.MathUtils.clamp(f, 0, 1)) / (M.length - 1));
 }
 function apWrite(u) {
-  uTarget = u;
+  uTarget = REDUCED ? TL.beatAt(u).still : u;   // (reduced motion: cuts from still to still)
   window.scrollTo({ top: u * vhPx, behavior: 'instant' });
   AP.top = scrollY;   // (as the page has it, on its own pixel grid)
 }
@@ -1440,66 +1515,82 @@ function apMeterSet(p) {
   AP.meter = p;
   apMeter.style.transform = `scaleX(${p})`;
 }
-/** settle at stop k: dwell there (unless it is the last), with the next move planned */
-function apArrive(k, dwell) {
-  AP.k = k;
-  if (k >= LAST_STOP || (AP.until >= 0 && k >= AP.until)) { apStop(); return; }
-  AP.phase = 'dwell'; AP.t = 0; AP.dur = dwell ?? dwellFor(k);
-  AP.next = planMove(STOPS[k], STOPS[k + 1]);
-  AP.cycT = 0; AP.cycDur = AP.dur + AP.next.dur;   // the meter: the time left to the next stop
-}
-function apMove(k, fresh = false) {
-  const a = uTarget, b = STOPS[k];
-  AP.plan = !fresh && AP.next ? AP.next : planMove(a, b);
-  AP.next = null;
-  AP.phase = 'move'; AP.t = 0; AP.a = a; AP.b = b; AP.k = k;
-  if (fresh) { AP.cycT = 0; AP.cycDur = AP.plan.dur || 1; }
+/** play from u to stop `end` (LAST_STOP for the film, a chapter's last stop for a chapter) */
+function apRunFrom(u, end) {
+  AP.run = buildRun(u, end);
+  AP.t = 0; AP.k = Math.max(0, stopIndexAtOrAfter(u + 1e-3) - 1); AP.phase = 'run';
+  uTarget = u;
 }
 function apStart({ boot = false } = {}) {
   if (AP.on || !stepperOn() || document.hidden) return;
+  const res = frozen ? AP.resume : null;
+  unfreeze();
   AP.until = -1;
   step = null; queued = null;
-  let u = uNow(), restart = false;
+  let u = uNow();
+  // (from a hold inside a chapter that was playing: the rest of that chapter)
+  if (res && res.until >= 0 && u < STOPS[res.until] - 0.02) {
+    AP.on = true; AP.until = res.until; AP.top = scrollY;
+    apUi();
+    apRunFrom(u, res.until);
+    needsRender = true;
+    return;
+  }
   if (u >= STOPS[LAST_STOP] - 0.02) {
     // at (or past) the end: from the opening (a cut: playing the film backwards to get there is not it)
-    restart = true; u = 0;
+    u = 0;
     window.scrollTo({ top: 0, behavior: 'instant' });
     uTarget = uShown = 0; rotor.speed = 0;
   }
   AP.on = true; AP.top = scrollY;
   apUi();
-  const at = STOPS.findIndex((x) => Math.abs(x - u) < 0.03);
-  if (at >= 0) {
-    // at a stop: a short beat there first (all of its dwell after the boot or a restart)
-    if (Math.abs(STOPS[at] - u) > 1e-4) apWrite(STOPS[at]);
-    apArrive(at, boot || restart ? dwellFor(at) : 1.2);
-  } else {
-    // between two stops (paused mid-move): on to the next one
-    uTarget = u;
-    AP.k = stopIndexAtOrAfter(u) - 1;
-    apMove(AP.k + 1, true);
-  }
+  apRunFrom(u, LAST_STOP);
   needsRender = true;
 }
-function apStop() { AP.on = false; AP.phase = 'idle'; AP.plan = AP.next = null; AP.until = -1; apUi(); }
+function apStop() { AP.on = false; AP.phase = 'idle'; AP.run = null; AP.until = -1; apUi(); }
 /** the reader takes over: autoplay stops where the film is (no snap to a stop) */
 function apPause() { if (AP.on) apStop(); }
-function apToggle() { if (AP.on) apPause(); else apStart(); }
+/** Pause (the button, Space, a click on the picture): hold the film on this frame */
+function apHold() {
+  if (!AP.on) return;
+  AP.resume = { until: AP.until };
+  apStop();
+  frozen = true; frozenTop = scrollY;
+  needsRender = true;
+}
+function apToggle() { if (AP.on) apHold(); else apStart(); }
 /** advance autoplay (from the frame loop, before the stepper) */
 function apFrame(dt) {
   if (!AP.on) return;
   if (!stepperOn()) { apPause(); return; }
-  AP.t += dt; AP.cycT += dt;
-  if (AP.phase === 'dwell' && AP.t >= AP.dur) apMove(AP.k + 1);
-  if (AP.phase === 'move') {
-    const s = AP.plan.dur > 0 ? Math.min(1, AP.t / AP.plan.dur) : 1;
-    apWrite(planU(AP.plan, AP.a, AP.b, cineEase(s)));
-    if (s >= 1) { apWrite(AP.b); apArrive(AP.k); }
-  }
-  if (AP.on) apMeterSet(AP.cycT / AP.cycDur);
+  const run = AP.run;
+  AP.t = Math.min(run.dur, AP.t + dt);
+  apWrite(runU(run, AP.t));
+  // the meter: the way to the next stop
+  let prevT = 0, nextT = run.dur;
+  for (const st of run.stopT) { if (st.t <= AP.t + 1e-6) { prevT = st.t; AP.k = st.k; } else { nextT = st.t; break; } }
+  apMeterSet(nextT > prevT ? (AP.t - prevT) / (nextT - prevT) : 1);
+  if (AP.t >= run.dur) { AP.k = run.end; apStop(); }
   needsRender = true;
 }
 apBtn?.addEventListener('click', () => { showNavTip(null); apToggle(); });
+// a click or tap on the picture pauses the film where it is, and plays it on (only while it plays or
+// is held: on a resting film a click does nothing). A brief mark in the middle says which.
+const apFlash = document.createElement('div');
+apFlash.className = 'apflash'; apFlash.setAttribute('aria-hidden', 'true');
+document.body.appendChild(apFlash);
+function flashPlayState(playing) {
+  apFlash.innerHTML = playing
+    ? '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13"/></svg>';
+  apFlash.classList.remove('is-on'); void apFlash.offsetWidth; apFlash.classList.add('is-on');
+}
+$('#track').addEventListener('click', (e) => {
+  if (e.target.closest?.('a, button, input, label, summary, .ucards, .endcards')) return;
+  if (!stepperOn() || uNow() > STOPS[LAST_STOP] + 0.02) return;
+  if (AP.on) { apHold(); flashPlayState(false); }
+  else if (frozen) { apStart(); flashPlayState(true); }
+});
 apBtn?.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showNavTip(apBtn); });
 apBtn?.addEventListener('pointerleave', () => { if (navHot === apBtn && !apBtn.matches(':focus-visible')) showNavTip(null); });
 apBtn?.addEventListener('focus', () => { if (apBtn.matches(':focus-visible')) showNavTip(apBtn); });
@@ -1613,7 +1704,11 @@ addEventListener('keydown', (e) => {
   if (e.key === ' ' && !e.shiftKey) {
     if (t && /^(BUTTON|A|SUMMARY)$/.test(t.tagName)) return;
     if (!stepperOn() || (!AP.on && uNow() > STOPS[LAST_STOP] + 0.02)) return;
-    e.preventDefault(); apToggle(); return;
+    e.preventDefault();
+    const was = AP.on;
+    apToggle();
+    if (was !== AP.on) flashPlayState(AP.on);
+    return;
   }
   // any other film key during autoplay only pauses it, where the film is
   if (AP.on && ['ArrowDown', 'ArrowRight', 'PageDown', 'ArrowUp', 'ArrowLeft', 'PageUp', 'Home', 'End', ' '].includes(e.key)) {
@@ -1652,7 +1747,8 @@ function tick(now) {
   const intervalMs = now - last;
   const dt = Math.min(0.05, Math.max(0, intervalMs / 1000));
   last = now;
-  if (!REDUCED) clock += dt;
+  if (!REDUCED && !frozen) clock += dt;
+  const adt = frozen ? 0 : dt;                               // (a hold: nothing clock-driven moves)
   const k = REDUCED ? 1 : 1 - Math.exp(-dt / 0.085);       // scroll scrub smoothing
   if (daylight.step(REDUCED ? 1 : dt)) needsRender = true;
   apFrame(dt);
@@ -1665,12 +1761,12 @@ function tick(now) {
   if (window.__intro?.playing) {
     // Underhill's intro covers the page: keep the opening shot ready underneath, but do not spend
     // the GPU on a picture nobody sees (it redraws only when a model arrives)
-    if (needsRender) { apply(uShown, dt, clock); render(clock); needsRender = false; }
+    if (needsRender) { apply(uShown, adt, clock); render(clock); needsRender = false; }
     return;
   }
   if (!REDUCED || moving) {
     const t0 = performance.now();
-    apply(uShown, dt, clock);
+    apply(uShown, adt, clock);
     render(clock);
     frameTimes.push(performance.now() - t0);
     if (frameTimes.length > 120) frameTimes.shift();
@@ -1878,8 +1974,8 @@ window.__scene = {
   // (review: restart the frame loop, e.g. after replacing requestAnimationFrame in a hidden tab)
   kick: () => { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(tick); },
   stepper: () => ({ stops: STOPS, step: step && { k: step.k, t: +step.t.toFixed(3), dur: step.dur, speed: step.speed }, queued }),
-  autoplay: () => ({ on: AP.on, phase: AP.phase, k: AP.k, t: +AP.t.toFixed(3), dur: AP.phase === 'move' ? AP.plan?.dur : AP.dur, cyc: +(AP.cycT / AP.cycDur).toFixed(3) }),
-  apStart, apPause, dwellFor,
+  autoplay: () => ({ on: AP.on, phase: AP.phase, k: AP.k, t: +AP.t.toFixed(3), dur: AP.run ? +AP.run.dur.toFixed(2) : 0, until: AP.until }),
+  apStart, apPause, dwellFor, buildRun, runU,
   planMove: (a, b) => { const p = planMove(a, b); return { dur: p.dur, map: p.map && [...p.map].map((x) => +x.toFixed(3)) }; },
 };
 

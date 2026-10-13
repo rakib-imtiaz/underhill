@@ -779,7 +779,14 @@ export function createSurveyDrone(options = {}) {
     for (const im of runtime.fasteners) im.position.copy(im.userData.axis).multiplyScalar(im.userData.backOut * kf);
     assembly.position.y = opts.explodeLift * smooth(explodeT);
   };
-  const FOLD_YAW = THREE.MathUtils.degToRad(62), FOLD_DROOP = THREE.MathUtils.degToRad(8);
+  // Transport fold: each arm swings about its hinge (the sleeve centre) round to the fuselage line
+  // and down, the arm, pod, fin or dome, motor and folded prop all on the hinge. 22° of droop (8°
+  // before 2026-10-14) lays the arms visibly down along the body, as the real arms stow, while the
+  // lowest fin stays 4 cm off the ground (a straight-down fold, as on the M350, would put this
+  // model's 0.32 m arm, hinged 0.26 m up, into the ground; folding back alongside the body is
+  // blocked by the legs). Hosts that fold arms one at a time read these from runtime.fold.
+  const FOLD_YAW = THREE.MathUtils.degToRad(62), FOLD_DROOP = THREE.MathUtils.degToRad(22);
+  runtime.fold = { yaw: FOLD_YAW, droop: FOLD_DROOP };
   root.setArmFold = (t) => {
     foldT = THREE.MathUtils.clamp(t, 0, 1);
     const k = smooth(foldT);

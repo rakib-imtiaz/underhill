@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fly Lab A · three.js + OSM — Underhill</title>
+  <meta name="description" content="Fly Lab scenario A: Underhill's drone over Metrotown, Burnaby, built in three.js from OpenStreetMap footprints. No key needed.">
+  <meta name="theme-color" content="#0a1b2e">
+  <link rel="icon" href="../media/underhill-icon.png">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="./css/lab.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "../vendor/three/build/three.module.min.js",
+      "three/addons/": "../vendor/three/examples/jsm/",
+      "three/examples/jsm/": "../vendor/three/examples/jsm/"
+    } }
+  </script>
+</head>
+<body class="sc-a">
+  <main class="lab-stage" id="stage" aria-label="3D view: the drone over Metrotown, Burnaby"></main>
+  <div class="lab-attrib" id="attrib">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+  <script type="module" src="./js/a-main.js"></script>
+</body>
+</html>

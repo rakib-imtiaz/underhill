@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fly Lab B · Google 3D Tiles — Underhill</title>
+  <meta name="description" content="Fly Lab scenario B: Underhill's drone over Metrotown, Burnaby, in Google Photorealistic 3D Tiles (three.js + 3d-tiles-renderer). Needs your Google Maps Platform key.">
+  <meta name="theme-color" content="#0a1b2e">
+  <link rel="icon" href="../media/underhill-icon.png">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="./css/lab.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "../vendor/three/build/three.module.min.js",
+      "three/addons/": "../vendor/three/examples/jsm/",
+      "three/examples/jsm/": "../vendor/three/examples/jsm/",
+      "3d-tiles-renderer": "../vendor/3d-tiles-renderer/0.4.9/src/index.js",
+      "3d-tiles-renderer/plugins": "../vendor/3d-tiles-renderer/0.4.9/src/plugins/index.js"
+    } }
+  </script>
+</head>
+<body class="sc-b">
+  <main class="lab-stage" id="stage" aria-label="3D view: the drone over Metrotown, Burnaby"></main>
+  <div class="lab-attrib" id="attrib"></div>
+  <script type="module" src="./js/b-main.js"></script>
+</body>
+</html>

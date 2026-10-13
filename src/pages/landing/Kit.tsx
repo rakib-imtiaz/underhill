@@ -14,7 +14,8 @@ type Card = KitEntry & { title: string; photoStem?: string; w?: number; h?: numb
 
 const FEATURED: { id: string; title: string; line: string; photoStem?: string; w?: number; h?: number }[] = [
   { id: "r12i-tsc7", title: "GNSS Solutions", line: "Centimetre-level accuracy for any environment.", photoStem: "draft-gear-r12i", w: 224, h: 150 },
-  { id: "sx10", title: "Total Stations", line: "Reliable, high-precision surveying for complex sites.", photoStem: "draft-gear-sx10", w: 283, h: 149 },
+  // (the S7 is the total station with a 3D model; the card keeps the total-station photo)
+  { id: "s7-robotic", title: "Total Stations", line: "Reliable, high-precision surveying for complex sites.", photoStem: "draft-gear-sx10", w: 283, h: 149 },
   { id: "m350-mapper", title: "UAV & LiDAR Systems", line: "High-resolution aerial data capture and mapping.", photoStem: "draft-gear-m350", w: 282, h: 283 },
   { id: "leica-p50", title: "Reality Capture", line: "Laser scanning that turns sites into models you can measure." },
 ];
@@ -29,12 +30,29 @@ const CARDS: Card[] = [
     return g ? [{ ...g, ...f }] : [];
   }),
   ...KIT.filter((g) => !featuredIds.has(g.id)).map((g) => ({ ...g, title: g.name, ...(DRAFT_PHOTOS[g.id] || {}) })),
-].filter((c) => !isUpcoming(c));
+]
+  .filter((c) => !isUpcoming(c))
+  // the ones you can explore in 3D lead the rail (stable: otherwise in the order above)
+  .sort((a, b) => Number(b.status === "ready") - Number(a.status === "ready"));
 
 /** not built yet: no 3D model and no photo of any kind */
 function isUpcoming(c: Card) {
   return c.status !== "ready" && !c.photoStem && !c.photo;
 }
+
+/** the card's call to action: a cube in a turning orbit (a 3D model to explore) or a play mark */
+const CubeIcon = () => (
+  <svg viewBox="0 0 24 24" className="ld-ico-cube">
+    <path d="M12 6.2 16.6 8.8v5.4L12 16.8l-4.6-2.6V8.8z" />
+    <path d="M7.4 8.8 12 11.4l4.6-2.6M12 11.4v5.4" />
+    <ellipse className="ld-ico-orbit" cx="12" cy="12" rx="10" ry="4.2" transform="rotate(-18 12 12)" />
+  </svg>
+);
+const PlayIcon = () => (
+  <svg viewBox="0 0 24 24" className="ld-ico-play">
+    <path d="M9.5 7.6v8.8l7-4.4z" />
+  </svg>
+);
 
 /** a GEAR_ICONS entry (inner SVG markup) as React elements */
 function GearIcon({ name }: { name: string }) {
@@ -223,8 +241,10 @@ export default function Kit() {
                         <a href={gearHref(c.id)}>{c.title}</a>
                       </h3>
                       <p className="ld-gear__line">{c.line}</p>
-                      <span className="ld-gear__more" aria-hidden="true">
-                        Learn more <Arrow />
+                      <span className={`ld-gear__more${c.status === "ready" ? " is-3d" : ""}`} aria-hidden="true">
+                        <span className="ld-gear__ico">{c.status === "ready" ? <CubeIcon /> : <PlayIcon />}</span>
+                        {c.status === "ready" ? "Explore in 3D" : "See how it works"}
+                        <Arrow />
                       </span>
                     </div>
                   </article>

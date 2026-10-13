@@ -270,8 +270,35 @@ body.ld-body .site-head.menu-open .ld-search { color: #fff; }
 .ld .ld-gear__name a { color: inherit; text-decoration: none; }
 .ld .ld-gear__name a::after { content: ""; position: absolute; inset: 0; z-index: 1; }
 .ld .ld-gear__line { margin-top: 12px !important; font-size: 14.5px; line-height: 1.45; color: var(--ld-text); }
-.ld .ld-gear__more { display: inline-flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 26px; font: 600 12px/1 var(--ld-sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ld-accent); }
+/* the card's call to action: a pill with an icon (Explore in 3D / See how it works) that fills on hover */
+.ld .ld-gear__body .ld-gear__line { margin-bottom: 22px !important; }
+.ld .ld-gear__more {
+  display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; margin-top: auto; padding: 6px 16px 6px 6px;
+  border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--ld-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--ld-accent) 8%, transparent);
+  font: 600 12px/1 var(--ld-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ld-accent);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
 .ld .ld-gear__more .ld-arrow { width: 14px; height: 14px; }
+.ld .ld-gear__ico { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--ld-accent); transition: background-color 0.3s ease; }
+.ld .ld-gear__ico svg { width: 20px; height: 20px; fill: none; stroke: var(--ld-card); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.3s ease; overflow: visible; }
+.ld .ld-gear__ico .ld-ico-play { width: 18px; height: 18px; fill: var(--ld-card); stroke: none; transition: fill 0.3s ease; }
+/* (loops while the rail is on screen: the orbit turns round the cube; the play mark sends out a ring) */
+.ld .ld-ico-orbit { stroke-dasharray: 9 4.5; animation: ld-orbit 3.2s linear infinite; animation-play-state: var(--ld-play, paused); }
+@keyframes ld-orbit { to { stroke-dashoffset: -27; } }
+.ld .ld-gear__more:not(.is-3d) .ld-gear__ico { position: relative; }
+.ld .ld-gear__more:not(.is-3d) .ld-gear__ico::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--ld-accent);
+  animation: ld-ring 2.6s ease-out infinite; animation-play-state: var(--ld-play, paused);
+}
+@keyframes ld-ring { 0% { transform: scale(1); opacity: 0.8; } 70%, 100% { transform: scale(1.7); opacity: 0; } }
+@media (hover: hover) and (pointer: fine) {
+  .ld .ld-gear__card:hover .ld-gear__more { background: var(--ld-accent); border-color: var(--ld-accent); color: var(--ld-card); box-shadow: 0 10px 24px color-mix(in srgb, var(--ld-accent) 30%, transparent); }
+  .ld .ld-gear__card:hover .ld-gear__ico { background: var(--ld-card); }
+  .ld .ld-gear__card:hover .ld-gear__ico svg { stroke: var(--ld-accent); }
+  .ld .ld-gear__card:hover .ld-gear__ico .ld-ico-play { fill: var(--ld-accent); }
+}
+@media (prefers-reduced-motion: reduce) { .ld .ld-ico-orbit, .ld .ld-gear__more .ld-gear__ico::after { animation: none; } }
 .ld .ld-gear__tag { position: absolute; left: 12px; top: 12px; padding: 5px 7px; background: var(--ld-btn); font: 500 12px/1 var(--ld-mono); letter-spacing: 0.1em; text-transform: uppercase; color: #fff; }
 .ld .ld-gear__card :focus-visible { outline: none; }
 .ld .ld-gear__card:focus-within { outline: 2px solid var(--ld-accent); outline-offset: 2px; }
@@ -539,3 +566,24 @@ body.ld-body.is-day .site-head.menu-open .nav > ul > li > a, body.ld-body.is-day
 body.ld-body .sf-foot .sf-col li a, body.ld-body .sf-bottom a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
 body.ld-body .sf-foot .sf-col-toggle { min-height: 44px; }
 body.ld-body .sf-offices, body.ld-body .mnav .mnav-foot { font-size: 12px; }
+
+/* ==================================================================== rounded cards (2026-10-14) */
+/* Every card on Home has the same soft corner: the Land / Air / Water / Data cards (no longer slanted),
+   the film card, the tool cards and the crew photos. */
+.ld { --ld-r: 18px; }
+.ld .ld-x__cards.ld-x__cards { --sk: 0px; --g: 14px; }
+.ld .ld-xcard.ld-xcard { clip-path: inset(0 round var(--ld-r)); border-radius: var(--ld-r); }
+.ld .ld-xcard__body { right: 24px; }
+.ld .ld-film { border-radius: var(--ld-r); }
+.ld .ld-film::after { border-radius: inherit; }
+.ld .ld-gear__card { border-radius: var(--ld-r); }
+.ld .ld-mosaic li { border-radius: 14px; overflow: hidden; }
+.ld.ld-js .ld-mosaic li { clip-path: inset(0 0 100% 0 round 14px); }
+.ld.ld-js .ld-mosaic.is-in li { clip-path: inset(0 round 14px); }
+/* the film card, calmer: title, one line and a rounded play button */
+.ld .ld-film__body { gap: 10px; }
+.ld .ld-film__play { border-radius: 999px; overflow: hidden; }
+.ld .ld-film__icon.ld-film__icon { border-radius: 50%; margin: 4px; width: auto; aspect-ratio: 1 / 1; }
+.ld .ld-film__label { background: transparent; padding-left: 4px; }
+.ld .ld-film__play { background: rgba(10, 27, 46, 0.62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.ld .ld-gear__tag { border-radius: 6px; }

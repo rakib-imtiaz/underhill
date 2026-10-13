@@ -494,3 +494,19 @@ body.fly.is-day .fly-title b { color: var(--uh-navy); }
 .is-compact .gimbal__track { height: 82px; }
 .is-compact .tele__pos { min-height: 0; }
 .is-compact .tele__row .k + b + i + .k { margin-left: 2px; }
+
+/* ------------------------------------------- header vs HUD: a defined bar, the HUD clear below it */
+/* (the header used to fade into the scene, so the status panel under it read as part of the header,
+   jammed against the light switch and the menu) */
+.fly .site-head {
+  background: rgba(5, 11, 19, 0.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(160, 205, 235, 0.14);
+}
+body.fly.is-day .site-head { background: rgba(255, 255, 255, 0.9); border-bottom-color: rgba(20, 32, 46, 0.12); }
+.hud { padding-top: calc(var(--hh) + var(--st) + 12px); }
+@media (min-width: 900px) { .fly:not(.has-sticks) .hud { padding-top: calc(var(--hh) + 14px); } }
+/* the telemetry and status panels: opaque enough to read over trees and sky */
+.tele, .stat { background: var(--hud-bg-2); }
+/* the way out: the same solid Underhill-blue button as the film's */
+.fly-exit, body.fly.is-day .fly-exit { background: #0082ca; border-color: #0082ca; color: #fff; font-weight: 600; }
+@media (hover: hover) and (pointer: fine) { .fly-exit:hover, body.fly.is-day .fly-exit:hover { background: #006aa6; border-color: #006aa6; } }

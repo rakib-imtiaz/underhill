@@ -638,8 +638,10 @@ export function createTotalStationModel(options = {}) {
     });
     mesh(acc, roundedBox(0.018, 0.074, 0.03, 0.006, 3), 'accentOrange', 'trim');
   }
-  const grip = part('handleGrip', 'macro', alidade, { position: [0, 0.3, 0], explode: [0, 0.16, 0] });
-  mesh(grip, roundedBox(0.1, 0.022, 0.034, 0.008, 3), 'handleGrip', 'bar');
+  // (the bar runs 11 mm into each upright and sits below their rounded tops: ending flush on the
+  // uprights' inner faces it left a visible gap where those faces round off, and read as floating)
+  const grip = part('handleGrip', 'macro', alidade, { position: [0, 0.296, 0], explode: [0, 0.16, 0] });
+  mesh(grip, roundedBox(0.12, 0.022, 0.034, 0.008, 3), 'handleGrip', 'bar');
 
   const rear = part('rearKeyboard', 'meso', alidade, { position: [0, 0.062, -0.078], explode: [0, 0, -0.08] });
   mesh(rear, roundedBox(0.15, 0.06, 0.03, 0.006, 3), 'instrumentShell', 'unit');

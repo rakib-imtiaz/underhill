@@ -277,7 +277,7 @@ export class Field {
       if (!rock && nearCamera(x, z)) return true;
       if (Math.hypot(x, z - 1) < (rock ? 11 : 22)) return true;
       if (!rock && z > -20 && z < 8 && Math.abs(x) < 60) return true;
-      if (Math.abs(z - SC.creekZ(x)) < (rock ? 3.4 : 6)) return true;
+      if (SC.CREEK && Math.abs(z - SC.creekZ(x)) < (rock ? 3.4 : 6)) return true;
       if (SC.trackDist(x, z) < (rock ? 2.6 : 4.5)) return true;
       return false;
     };
@@ -287,6 +287,7 @@ export class Field {
     this.rocks = SC.makeRocks(Q, blocked, this.farLand);
     this.group.add(this.rocks);
     this.water = SC.makeWater(this.noise, this.farLand);
+    this.water.visible = SC.CREEK;
     this.group.add(this.water);
     // relief and tree shadows, ambient occlusion: baked once into the site's vertices
     SC.bakeLight(this.terrain.geometry, this.forest.trees);
@@ -1033,7 +1034,7 @@ export class Field {
       // the carved channel reads in the elevation tint instead of a dark band across the sheet
       const k = s.model * s.model * (3 - 2 * s.model);
       this.water.position.y = -3 * k;
-      this.water.visible = k < 0.999;
+      this.water.visible = SC.CREEK && k < 0.999;
     }
     this.skyLight.intensity = 1.0 * s.on;
     this.terrainUniforms.uModel.value = s.model;

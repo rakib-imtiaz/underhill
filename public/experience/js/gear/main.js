@@ -90,10 +90,15 @@ const thumb = (k) => {
     : `<svg viewBox="0 0 24 24" aria-hidden="true">${GEAR_ICONS[k.icon] || ''}</svg>`;
 };
 const statusChip = (ready) => (ready ? '<span class="pk-st is-ready">3D ready</span>' : '<span class="pk-st">Upcoming</span>');
+// (the picker lists only the gear with a 3D model; the rest stay reachable by a direct ?g= link, e.g. a
+// Home card's "See how it works", until their models land)
+const LISTED = () => KIT.filter((k) => gearEntry(k.id).ready);
 function buildPicker() {
   const list = $('rail-list');
-  list.innerHTML = GROUPS.map(([g, label]) => {
-    const items = KIT.filter((k) => k.group === g);
+  const shown = LISTED();
+  // (one section: the three models; GROUPS comes back once the list grows)
+  list.innerHTML = [['ready', 'Ready in 3D']].map(([g, label]) => {
+    const items = shown;
     if (!items.length) return '';
     return `<section class="pk-group" aria-labelledby="pk-${g}"><h2 class="pk-group__t" id="pk-${g}">${label}</h2><ul>${items.map((k) => {
       const ready = gearEntry(k.id).ready;
@@ -103,9 +108,9 @@ function buildPicker() {
       </a></li>`;
     }).join('')}</ul></section>`;
   }).join('');
-  $('rail-count').textContent = String(KIT.length);
+  $('rail-count').textContent = String(shown.length);
   const strip = $('strip-list');
-  strip.innerHTML = KIT.map((k) => {
+  strip.innerHTML = shown.map((k) => {
     const ready = gearEntry(k.id).ready;
     return `<li><a class="sc${ready ? ' is-ready' : ''}" href="?g=${encodeURIComponent(k.id)}" data-id="${esc(k.id)}" aria-label="${esc(k.name)}: ${ready ? '3D ready' : 'upcoming'}">
       <span class="sc__thumb">${thumb(k)}</span><span class="sc__name">${esc(k.short)}</span><span class="sc__st">${ready ? '3D' : 'Soon'}</span></a></li>`;

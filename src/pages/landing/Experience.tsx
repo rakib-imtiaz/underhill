@@ -120,7 +120,6 @@ const playFilm = (e: MouseEvent) => {
   e.preventDefault();
   window.location.assign(FILM_PLAY_URL);
 };
-const CHAPTERS = ["Drone", "GNSS", "Total station", "Field", "Globe"];
 
 export default function Experience({ q, ready }: { q: Quality; ready: boolean }) {
   const card = useRef<HTMLAnchorElement>(null);
@@ -161,12 +160,9 @@ export default function Experience({ q, ready }: { q: Quality; ready: boolean })
           </span>
           <span className="ld-film__shade" aria-hidden="true" />
           <span className="ld-film__body" aria-hidden="true">
-            <span className="ld-film__kicker">3D film <i>·</i> about 4 min<span className="ld-film__cue"> <i>·</i> scroll to play</span></span>
+            <span className="ld-film__kicker">3D film <i>·</i> 4 min</span>
             <span className="ld-film__title">Ground Truth</span>
             <span className="ld-film__line">One valley, measured from the air, the ground and space.</span>
-            <span className="ld-film__chips">
-              {CHAPTERS.map((c) => <span key={c}>{c}</span>)}
-            </span>
           </span>
           <span className="ld-film__play" aria-hidden="true" data-href={FILM_PLAY_URL} onClick={playFilm}>
             <span className="ld-film__icon"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6l7.6-4.8z" /></svg></span>

@@ -9,7 +9,17 @@ import { flyHref } from '../widgets.js';
 const DEG = Math.PI / 180;
 const ARMS = ['fl', 'fr', 'rl', 'rr'];
 const ARM_LABEL = { fl: 'Front left', fr: 'Front right', rl: 'Rear left', rr: 'Rear right' };
-const FOLD_YAW = 62 * DEG, FOLD_DROOP = 8 * DEG;          // drone.js setArmFold
+// (fallbacks: the model's runtime.fold carries the real angles)
+const FOLD_YAW = 62 * DEG, FOLD_DROOP = 22 * DEG;
+// Off the aircraft, parts rest on the pad (2026-10-14: the TB65s used to hang in the air 9.5 cm out
+// from their slots and the Mapper+ 2.4 cm over the pad). A TB65 that is out stands on the pad just
+// outside the skid on its side. It rises there to slot height (above the leg tops), then slides in
+// sideways along the model's own explode path. The Mapper+, when off, sits on the pad in front. It
+// slides under the belly at pad height, then lifts on and twists home.
+const PAD_Y = 0.0024;                                      // studio pad decal (0.0022) plus a hair
+const BAT_BOTTOM = 0.235 + 0.092 - 0.043;                  // a TB65's base when in: body y0 + centre - half height
+const BAT_REACH = 0.16 / 0.095;                            // out 16 cm (the explode's 9.5 cm put it over the skid)
+const MAPPER_DROP = (0.235 - 0.03 - 0.0875 - 0.0615) - PAD_Y;   // its base when on (connector, hang, half height) down to the pad
 const smooth = (x) => x * x * (3 - 2 * x);
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
@@ -29,12 +39,13 @@ export default {
       yaw: 0, clock: 0, rtk: 0, rtkForce: false, fix: null, plan: null, cur: null, done: {},
     };
 
+    const foldYaw = rt.fold?.yaw ?? FOLD_YAW, foldDroop = rt.fold?.droop ?? FOLD_DROOP;
     const applyFold = () => {
       inst.pose({ fold: S.blade });
       for (const k of ARMS) {
         const a = arms[k]; if (!a) continue;
         const f = smooth(clamp01(S.arm[k]));
-        a.hinge.rotation.set(0, -a.sx * a.sz * FOLD_YAW * f, -FOLD_DROOP * f);
+        a.hinge.rotation.set(0, -a.sx * a.sz * foldYaw * f, -foldDroop * f);
       }
       studio.contact.dirty = true;
     };
@@ -42,15 +53,21 @@ export default {
       if (!mapper) return;
       const v = clamp01(S.mapperV);
       const slide = smooth(clamp01(v / 0.5)), lift = smooth(clamp01((v - 0.5) / 0.3)), twist = smooth(clamp01((v - 0.8) / 0.2));
-      mapper.group.position.set(mapper.rest.x, mapper.rest.y - 0.029 * (1 - lift), mapper.rest.z + 0.2 * (1 - slide));
+      mapper.group.position.set(mapper.rest.x, mapper.rest.y - MAPPER_DROP * (1 - lift), mapper.rest.z + 0.2 * (1 - slide));
       mapper.group.rotation.y = -40 * DEG * (1 - twist);
       studio.contact.dirty = true;
     };
     const applyBatteries = () => {
       for (const u of batUnits) {
         const side = u.key.endsWith('-l') ? 'l' : 'r';
-        const k = smooth(clamp01(S.bat[side]));
-        for (const m of u.movers) if (m.dp) m.o.position.lerpVectors(m.rest.p, m.exp.p, k);
+        // 1 = out (on the pad) … 0.5 = beside the slot at its height … 0 = in
+        const k = clamp01(S.bat[side]);
+        const slide = smooth(clamp01(k / 0.5)), lower = smooth(clamp01((k - 0.5) / 0.5));
+        for (const m of u.movers) {
+          if (!m.dp) continue;
+          m.o.position.lerpVectors(m.rest.p, m.exp.p, slide * BAT_REACH);
+          m.o.position.y -= (BAT_BOTTOM + (m.exp.p.y - m.rest.p.y) * BAT_REACH - PAD_Y) * lower;
+        }
       }
       studio.contact.dirty = true;
     };
@@ -184,7 +201,7 @@ export default {
           if (step.id === 'payload' && S.mapperV === 1 && !S.done.payload) { S.done.payload = true; api.done('Click. The Mapper+ is locked on the Skyport.'); }
         }
         let bm = false;
-        for (const s of ['l', 'r']) if (S.bat[s] !== S.batGoal[s]) { S.bat[s] = Math.max(S.batGoal[s], S.bat[s] - dt * 2.2 * sp); bm = true; }
+        for (const s of ['l', 'r']) if (S.bat[s] !== S.batGoal[s]) { S.bat[s] = Math.max(S.batGoal[s], S.bat[s] - dt * 1.2 * sp); bm = true; }
         if (bm) applyBatteries();
         if (S.powerT >= 0 && S.powerT < 1) {
           // power-on check: the arm lights flicker on one by one

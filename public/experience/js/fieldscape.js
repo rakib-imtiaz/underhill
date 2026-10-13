@@ -107,10 +107,14 @@ function noiseAt(c, u, v) {
 const standMask = (x, z) => smooth(0.42, 0.58, noiseAt(3, x / 410 + 0.37, z / 410 + 0.11));
 
 /* ------------------------------------------------------------------------- the creek */
+/** The creek is off: no water, no carved channel, no damp banks, nothing lined up along it (it read
+ *  as a road across the site and the survey). Its centre line stays as the valley's axis for the
+ *  mountains. true brings it all back. */
+export const CREEK = false;
 /** z of the creek's centre line at x (the valley floor's low line, z ≈ −31, meandering). */
 export function creekZ(x) { return -31 + 2.4 * Math.sin(x * 0.029 + 0.4) + 1.3 * Math.sin(x * 0.077) + 9 * smooth(150, 700, Math.abs(x)) * Math.sin(x * 0.006 + 1.0); }
 const CW = 2.3, CDEPTH = 0.55;
-const carve = (x, z) => { const d = Math.abs(z - creekZ(x)); return d < CW ? CDEPTH * (1 - (d / CW) * (d / CW)) : 0; };
+const carve = (x, z) => { if (!CREEK) return 0; const d = Math.abs(z - creekZ(x)); return d < CW ? CDEPTH * (1 - (d / CW) * (d / CW)) : 0; };
 /** The water surface at x (follows the valley floor). */
 export const waterLevel = (x) => heightAt(x, creekZ(x)) - 0.22;
 
@@ -123,7 +127,7 @@ export function carveSite(geo, heights) {
     const k = carve(x, z);
     if (k > 0) { const y = pos.getY(i) - k; pos.setY(i, y); heights[i] = y; }
     const d = Math.abs(z - creekZ(x));
-    wet[i] = (1 - smooth(3, 17, d)) * 0.85 + (1 - smooth(-6.5, -3, pos.getY(i))) * 0.3;
+    wet[i] = (CREEK ? (1 - smooth(3, 17, d)) * 0.85 : 0) + (1 - smooth(-6.5, -3, pos.getY(i))) * 0.3;
   }
   geo.setAttribute('aWet', new THREE.BufferAttribute(wet, 1));
 }
@@ -181,7 +185,7 @@ export class FarLand {
         y -= 0.0025 * x * smooth(0, 200, D);     // the valley falls gently to the east
         pos[m * 3] = x; pos[m * 3 + 1] = y; pos[m * 3 + 2] = z;
         const dc = Math.abs(z - creekZ(x));
-        wet[m] = (1 - smooth(3, 40, dc)) * 0.7;
+        wet[m] = CREEK ? (1 - smooth(3, 40, dc)) * 0.7 : 0;
       }
     }
     const idx = [];
@@ -680,7 +684,7 @@ export class Forest {
     for (let n = 0; n < C.mid * 40 && nm < C.mid; n++) {
       const x = (r() - 0.5) * 1240, z = (r() - 0.5) * 1240;
       if (Math.max(Math.abs(x), Math.abs(z)) < E + 2 || Math.hypot(x, z) > 620) continue;
-      if (Math.abs(z - creekZ(x)) < 9 || trackDist(x, z) < 5) continue;
+      if ((CREEK && Math.abs(z - creekZ(x)) < 9) || trackDist(x, z) < 5) continue;
       const g = farLand.heightAt(x, z);
       if (g > 250) continue;
       const stand = standMask(x, z), wall = smooth(60, 200, Math.abs(z - creekZ(x)));
@@ -782,7 +786,7 @@ export function makeRocks(Q, blocked, farLand) {
   for (let n = 0; n < C.rocks * 60 && list.length < C.rocks; n++) {
     const kind = r();
     let x, z;
-    if (kind < 0.4) { x = (r() - 0.5) * 2 * (E - 4); z = creekZ(x) + (r() < 0.5 ? -1 : 1) * (3.2 + r() * 8); }
+    if (kind < 0.4) { if (!CREEK) continue; x = (r() - 0.5) * 2 * (E - 4); z = creekZ(x) + (r() < 0.5 ? -1 : 1) * (3.2 + r() * 8); }
     else { x = (r() - 0.5) * 2 * (E - 4); z = (r() - 0.5) * 2 * (E - 4); }
     if (blocked(x, z, true)) continue;
     const slope = Math.abs(groundAt(x + 1, z) - groundAt(x - 1, z)) + Math.abs(groundAt(x, z + 1) - groundAt(x, z - 1));
