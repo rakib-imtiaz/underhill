@@ -343,9 +343,11 @@ const CAM = [
   { u: 25.1, tgt: [TX + 1.25, 1.39, -3.4], az: -22.8, el: -0.6, d: 4.15, fov: 30, frame: 'wide', ease: 'inOutSoft' },
   { u: 25.6, tgt: [TX + 1.27, 1.4, -3.45], az: -22.6, el: -0.5, d: 4.0, fov: 30, frame: 'wide', ease: 'linear' },
   // — dip to black; the three are gathered into one shot —
-  { u: 25.601, tgt: [0, 0.58, 0], az: -7, el: 4, r: 1.55, fov: 30, frame: 'wide', ease: 'linear', portrait: { az: 50, el: 8, r: 1.35, fov: 40 } },
-  { u: 26.7, tgt: [0, 0.5, 0], az: 0, el: 5, r: 1.78, fov: 30, frame: 'wide', ease: 'inOutSoft', portrait: { az: 58, el: 9, r: 1.5, fov: 40 } },
-  { u: FCUT, tgt: [0, 0.49, 0], az: 3, el: 5.5, r: 1.82, fov: 30, frame: 'wide', ease: 'linear', portrait: { az: 61, el: 10, r: 1.54, fov: 40 } },
+  // (phones: the three stand on a diagonal in depth, main.js FINALE_PHONE, seen from the front and
+  // above, so they stack up the tall frame large and clear of each other instead of in a small row)
+  { u: 25.601, tgt: [0, 0.58, 0], az: -7, el: 4, r: 1.55, fov: 30, frame: 'wide', ease: 'linear', portrait: { az: 50, el: 8, r: 1.35, fov: 40 }, phone: { az: 6, el: 30, fov: 34 } },
+  { u: 26.7, tgt: [0, 0.5, 0], az: 0, el: 5, r: 1.78, fov: 30, frame: 'wide', ease: 'inOutSoft', portrait: { az: 58, el: 9, r: 1.5, fov: 40 }, phone: { az: 12, el: 31, fov: 34 } },
+  { u: FCUT, tgt: [0, 0.49, 0], az: 3, el: 5.5, r: 1.82, fov: 30, frame: 'wide', ease: 'linear', portrait: { az: 61, el: 10, r: 1.54, fov: 40 }, phone: { az: 15, el: 32, fov: 34 } },
   // ===== ACT II: in the field (cut under black) =====
   // establishing: behind the crew on the terrace, the valley and the evening glow beyond
   { u: FCUT + 0.001, tgt: [-2.4, -2.0, -15], az: 10, el: 8, d: 28, fov: 32, ease: 'linear', pd: 1.35 },
@@ -435,11 +437,16 @@ const FRAMES = {
 const FILL = {
   landscape: { wide: [0.6, 0.86], labels: [0.54, 0.9] },
   tall: { wide: [0.82, 0.86], labels: [0.86, 0.86] },
+  // phones (2026-10-14): an exploded view names one part at a time (no dots, no columns) and spreads
+  // less, so the assembly is framed as large as the picture allows
+  phone: { wide: [0.82, 0.86], labels: [0.9, 0.9] },
 };
 
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 
-function resolveKey(k, portrait) {
+function resolveKey(k, portrait, phone) {
+  // (phones: the portrait overrides, then their own where a key has them)
+  if (phone && k.phone) return { ...k, ...k.portrait, ...k.phone };
   return portrait && k.portrait ? { ...k, ...k.portrait } : k;
 }
 
@@ -487,20 +494,23 @@ const _fit = { center: new THREE.Vector3(), dist: 1 };
  * Camera state at u for a stage (the area the subject is framed into) of the given aspect.
  * @param {object} [opts]
  * @param {boolean} [opts.tall]       a tall screen (phones, tablets in portrait): portrait keys and fills
+ * @param {boolean} [opts.phone]      a phone (tall and under 600 px): its own keys and fills where set
  * @param {function} [opts.subject]   (u, key) => world points of the subject to fit (keys with `r`)
  * @returns {{ pos: Vector3, tgt: Vector3, fov: number }}
  */
 export function cameraAt(u, aspect, out = { pos: new THREE.Vector3(), tgt: new THREE.Vector3(), fov: 30 }, opts = {}) {
   const portrait = opts.tall ?? aspect < 0.8;
+  const phone = portrait && !!opts.phone;
   const frames = portrait ? FRAMES.portrait : FRAMES.landscape;
-  const fills = portrait ? FILL.tall : FILL.landscape;
+  const fills = phone ? FILL.phone : portrait ? FILL.tall : FILL.landscape;
   // the Act III cut is a hard cut: never interpolate across it
   let i = u >= GCUT ? GLOBE_KEY : 0;
   while (i < CAM.length - 2 && u > CAM[i + 1].u) i++;
-  const k0 = resolveKey(CAM[i], portrait), k1 = resolveKey(CAM[i + 1], portrait);
+  const k0 = resolveKey(CAM[i], portrait, phone), k1 = resolveKey(CAM[i + 1], portrait, phone);
   const t = (EASE[k1.ease || 'inOut'])(win(u, k0.u, k1.u));
   const fovMul = portrait ? 1.2 : 1;
-  const fov0 = k0.fov * (k0.portrait?.fov ? 1 : fovMul), fov1 = k1.fov * (k1.portrait?.fov ? 1 : fovMul);
+  const ownFov = (k) => (k.portrait?.fov || (phone && k.phone?.fov) ? 1 : fovMul);   // (an override's fov is as given)
+  const fov0 = k0.fov * ownFov(k0), fov1 = k1.fov * ownFov(k1);
   const fov = fov0 + (fov1 - fov0) * t;
   const az = THREE.MathUtils.degToRad(k0.az + (k1.az - k0.az) * t);
   const el = THREE.MathUtils.degToRad(k0.el + (k1.el - k0.el) * t);
@@ -514,7 +524,7 @@ export function cameraAt(u, aspect, out = { pos: new THREE.Vector3(), tgt: new T
     if (!pts?.length) return null;
     const [fw, fh] = fills[k.frame || 'wide'];
     // (tall screens keep every fitted shot near full: an exploded view has dots, not label columns)
-    const tight = k.fill ?? THREE.MathUtils.clamp(0.62 / k.r, 0.92, 1);
+    const tight = phone && k.frame === 'labels' ? 1 : k.fill ?? THREE.MathUtils.clamp(0.62 / k.r, 0.92, 1);
     fitPoints(pts, tgtOf(k), _back, fov, aspect, fw * tight, fh * tight, _fit);
     return { d: _fit.dist, c: _fit.center.clone() };
   };

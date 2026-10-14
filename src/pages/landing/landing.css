@@ -702,3 +702,52 @@ body.ld-body .sf-offices, body.ld-body .mnav .mnav-foot { font-size: 12px; }
 /* tool cards: the photo, the name and the button only (the description line read as clutter on the photo) */
 .ld .ld-gear__card .ld-gear__line { display: none; }
 .ld .ld-gear__card .ld-gear__name { margin-bottom: 16px !important; }
+
+/* ===================================================== the Home navbar: a floating glass bar (2026-10-14) */
+/* The bar floats over the page as one rounded, frosted panel (it was a full-width white strip): links
+   get a soft pill on hover, search is a round button, the call to action a rounded button, and the
+   scroll-progress line runs along the panel's foot. The header element itself is clear around it. */
+body.ld-body .site-head:not(.menu-open), body.ld-body.is-day .site-head:not(.menu-open), body.ld-body.is-day .site-head.is-scrolled:not(.menu-open) {
+  background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none;
+}
+body.ld-body .site-head > .container:first-child {
+  pointer-events: auto; position: relative; top: 10px; height: calc(var(--head-h) - 12px); padding: 0 8px 0 18px;
+  border-radius: 18px; border: 1px solid rgba(160, 205, 235, 0.16);
+  background: rgba(10, 27, 46, 0.74); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 12px 34px rgba(4, 12, 22, 0.28);
+  transition: background-color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+}
+body.ld-body.is-day .site-head > .container:first-child { background: rgba(255, 255, 255, 0.86); border-color: rgba(14, 29, 44, 0.08); box-shadow: 0 12px 34px rgba(14, 29, 44, 0.1); }
+body.ld-body.is-day .site-head.is-scrolled > .container:first-child { background: rgba(255, 255, 255, 0.94); box-shadow: 0 14px 38px rgba(14, 29, 44, 0.14); }
+body.ld-body .site-head.menu-open > .container:first-child { background: transparent; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body.ld-body .site-head .logo img { height: 42px; margin-left: -6px; }
+/* links: a soft pill on hover and while a menu is open, in place of the underline */
+body.ld-body .site-head .nav > ul > li > a { border-radius: 999px; padding: 11px 15px; transition: background-color 0.2s ease, color 0.2s ease; }
+body.ld-body .site-head .nav > ul > li > a::after { display: none; }
+body.ld-body .site-head .nav > ul > li:hover > a, body.ld-body .site-head .nav > ul > li:focus-within > a { background: rgba(255, 255, 255, 0.1); }
+body.ld-body.is-day .site-head .nav > ul > li:hover > a, body.ld-body.is-day .site-head .nav > ul > li:focus-within > a { background: rgba(0, 116, 184, 0.08); color: #0074b8; }
+/* search: a round button */
+body.ld-body .ld-search { width: 40px; height: 40px; border-radius: 50%; transition: background-color 0.2s ease; }
+body.ld-body .ld-search:hover { background: rgba(255, 255, 255, 0.1); }
+body.ld-body.is-day .ld-search:hover { background: rgba(0, 116, 184, 0.08); }
+/* the call to action */
+body.ld-body .site-head .btn.join { border-radius: 12px; min-height: 42px; margin-left: 12px; }
+/* the scroll-progress line along the panel's foot */
+body.ld-body .site-head .head-progress {
+  left: 50%; right: auto; width: min(1240px, calc(100% - 2 * var(--ld-gut))); translate: -50% 0; bottom: 2px; height: 2px;
+  border-radius: 2px; clip-path: inset(0 18px round 2px);
+}
+body.ld-body .site-head.menu-open .head-progress { display: none; }
+body.ld-body:not(.is-day) .site-head .ld-search { color: #fff; }
+
+/* ===================================================================== QA pass fixes (2026-10-14) */
+/* touch targets: search, the call to action and the menu's expand buttons reach 44 px */
+body.ld-body .ld-search { width: 44px; height: 44px; }
+body.ld-body .site-head .btn.join { min-height: 44px; }
+body.ld-body .mnav .expander { min-width: 44px; min-height: 44px; }
+/* the smallest labels up to 12 px */
+.ld .ld-film__kicker, .ld .ld-gear__more { font-size: 12px; }
+/* phones: the closing band's button keeps to one line */
+@media (max-width: 600px) {
+  .ld .ld-band .ld-btn { width: 100%; white-space: nowrap; letter-spacing: 0.08em; padding: 0 20px; }
+}

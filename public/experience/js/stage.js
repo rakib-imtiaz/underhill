@@ -305,7 +305,8 @@ export class Stage {
     if (this.layout === mode) return;
     this.layout = mode;
     this.finale = mode === 'finale';
-    const table = mode === 'field' && field ? field : mode === 'finale' ? FINALE : STATIONS;
+    // (finalePlan: a page's own places for the gathered three, e.g. the film's phone composition)
+    const table = mode === 'field' && field ? field : mode === 'finale' ? this.finalePlan || FINALE : STATIONS;
     const globe = mode === 'globe';
     for (const [key, st] of Object.entries(this.stations)) {
       if (!globe) st.group.position.copy(table[key]);

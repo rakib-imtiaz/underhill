@@ -79,7 +79,7 @@ export class StagedExplode {
       const n = count.get(c.stage) || 0;
       count.set(c.stage, n + 1);
       const t0 = stageIndex.get(c.stage) + n * stagger;
-      for (const u of c.units) { u.t0 = t0; u.t1 = t0 + dur; u.stage = c.stage; }
+      for (const u of c.units) { u.t0 = t0; u.t1 = t0 + dur; u.stage = c.stage; u.cluster = c; u.f = 1; }
     }
     this.clusters = list.length;
     const end = Math.max(1e-6, ...this.units.map((u) => u.t1));
@@ -117,17 +117,104 @@ export class StagedExplode {
     }
   }
 
-  /** How far apart the exploded view goes: 1 = the model's own explode; phones use a gentler one
-   *  (every part stops part-way along its own move, so the assembly stays compact and reads as one
-   *  object). The schedule is unchanged; the lift is measured again for the new spread. */
+  /** How far apart the exploded view goes: 1 = the model's own explode; phones use a gentler one, so
+   *  the assembly stays compact and reads as one object. Every move is shortened to s of itself.
+   *  Two pieces that are clear of each other at full spread can end up touching at the shortened one
+   *  (clearSpread): parts that sit one inside the other when assembled (a tripod leg's clamp collar
+   *  round its lower tube) then move together, in one window, so the collar slides along the tube and
+   *  never leaves it to come back; parts that were apart when assembled have their moves lengthened, a
+   *  step at a time, until they clear. The lift is measured again for the new spread. */
   setSpread(s) {
     s = clamp01(s) || 1;
     if (Math.abs(s - this.spread) < 1e-4) return false;
     const t = this.t;
     this.spread = s;
+    for (const u of this.units) {
+      // (the model's own schedule, kept: a spread of 1 is exactly the explode as authored)
+      if (u.t0o === undefined) { u.t0o = u.t0; u.t1o = u.t1; }
+      u.t0 = u.t0o; u.t1 = u.t1o; u.f = s;
+    }
+    if (s < 1) this.clearSpread(s);
     this.measureLift();
     this.apply(t);
     return true;
+  }
+
+  /** Lengthen the moves of parts that a shortened explode leaves touching (see setSpread). */
+  clearSpread(s) {
+    const root = this.inst.root;
+    if (!this.pieces) {
+      // every solid piece of every moving unit, as a tight box in its mesh's space (as checkExplode does)
+      const unitOf = new Map();
+      for (const u of this.units) for (const m of u.movers) unitOf.set(m.o, u);
+      const find = (o) => { for (let p = o; p && p !== root.parent; p = p.parent) if (unitOf.has(p)) return unitOf.get(p); return null; };
+      this.pieces = [];
+      root.traverse((o) => {
+        if (!(o.isMesh || o.isInstancedMesh) || !o.visible || o.userData.showcaseOwned) return;
+        if (o.material?.transparent && !o.material.alphaTest) return;
+        const g = o.geometry;
+        if (!g?.attributes?.position || g.attributes.position.count < 4) return;
+        const unit = find(o);
+        if (!unit) return;
+        if (o.isInstancedMesh) {
+          const im = new THREE.Matrix4();
+          for (let i = 0; i < Math.min(o.count, 64); i++) { o.getMatrixAt(i, im); this.pieces.push({ mesh: o, unit, local: localOBB(g, im.clone()) }); }
+        } else this.pieces.push({ mesh: o, unit, local: localOBB(g) });
+      });
+    }
+    const P = this.pieces, N = P.length;
+    const pose = (tp = 1) => {
+      this.applyParts(tp);
+      root.updateMatrixWorld(true);
+      return P.map((p) => { const w = toWorld(new OBB(), p.local, p.mesh.matrixWorld); w.r = w.halfSize.length(); return w; });
+    };
+    const touch = (W, i, j) => W[i].center.distanceTo(W[j].center) < W[i].r + W[j].r && W[i].intersectsOBB(W[j], 1e-6);
+    for (const u of this.units) u.f = 0;
+    const rest = pose();
+    for (const u of this.units) u.f = 1;
+    const full = pose();
+    for (const u of this.units) u.f = s;
+    // pairs of pieces of different parts that touch when assembled
+    const nested = [];
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      const a = P[i].unit, b = P[j].unit;
+      if (a !== b && !(a.cluster && a.cluster === b.cluster) && touch(rest, i, j)) nested.push([i, j]);
+    }
+    let path = [];
+    for (let pass = 0; pass < 10; pass++) {
+      const now = pose(), bump = new Set();
+      path = [];
+      for (let k = 1; k <= 48; k++) path.push(pose(k / 48));
+      let synced = false;
+      for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+        const a = P[i].unit, b = P[j].unit;
+        if (a === b || (a.cluster && a.cluster === b.cluster)) continue;
+        if (!touch(now, i, j) || touch(full, i, j)) continue;
+        if (touch(rest, i, j)) {
+          // one inside the other when assembled: one window for both (the earlier one's)
+          if (a.t0 !== b.t0 || a.t1 !== b.t1) {
+            const [t0, t1] = a.t0 <= b.t0 ? [a.t0, a.t1] : [b.t0, b.t1];
+            for (const v of [a, b]) for (const w of v.cluster ? v.cluster.units : [v]) { w.t0 = t0; w.t1 = t1; }
+            synced = true;
+          }
+        } else { bump.add(a); bump.add(b); }
+      }
+      // (and along the way: a nested pair that comes apart and touches again before the end)
+      for (const [i, j] of nested) {
+        const a = P[i].unit, b = P[j].unit;
+        if (a.t0 === b.t0 && a.t1 === b.t1) continue;
+        let apart = false, back = false;
+        for (let k = 1; k <= 48 && !back; k++) { const W = path[k - 1]; const c = touch(W, i, j); if (!c) apart = true; else if (apart) back = true; }
+        if (!back) continue;
+        const [t0, t1] = a.t0 <= b.t0 ? [a.t0, a.t1] : [b.t0, b.t1];
+        for (const v of [a, b]) for (const w of v.cluster ? v.cluster.units : [v]) { w.t0 = t0; w.t1 = t1; }
+        synced = true;
+      }
+      if (!bump.size && !synced) break;
+      for (const u of bump) for (const v of u.cluster ? u.cluster.units : [u]) v.f = Math.min(1, v.f + (1 - s) * 0.2);
+    }
+    this.applyParts(0);
+    root.updateMatrixWorld(true);
   }
 
   /** Union units whose pieces overlap both at rest and fully exploded. Returns unit → cluster id. */
@@ -197,7 +284,7 @@ export class StagedExplode {
 
   applyParts(tp) {
     for (const u of this.units) {
-      const k = easeInOutCubic(clamp01((tp - u.t0) / (u.t1 - u.t0))) * this.spread;
+      const k = easeInOutCubic(clamp01((tp - u.t0) / (u.t1 - u.t0))) * (u.f ?? 1);
       for (const m of u.movers) {
         if (m.dp) m.o.position.lerpVectors(m.rest.p, m.exp.p, k);
         if (m.dq) m.o.quaternion.slerpQuaternions(m.rest.q, m.exp.q, k);

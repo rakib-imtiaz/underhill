@@ -158,7 +158,7 @@ function enableOverlayLayer() {
 // budget never drops below 3; Q.modelBudget (2 on lite) matters where builds swap (the gear page)
 const models = new Models(stage, { mobile: MOBILE, q: Q, defaults: BUILDS, budget: Math.max(3, Q.modelBudget) });
 models.onChange = (object, entry) => {
-  entry.staged?.setSpread(explodeSpread);   // (phones: the gentler exploded view, see layout)
+  entry.staged?.setSpread(spreadOf(object));   // (phones: the gentler exploded view, see layout)
   keyOutlines.clear();          // the fitted keys' outlines belong to the old build
   if (object === 'ts') placeLaserTarget(entry);
   enableOverlayLayer();
@@ -172,8 +172,17 @@ models.onChange = (object, entry) => {
 function setSpread(s) {
   explodeSpread = s;
   let changed = false;
-  for (const e of models.cache.values()) if (e.staged?.setSpread(s)) changed = true;
+  for (const e of models.cache.values()) if (e.staged?.setSpread(spreadOf(e.object))) changed = true;
   if (changed) { keyOutlines.clear(); needsRender = true; }
+}
+
+/** Where the three stand when gathered (phones: FINALE_PHONE); applied at once if they are. */
+function setFinalePlan(plan) {
+  if ((stage.finalePlan || null) === plan) return;
+  stage.finalePlan = plan;
+  keyOutlines.clear();
+  if (stage.layout === 'finale') { stage.layout = null; stage.setLayout('finale', FIELD.stations); }
+  needsRender = true;
 }
 
 /* ----------------------------------------------------------------------------------- layout */
@@ -204,8 +213,20 @@ const probeSafeT = probe('height:0;padding-top:env(safe-area-inset-top,0px)');
 // style.css "phone film UI" draws them at exactly these sizes.
 const PHONE = { bar: 44, barPad: 8, cap: 84, dock: 72, gap: 8 };
 // phones: the exploded views spread less (explode.js setSpread), so each instrument stays one compact
-// object that can be framed large
-const PHONE_SPREAD = 0.55;
+// object that can be framed large. The total station's moves are the longest (the head lifts off the
+// tribrach, the legs telescope and splay), so it is held tightest.
+const PHONE_SPREAD = { drone: 0.55, gnss: 0.55, ts: 0.38 };
+const spreadOf = (object) => (explodeSpread === 1 ? 1 : explodeSpread[object] ?? 0.55);
+// phones: the three instruments gathered on a diagonal in depth for Act I's close ("Three ways to fix a
+// point"): the drone in front, the total station behind it to the right, the base station at the back
+// on the left. Seen from the front and above (timeline.js phone keys) they stack up the tall frame,
+// each large and clear of the others; in the usual row they were small and the two tripods overlapped.
+// (Only where the stations stand: the same lights and materials.)
+const FINALE_PHONE = {
+  drone: new THREE.Vector3(-0.2, 0, 1.4),
+  gnss: new THREE.Vector3(-0.45, 0, -1.45),
+  ts: new THREE.Vector3(0.52, 0, -0.05),
+};
 let explodeSpread = 1;
 
 function layout() {
@@ -220,6 +241,7 @@ function layout() {
   const phone = portrait && !tablet;
   document.body.classList.toggle('is-phone', phone);
   setSpread(phone ? PHONE_SPREAD : 1);
+  setFinalePlan(phone ? FINALE_PHONE : null);
   if (!phone && sheetOn) setSheet(false);
   // letterbox bars are a landscape option: tall screens are always full-bleed
   // (by default only where there is height to spare: a short window, 585 px say, gives the picture
@@ -349,8 +371,8 @@ function pulseFloor() {
 const _m0 = { pos: new THREE.Vector3(), tgt: new THREE.Vector3(), fov: 30 }, _m1 = { pos: new THREE.Vector3(), tgt: new THREE.Vector3(), fov: 30 };
 function cameraMotion(u) {
   const st = view.stage, asp = (st.x1 - st.x0) / Math.max(1, st.y1 - st.y0);
-  TL.cameraAt(Math.max(0, u - 0.06), asp, _m0, { tall: view.portrait });
-  TL.cameraAt(Math.min(TL.U, u + 0.06), asp, _m1, { tall: view.portrait });
+  TL.cameraAt(Math.max(0, u - 0.06), asp, _m0, { tall: view.portrait, phone: view.phone });
+  TL.cameraAt(Math.min(TL.U, u + 0.06), asp, _m1, { tall: view.portrait, phone: view.phone });
   const d = Math.max(0.05, _m0.pos.distanceTo(_m0.tgt));
   return (_m0.pos.distanceTo(_m1.pos) + _m0.tgt.distanceTo(_m1.tgt)) / d / 0.12;
 }
@@ -745,7 +767,7 @@ function apply(u, dt, clock, { instant = false } = {}) {
   }
   // camera: after the stations are posed, so a fitted shot frames this frame's pose
   const st = stageAt(u);
-  TL.cameraAt(u, (st.x1 - st.x0) / Math.max(1, st.y1 - st.y0), camState, { tall: view.portrait, subject: fitSubject });
+  TL.cameraAt(u, (st.x1 - st.x0) / Math.max(1, st.y1 - st.y0), camState, { tall: view.portrait, phone: view.phone, subject: fitSubject });
   camera.position.copy(camState.pos);
   // a camera on a dolly is never perfectly still: a few millimetres of slow drift (off when reduced)
   // (locked off while the drone flies at the lens, where a few centimetres would swing it across frame)
@@ -768,7 +790,7 @@ function apply(u, dt, clock, { instant = false } = {}) {
   if (s.droneOverlay) {
     // the closing field camera, held where it was at the cut
     const so = view.stage;
-    TL.cameraAt(TL.GCUT - 1e-4, (so.x1 - so.x0) / Math.max(1, so.y1 - so.y0), ovState, { tall: view.portrait });
+    TL.cameraAt(TL.GCUT - 1e-4, (so.x1 - so.x0) / Math.max(1, so.y1 - so.y0), ovState, { tall: view.portrait, phone: view.phone });
     ovCam.position.copy(ovState.pos); drift(ovCam, ovState); ovCam.lookAt(ovState.tgt);
     frameCamera(ovCam, so, ovState.fov, ovCam.near, ovCam.far);
     ovCam.updateMatrixWorld();
@@ -854,9 +876,10 @@ function titleSpot(u) {
    SPOT_HOLD seconds, in number order. It holds while the film is held (the clock stops) and under
    reduced motion; a tap on the name or on the caption card shows the next one at once. */
 const SPOT_HOLD = 2.5;
-const spot = { key: null, id: null, seen: new Set(), t: 0 };
-function spotPick(key, L, alpha, dt) {
-  if (spot.key !== key) { spot.key = key; spot.id = null; spot.seen.clear(); spot.t = 0; }
+const spot = { key: null, entry: null, id: null, seen: new Set(), t: 0 };
+function spotPick(entry, L, alpha, dt) {
+  if (spot.key !== entry.key) { spot.key = entry.key; spot.id = null; spot.seen.clear(); spot.t = 0; }
+  spot.entry = entry;
   const out = L.filter((l) => (alpha.get(l.id) || 0) > 0.5);
   if (!out.length) { spot.id = null; spot.seen.clear(); return null; }
   // (a part that has just come out takes the spot; scrubbing back, the latest one still out keeps it)
@@ -872,8 +895,8 @@ function spotPick(key, L, alpha, dt) {
 }
 /** the next part that is out, in number order (wraps) */
 function spotNext(out) {
-  const entry = spot.key ? models.active(spot.key) : null;
-  if (!entry) return;
+  const entry = spot.entry;
+  if (!entry || !spot.id) return;
   out = out || entry.labels.filter((l) => labels.items.get(l.id)?.a > 0.5);
   if (!out.length) return;
   const i = out.findIndex((l) => l.id === spot.id);
@@ -914,7 +937,7 @@ function updateLabels(s, dt = 0) {
     const x = (c.x * 0.5 + 0.5) * view.w; minX = Math.min(minX, x); maxX = Math.max(maxX, x);
   }
   labels.update(camera, view, alpha, {
-    mode: phone ? 'spot' : dots ? 'dots' : 'columns', spot: phone ? spotPick(entry.key, L, alpha, dt) : null,
+    mode: phone ? 'spot' : dots ? 'dots' : 'columns', spot: phone ? spotPick(entry, L, alpha, dt) : null,
     subject, subjectBox: { minY, maxY, minX, maxX }, root: entry.inst.root, occlusion: true,
     forceOcclusion: DEBUG_FRAME !== null || REDUCED, dt: REDUCED ? 0 : dt,
     bandTop: view.bandTop, bandBottom: view.bandBottom, colTop: view.colTop, colBottom: view.colBottom,
@@ -924,6 +947,8 @@ function updateLabels(s, dt = 0) {
 const tagEls = [...document.querySelectorAll('.tag')];
 for (const el of tagEls) el.querySelector('.tag__b').textContent = TAG_LINES[el.dataset.station] || '';
 for (const el of tagEls) el.addEventListener('click', () => toggleFinale(el.dataset.station));
+// (phones show the short name: FINALE_SHORT, below)
+for (const el of tagEls) { const sh = document.createElement('span'); sh.className = 'tag__s'; sh.textContent = { drone: 'Drone', gnss: 'GNSS base', ts: 'Total station' }[el.dataset.station] || ''; el.appendChild(sh); }
 const readoutEl = $('#readout');
 function project(v) {
   tmpV.copy(v).project(camera);
@@ -1232,7 +1257,8 @@ function updateDom(s) {
   updateCaptionCard(capA);
   updateEndcards(u);
 
-  // finale: a tag under each instrument
+  // finale: a tag under each instrument (phones: each name placed clear of all three, phoneNames)
+  const names = view.phone && s.finale > 0.001 ? phoneNames() : null;
   for (const el of tagEls) {
     const k = el.dataset.station;
     const a = s.finale * (models.active(k) ? 1 : 0);
@@ -1243,14 +1269,89 @@ function updateDom(s) {
       // (tablets in portrait: a numbered dot on the floor in front of the instrument; its name is a
       // chip. Phones: its name alone, in a small pill under it)
       const dot = view.portrait && !view.phone;
-      if (view.phone) { el._px = p.x; el._py = p.y + 6; }   // (for phoneGuard's measure)
-      el.style.transform = dot ? `translate3d(calc(${p.x.toFixed(1)}px - 50%), calc(${p.y.toFixed(1)}px - 50%), 0)`
-        : `translate3d(calc(${p.x.toFixed(1)}px - 50%), ${(p.y + 6).toFixed(1)}px, 0)`;
+      const at = names?.get(k);
+      if (at) {
+        el._px = at.x; el._py = at.y;   // (for phoneGuard's measure)
+        el.style.transform = `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0)`;
+      } else {
+        el.style.transform = dot ? `translate3d(calc(${p.x.toFixed(1)}px - 50%), calc(${p.y.toFixed(1)}px - 50%), 0)`
+          : `translate3d(calc(${p.x.toFixed(1)}px - 50%), ${(p.y + 6).toFixed(1)}px, 0)`;
+      }
     }
     el.classList.toggle('is-on', view.portrait && !view.phone && finaleHi === k);
     el.style.pointerEvents = view.portrait && !view.phone && a > 0.3 ? 'auto' : 'none';
   }
   if (view.phone) phoneGuard();
+}
+
+/* Phones, the gathered three: each name pill goes in the nearest free place around its instrument (under
+   its feet, beside it, or above it) that is clear of all three instruments: of each one's silhouette
+   (the convex hull of its projected outline, outline.js) and of that silhouette's screen box (the
+   projected corners of the instrument's 3D box would leave no room at all), of the names already
+   placed and of the bars. Pill sizes are measured once. Returns station → top-left. */
+function convexHull(pts) {
+  const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  if (p.length < 3) return p;
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lo = [], hi = [];
+  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
+  return lo.slice(0, -1).concat(hi.slice(0, -1));
+}
+/** does the rectangle r (grown by m) meet the convex polygon H? (separating axes) */
+function rectHitsHull(r, H, m) {
+  const R = [{ x: r.x0 - m, y: r.y0 - m }, { x: r.x1 + m, y: r.y0 - m }, { x: r.x1 + m, y: r.y1 + m }, { x: r.x0 - m, y: r.y1 + m }];
+  const axes = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+  for (let i = 0; i < H.length; i++) { const a = H[i], b = H[(i + 1) % H.length]; axes.push({ x: a.y - b.y, y: b.x - a.x }); }
+  for (const ax of axes) {
+    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+    for (const q of R) { const t = q.x * ax.x + q.y * ax.y; a0 = Math.min(a0, t); a1 = Math.max(a1, t); }
+    for (const q of H) { const t = q.x * ax.x + q.y * ax.y; b0 = Math.min(b0, t); b1 = Math.max(b1, t); }
+    if (a1 < b0 || b1 < a0) return false;
+  }
+  return true;
+}
+function phoneNames() {
+  const hulls = new Map();
+  for (const el of tagEls) {
+    const k = el.dataset.station, e = models.active(k);
+    if (!e) continue;
+    const H = convexHull(outlineOf(e).map((w) => project(w)));
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of H) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    hulls.set(k, { H, b: { x0, y0, x1, y1 } });
+  }
+  const out = new Map(), placed = [], M = 6, top = view.bandTop + 4, bottom = view.bandBottom - 4;
+  const hits = (r, o, m) => r.x0 < o.x1 + m && r.x1 > o.x0 - m && r.y0 < o.y1 + m && r.y1 > o.y0 - m;
+  // (the instrument nearest the camera first: it has the least room under it)
+  const order = [...hulls.entries()].sort((a, b) => b[1].b.y1 - a[1].b.y1);
+  for (const [k, { b }] of order) {
+    const el = tagEls.find((t) => t.dataset.station === k);
+    if (!el._wh || el._whW !== view.w) { el.style.transform = 'translate3d(0, 0, 0)'; el._wh = [el.offsetWidth, el.offsetHeight]; el._whW = view.w; }
+    const [w, h] = el._wh, cx = (b.x0 + b.x1) / 2;
+    const cands = [];
+    for (let dx = -w; dx <= w; dx += 8) cands.push([cx - w / 2 + dx, b.y1 + 8]);                   // under its feet
+    for (let y = b.y1 - h; y >= b.y0; y -= 8) cands.push([b.x0 - 8 - w, y], [b.x1 + 8, y]);       // beside it, low first
+    cands.push([cx - w / 2, b.y0 - 8 - h]);                                                       // above it
+    let best = null, bestD = Infinity;
+    for (const [x, y] of cands) {
+      const r = { x0: x, y0: y, x1: x + w, y1: y + h };
+      if (r.x0 < 12 || r.x1 > view.w - 12 || r.y0 < top || r.y1 > bottom) continue;
+      // (clear of each silhouette with air, and of each one's screen box: a pill never sits between a tripod's legs)
+      if ([...hulls.values()].some((o) => rectHitsHull(r, o.H, M) || hits(r, o.b, 2)) || placed.some((o) => hits(r, o, M))) continue;
+      // nearest to its feet; a place under it beats one beside it by a little
+      const d = Math.hypot(x + w / 2 - cx, y - b.y1) + (y + h / 2 < b.y1 ? 30 : 0);
+      if (d < bestD) { bestD = d; best = r; }
+    }
+    if (!best) {
+      // (no clear place: where it always stood, on the floor in front of it)
+      const p = project(tmpV.copy(stage.stations[k].group.position).add(new THREE.Vector3(0, 0, 0.62)));
+      best = { x0: p.x - w / 2, y0: p.y + 6, x1: p.x + w / 2, y1: p.y + 6 + h };
+    }
+    placed.push(best);
+    out.set(k, { x: best.x0, y: best.y0 });
+  }
+  return out;
 }
 
 /* Phones: the top bar, the dock and the caption card own their bands of the screen. Anything placed on
@@ -1276,13 +1377,17 @@ function guardRect(el) {
 function phoneGuard() {
   const top = view.barBottom, bottom = view.dockTop;
   const end = endShown > 0.01 ? endEl.getBoundingClientRect() : null;
+  const near = (r, o, m) => o && r.x0 < o.right + m && r.x1 > o.left - m && r.y0 < o.bottom + m && r.y1 > o.top - m;
+  // (an information card's ringed pin marks what the caption's facts describe: a field tag gives way to it)
+  const pins = [];
+  for (const g of document.querySelectorAll('#uleads > g')) if (g.style.visibility === 'visible') pins.push(g.getBoundingClientRect());
   for (const el of document.querySelectorAll(GUARD_SEL)) {
     const st = el.style;
     if (st.visibility === 'hidden' || (st.opacity !== '' && !(Number(st.opacity) > 0.01))) continue;
     const r = el.classList.contains('spot') && labels._spotRect ? labels._spotRect : guardRect(el);
     if (!r) continue;
-    const bad = r.y0 < top + 2 || r.y1 > bottom - 2 || r.x0 < 2 || r.x1 > view.w - 2
-      || (end && r.x0 < end.right + 6 && r.x1 > end.left - 6 && r.y0 < end.bottom + 6 && r.y1 > end.top - 6);
+    const bad = r.y0 < top + 2 || r.y1 > bottom - 2 || r.x0 < 2 || r.x1 > view.w - 2 || near(r, end, 6)
+      || (el.parentElement?.id === 'ftags' && pins.some((p) => near(r, p, 4)));
     if (bad) st.visibility = 'hidden';
   }
 }
@@ -1828,7 +1933,7 @@ function updateDock(u) {
   if (p === dockP) return;
   dockP = p;
   dockFill.style.transform = `scaleX(${p})`;
-  if (u > 0.8) hintDone();   // (the film has really started: the title is going)
+  if (u > 0.8 && document.body.classList.contains('is-ready')) hintDone();   // (the film has really started; not the boot's pre-roll)
 }
 
 // The hint ("Swipe up or tap ▶"): with the title, until the reader first does anything
@@ -1842,7 +1947,7 @@ for (const ev of ['touchstart', 'wheel', 'keydown', 'pointerdown']) addEventList
 // gestures and keys are off (engaged, the wheel and the keys check sheetOn); autoplay plays on.
 const sheet = $('#psheet'), sheetPanel = $('#psheet-panel'), moreBtn = $('#ptop-more'), sheetCh = $('#psheet-chapters');
 let sheetOn = false, sheetHideT = 0;
-function setSheet(on) {
+function setSheet(on, { key = false } = {}) {
   if (on === sheetOn) return;
   sheetOn = on;
   clearTimeout(sheetHideT);
@@ -1854,16 +1959,17 @@ function setSheet(on) {
     sheet.classList.add('is-open');
     sheetMarkChapter(); syncSheetLook();
     sheetPanel.scrollTop = 0;
-    (sheetCh.querySelector('[aria-current="true"]') || sheetPanel.querySelector('button'))?.focus({ preventScroll: true });
+    sheetPanel.focus({ preventScroll: true });   // (the dialog itself: no ring on a row the reader did not pick)
   } else {
     sheet.classList.remove('is-open');
     sheetHideT = setTimeout(() => { sheet.hidden = true; }, REDUCED ? 0 : 340);
-    if (sheet.contains(document.activeElement)) moreBtn.focus({ preventScroll: true });
+    // (back to ⋯ from the keyboard; a tap just lets go of the focus)
+    if (sheet.contains(document.activeElement)) { if (key) moreBtn.focus({ preventScroll: true }); else document.activeElement.blur(); }
   }
 }
 moreBtn.addEventListener('click', () => { hintDone(); setSheet(!sheetOn); });
 $('#psheet-scrim').addEventListener('click', () => setSheet(false));
-addEventListener('keydown', (e) => { if (sheetOn && e.key === 'Escape') { e.preventDefault(); setSheet(false); } });
+addEventListener('keydown', (e) => { if (sheetOn && e.key === 'Escape') { e.preventDefault(); setSheet(false, { key: true }); } });
 // chapters: the opening and the five, the current one marked; a tap plays that chapter (goChapter)
 CHAPTERS.forEach((c, i) => {
   const li = document.createElement('li');
@@ -1920,7 +2026,9 @@ $('#psheet-scrim').addEventListener('touchmove', (e) => { if (e.cancelable) e.pr
 // wheel / trackpad: one gesture, one step; the inertia tail of a gesture is ignored
 let wheelAcc = 0, lastWheel = 0, wheelBlocked = false;
 addEventListener('wheel', (e) => {
-  if (e.ctrlKey || sheetOn) return;
+  // (the phone sheet is open: only the sheet scrolls, never the film under it)
+  if (sheetOn) { if (!e.target.closest?.('.psheet__panel') || sheetPanel.scrollHeight <= sheetPanel.clientHeight + 1) e.preventDefault(); return; }
+  if (e.ctrlKey) return;
   if (AP.on) {
     // autoplay: the gesture only pauses it, and the rest of the gesture (its inertia tail) is ignored
     e.preventDefault(); apPause();
@@ -2139,7 +2247,7 @@ async function preroll() {
   const st = view.stage, asp = (st.x1 - st.x0) / Math.max(1, st.y1 - st.y0), cam = { pos: new THREE.Vector3(), tgt: new THREE.Vector3(), fov: 30 };
   for (const [a, b] of [[0, 25.6], [25.6, TL.FCUT], [TL.FCUT, TL.GCUT]]) {
     apply(a + 0.01, 1 / 60, 1.3, { instant: true });
-    for (let u = a; u < b; u += 0.05) TL.cameraAt(u, asp, cam, { tall: view.portrait, subject: fitSubject });
+    for (let u = a; u < b; u += 0.05) TL.cameraAt(u, asp, cam, { tall: view.portrait, phone: view.phone, subject: fitSubject });
   }
 }
 

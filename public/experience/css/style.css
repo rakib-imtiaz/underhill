@@ -1235,6 +1235,7 @@ body.is-day .apflash { background: rgba(255, 255, 255, 0.82); border-color: rgba
    header stays in the page (header.js needs it), hidden. Every other layout is untouched. */
 .ptop, .pdock, .phint, .psheet { display: none; }
 .spot { position: absolute; left: 0; top: 0; visibility: hidden; opacity: 0; }
+.tag__s { display: none; }
 @media (max-width: 599.98px) {
   .site-head, .mnav, .scroll-cue { display: none !important; }
 
@@ -1342,8 +1343,8 @@ body.is-day .apflash { background: rgba(255, 255, 255, 0.82); border-color: rgba
   body.is-portrait .finale-card { display: none; }
   body.is-portrait .tag { padding: 7px 12px; border-radius: 999px; background: var(--panel); box-shadow: 0 0 0 1px var(--panel-line), 0 6px 18px rgba(0, 0, 0, 0.25); cursor: default; }
   body.is-portrait .tag::after { content: none; }
-  body.is-portrait .tag__n, body.is-portrait .tag__b { display: none; }
-  body.is-portrait .tag__t { display: block; position: static; transform: none; padding: 0; background: none; border: 0; font: 600 13px/1.1 var(--uh-font-body); color: var(--panel-ink); }
+  body.is-portrait .tag__n, body.is-portrait .tag__b, body.is-portrait .tag.is-on .tag__t, body.is-portrait .tag__t { display: none; }
+  body.is-portrait .tag__s { display: block; font: 600 13px/1.1 var(--uh-font-body); color: var(--panel-ink); }
 
   /* --- the end-cards: one row just above the dock (they never cover it), 18 px corners --- */
   body.is-portrait .endcards, body.is-portrait.no-letterbox .endcards { bottom: calc(100% + 8px + 72px + 8px); }   /* (PHONE.gap, .dock, and 8 px of air) */
@@ -1378,6 +1379,7 @@ body.is-day .apflash { background: rgba(255, 255, 255, 0.82); border-color: rgba
   .psheet.is-open .psheet__scrim { opacity: 1; }
   .psheet.is-open .psheet__panel { transform: translateY(0); }
   .psheet__panel.is-drag { transition: none; }
+  .psheet__panel:focus { outline: none; }
   .psheet__grab { display: flex; justify-content: center; padding: 10px 0 6px; touch-action: none; }
   .psheet__grab i { width: 38px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.28); }
   .psheet__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
