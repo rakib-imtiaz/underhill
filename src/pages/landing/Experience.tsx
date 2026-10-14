@@ -105,9 +105,10 @@ function Badge({ q, ready }: { q: Quality; ready: boolean }) {
 type Frame = { set: [string, number?][]; op: string };
 const FRAMES: Frame[] = [
   // { set: [["experience-poster-user"]], op: "75% 50%" }, // USER: your own 1920x1080 image
-  { set: [["exp-frame-1-900", 900], ["exp-frame-1", 1800]], op: "80% 45%" }, // the survey drone in flight over the BC valley (day, u 42.3)
-  { set: [["exp-frame-2-900", 900], ["exp-frame-2", 1800]], op: "85% 50%" }, // the total station under its spotlight (night studio, u 19.15)
+  { set: [["exp-frame-2-900", 900], ["exp-frame-2", 1800]], op: "67% 50%" }, // the total station under its spotlight (night studio, u 19.15)
   { set: [["exp-frame-3-900", 900], ["exp-frame-3", 1800]], op: "62% 42%" }, // the globe, the valley pinned in BC (night, u 53.1)
+  // (the drone over the valley, exp-frame-1, is out: its low-poly valley and flat rotor discs read as a
+  // game next to the page's photographs. Re-render it, or use a photo, before bringing it back.)
 ];
 const FRAME_HOLD = 5000;
 // "Play the film" starts the film playing by itself (film.html?autoplay=1: it runs from the title to

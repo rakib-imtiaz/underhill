@@ -211,7 +211,7 @@ const probeSafeT = probe('height:0;padding-top:env(safe-area-inset-top,0px)');
 // PHONE.bar), and one dock in the thumb zone just above the caption card (‹ ▶ ›, the film's
 // progress: PHONE.dock). The caption card is shorter there (no kicker: the bar names the chapter).
 // style.css "phone film UI" draws them at exactly these sizes.
-const PHONE = { bar: 44, barPad: 8, cap: 84, dock: 72, gap: 8 };
+const PHONE = { bar: 44, barPad: 8, cap: 84, dock: 54, gap: 8 };
 // phones: the exploded views spread less (explode.js setSpread), so each instrument stays one compact
 // object that can be framed large. The total station's moves are the longest (the head lifts off the
 // tribrach, the legs telescope and splay), so it is held tightest.
@@ -722,9 +722,12 @@ function droneLife(entry, s, u, dt, clock, instant) {
   if (root.position.lengthSq() < 9) stage.markDirty('drone');
 }
 
+let inSpace = false;
 function apply(u, dt, clock, { instant = false } = {}) {
   const s = TL.sceneAt(u);
   lastState = s;
+  // over the planet the picture is night sky even by day: the phone controls go dark glass there
+  if ((s.layout === 'globe') !== inSpace) { inSpace = !inSpace; document.body.classList.toggle('is-space', inSpace); }
 
   // layout (chapter stations or the gathered finale) and lights
   if (stage.layout !== s.layout) {
@@ -1124,6 +1127,9 @@ function updateEndcards(u) {
   endEl.style.visibility = a > 0.01 ? 'visible' : 'hidden';
   endEl.style.translate = `0 ${((1 - a) * 10).toFixed(1)}px`;
   const live = a > 0.5;
+  // phones: the end-cards take the dock's place (it fades as they come up)
+  document.documentElement.style.setProperty('--end-a', String(a));
+  document.body.classList.toggle('is-end', live);
   endEl.inert = !live;
   endEl.setAttribute('aria-hidden', String(!live));
 }
@@ -1217,7 +1223,7 @@ function updateDom(s) {
     if (REDUCED) a = b === cur ? 1 : 0;
     // (one caption hands over to the next at the beat boundary with no empty gap, and their texts
     // never overlap)
-    else { const d0 = b.u0 + (b.capDelay || 0); a = THREE.MathUtils.smoothstep(u, d0, d0 + 0.14) * (1 - THREE.MathUtils.smoothstep(u, b.u1 - 0.14, b.u1)); }
+    else { const d0 = b.u0 + (b.capDelay || 0); a = THREE.MathUtils.smoothstep(u, d0, d0 + 0.14) * (b === TL.BEATS[TL.BEATS.length - 1] ? 1 : 1 - THREE.MathUtils.smoothstep(u, b.u1 - 0.14, b.u1)); }   // (the last caption stays to the end)
     if (b !== TL.BEATS[0] && Math.abs(b.still - rest) < 1e-6) a = Math.max(a, restW);   // its own rest: fully up
     capA = Math.max(capA, a);
     el.style.opacity = a.toFixed(3);
@@ -1834,6 +1840,8 @@ function apFrame(dt) {
 apBtn?.addEventListener('click', () => { showNavTip(null); apToggle(); });
 const dockPlay = $('#pdock-play');
 dockPlay.addEventListener('click', () => { hintDone(); apToggle(); });
+// phones, at the end: watch again (play from the end starts from the opening)
+$('#endreplay')?.addEventListener('click', () => { if (!AP.on) apStart(); });
 // a click or tap on the picture pauses the film where it is, and plays it on (only while it plays or
 // is held: on a resting film a click does nothing). A brief mark in the middle says which.
 const apFlash = document.createElement('div');

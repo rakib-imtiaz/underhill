@@ -46,14 +46,14 @@ function dayFloorTexture(like) {
   let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   for (let i = 0; i < dd.length; i += 4) { const v = rnd() * 5; dd[i] -= v; dd[i + 1] -= v; dd[i + 2] -= v; }
   g.putImageData(img, 0, 0);
+  // (strong enough to survive the bright, glowing floor: a light Underhill-blue survey grid that
+  // gives the instruments a ground and a scale; the fog fades it into the wall)
   const cells = 8;
-  g.strokeStyle = 'rgba(70,100,130,0.16)'; g.lineWidth = Math.max(1, S / 1024);
-  for (let i = 0; i <= cells; i++) {
-    const p = Math.round((i / cells) * S) + 0.5;
-    g.beginPath(); g.moveTo(p, 0); g.lineTo(p, S); g.stroke(); g.beginPath(); g.moveTo(0, p); g.lineTo(S, p); g.stroke();
-  }
-  g.strokeStyle = 'rgba(40,80,120,0.26)'; g.lineWidth = Math.max(1.5, S / 512);
-  for (const p of [0.5, S - 0.5]) { g.beginPath(); g.moveTo(p, 0); g.lineTo(p, S); g.stroke(); g.beginPath(); g.moveTo(0, p); g.lineTo(S, p); g.stroke(); }
+  const line = (p) => { g.beginPath(); g.moveTo(p, 0); g.lineTo(p, S); g.stroke(); g.beginPath(); g.moveTo(0, p); g.lineTo(S, p); g.stroke(); };
+  g.strokeStyle = 'rgba(10,80,135,0.42)'; g.lineWidth = Math.max(1.25, S / 720);
+  for (let i = 0; i <= cells; i++) if (i % 4) line(Math.round((i / cells) * S) + 0.5);   // 0.5 m
+  g.strokeStyle = 'rgba(0,95,155,0.72)'; g.lineWidth = Math.max(2, S / 360);
+  for (const p of [S / 2, 0.75, S - 0.75]) line(p);                                     // 2 m
   const t = new THREE.CanvasTexture(c);
   t.wrapS = like.wrapS; t.wrapT = like.wrapT; t.repeat.copy(like.repeat);
   t.colorSpace = like.colorSpace; t.anisotropy = like.anisotropy;

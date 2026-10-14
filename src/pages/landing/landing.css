@@ -620,7 +620,7 @@ body.ld-body .sf-offices, body.ld-body .mnav .mnav-foot { font-size: 12px; }
 }
 @media (max-width: 600px) {
   /* the film card on phones: one picture, like a video card. The still fills it, the title and line sit
-     on a soft gradient at the foot, and a round play button sits in the middle (it was a still on top
+     on a soft gradient at the foot, a white "Play the film" pill under them (it was a still on top
      with a navy block of text under it, plus a chip row) */
   .ld .ld-film { display: block; aspect-ratio: 4 / 5; }
   .ld .ld-film__media { position: absolute; inset: 0; aspect-ratio: auto; }
@@ -631,17 +631,18 @@ body.ld-body .sf-offices, body.ld-body .mnav .mnav-foot { font-size: 12px; }
   .ld .ld-film__body { position: absolute; left: 20px; right: 20px; bottom: 20px; gap: 8px; padding: 0; }
   .ld .ld-film__title { font-size: 32px; }
   .ld .ld-film__line { font-size: 14.5px; }
+  /* the play control: a white pill under the title ("▶ Play the film"), never over the picture's subject */
+  .ld .ld-film__body { bottom: 72px; }
   .ld .ld-film .ld-film__play {
-    left: 50%; top: 24%; right: auto; bottom: auto; translate: -50% -50%; height: 68px; width: 68px;
-    border-radius: 50%; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 14px 34px rgba(4, 12, 22, 0.4);
+    left: 20px; right: auto; top: auto; bottom: 20px; height: 38px; padding: 0 15px 0 4px; gap: 8px; align-items: center;
+    border-radius: 999px; overflow: visible; background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: 0 8px 20px rgba(4, 12, 22, 0.32);
   }
-  .ld .ld-film .ld-film__icon.ld-film__icon { width: 68px; height: 68px; margin: 0; aspect-ratio: auto; background: #0085ca; }
-  .ld .ld-film .ld-film__icon svg { width: 24px; height: 24px; }
-  .ld .ld-film .ld-film__label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .ld .ld-film .ld-film__play::after {
-    content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.7);
-    animation: ld-live 2.6s ease-out infinite; animation-play-state: var(--ld-play, running);
-  }
+  .ld .ld-film .ld-film__icon.ld-film__icon { width: 30px; height: 30px; margin: 0; aspect-ratio: auto; background: #0085ca; }
+  .ld .ld-film .ld-film__icon svg { width: 12px; height: 12px; }
+  .ld .ld-film .ld-film__label { padding: 0; font: 600 13.5px/1 var(--ld-sans); color: #0a1b2e; background: none; }
+  .ld .ld-film:active .ld-film__play { transform: scale(0.97); }
+  .ld .ld-film__play { transition: transform 0.25s var(--tm-ease); }
 }
 /* the outline marks keyboard focus only (a tap left the card ringed in blue) */
 .ld .ld-gear__card:focus-within { outline: none; }
