@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import SmartLink from "./SmartLink";
 import { PRIMARY_NAV, CAREERS_HREF } from "../data/nav";
 import { useDaylight } from "../pages/landing/daylight";
+import { FILM_URL } from "../pages/landing/urls";
 import "../styles/nav-3d.css";
 
 type Props = {
@@ -145,6 +146,11 @@ export default function Header({ menuOpen, onToggleMenu, variant = "default" }: 
 
         {landing ? (
           <>
+            {/* the 3D film, always one tap away (phones: the play mark alone) */}
+            <a className="ld-filmpill" href={FILM_URL} aria-label="Watch the 3D film">
+              <span className="ld-filmpill__ico" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6l7.6-4.8z" /></svg></span>
+              <span className="ld-filmpill__t" aria-hidden="true">3D film</span>
+            </a>
             <a className="ld-search" href="https://underhill.ca/?s=" aria-label="Search underhill.ca">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="10.5" cy="10.5" r="6.5" />

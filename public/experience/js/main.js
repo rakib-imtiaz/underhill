@@ -1653,6 +1653,11 @@ function dwellFor(k) {
   return Math.round(THREE.MathUtils.clamp(0.8 + 0.0105 * chars, 1.6, 3.2) * 100) / 100;
 }
 const AP_MOVE = 0.88;   // the moves themselves, a little brisker than the stepper's (authored ones keep their pace)
+// (2026-10-14) The three instruments (chapters 1-3: the look, the take-apart, the details) dragged in
+// Play: there they run at 2× and their stops are read in 0.6 of the time. The field and the planet keep
+// their pace; the chapter slates keep their full hold everywhere.
+const AP_FAST = { u0: 1.5, u1: 25.6, move: 0.5, dwell: 0.6 };
+const apFast = (u) => u > AP_FAST.u0 && u < AP_FAST.u1;
 const AP_W = 0.035;     // the reading window either side of a stop (u): the overlays are fully up inside it
 /** share of a stop's reading time spent before x (u from the stop): a raised-cosine bump's integral */
 const bumpF = (x) => (x <= -AP_W ? 0 : x >= AP_W ? 1 : 0.5 * (x / AP_W + Math.sin((Math.PI * x) / AP_W) / Math.PI + 1));
@@ -1663,7 +1668,7 @@ function buildRun(u0, end) {
   const ends = [u0], stops = [];
   for (let k = 0; k <= end; k++) {
     if (STOPS[k] > u0 + 1e-3) ends.push(STOPS[k]);
-    if (STOPS[k] > u0 - AP_W) stops.push({ k, u: STOPS[k], d: dwellFor(k) });
+    if (STOPS[k] > u0 - AP_W) stops.push({ k, u: STOPS[k], d: dwellFor(k) * (apFast(STOPS[k]) ? AP_FAST.dwell : 1) });
   }
   const U = [u0], T = [0], SUB = 6;
   let t = 0;
@@ -1676,6 +1681,10 @@ function buildRun(u0, end) {
       for (let j = 1; j <= SUB; j++) {
         const ua = a + ((b - a) * (i - 1 + (j - 1) / SUB)) / n, ub = a + ((b - a) * (i - 1 + j / SUB)) / n;
         let dt = base;
+        if (apFast((ua + ub) / 2)) {
+          dt *= AP_FAST.move;
+          if (!REDUCED) dt += slateExtra((ua + ub) / 2) * Math.abs(ub - ua) * scale * (1 - AP_FAST.move);   // (the slate's hold, unhurried)
+        }
         for (const st of stops) if (Math.abs(st.u - ua) < AP_W + 0.2) dt += st.d * (bumpF(ub - st.u) - bumpF(ua - st.u));
         t += dt; U.push(ub); T.push(t);
       }

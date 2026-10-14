@@ -143,7 +143,7 @@ export default function Experience({ q, ready }: { q: Quality; ready: boolean })
             See how our people, technology and expertise turn real-world environments into precise, actionable geospatial data, in a 3D film you can scrub through.
           </p>
           <div className="ld-exp__actions ld-rise" style={d(0.4)}>
-            <a className="ld-btn" href={FILM_URL} {...pre}>
+            <a className="ld-btn is-shiny" href={FILM_URL} {...pre}>
               Enter the 3D experience <Arrow />
             </a>
             <Badge q={q} ready={ready} />
@@ -161,7 +161,7 @@ export default function Experience({ q, ready }: { q: Quality; ready: boolean })
           </span>
           <span className="ld-film__shade" aria-hidden="true" />
           <span className="ld-film__body" aria-hidden="true">
-            <span className="ld-film__kicker">3D film <i>·</i> 4 min</span>
+            <span className="ld-film__kicker">3D film <i>·</i> 3 min</span>
             <span className="ld-film__title">Ground Truth</span>
             <span className="ld-film__line">One valley, measured from the air, the ground and space.</span>
           </span>

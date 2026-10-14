@@ -1518,3 +1518,16 @@ body.is-reduced .spot-ring { animation: none; }
   body.is-portrait .endcard { height: 46px; min-height: 46px; font-size: 14.5px; padding: 0 18px; }
   body.is-portrait .endcard.is-replay { width: 46px; flex-basis: 46px; }
 }
+
+/* phones, the end row (third pass): smaller, and even. Two equal halves and a round replay, 40 px tall,
+   centred on where the dock's pill was; the row spans exactly the caption card's width */
+@media (max-width: 599.98px) {
+  body.is-portrait .endcards, body.is-portrait.no-letterbox .endcards { bottom: calc(100% + 20px); width: calc(100% - 24px); max-width: 640px; }
+  body.is-portrait .endcards__row { gap: 8px; }
+  body.is-portrait .endcard { height: 40px; min-height: 40px; padding: 0 12px; gap: 6px; font-size: 14px; font-weight: 600; box-sizing: border-box; }
+  body.is-portrait .endcard.is-primary, body.is-day.is-portrait .endcard.is-primary,
+  body.is-portrait .endcard:not(.is-primary):not(.is-replay), body.is-day.is-portrait .endcard:not(.is-primary):not(.is-replay) { flex: 1 1 0; min-width: 0; }
+  body.is-portrait .endcard.is-primary, body.is-day.is-portrait .endcard.is-primary { box-shadow: 0 6px 16px rgba(0, 130, 202, 0.32); }
+  body.is-portrait .endcard.is-replay { width: 40px; flex: 0 0 40px; padding: 0; }
+  .endcard.is-replay svg { width: 18px; height: 18px; }
+}

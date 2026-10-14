@@ -159,6 +159,19 @@ function Hero({ ready, pre }: { ready: boolean; pre: Record<string, () => void> 
             <svg className="ld-play" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" /><path d="M8 6.4v7.2l5.6-3.6z" /></svg>
           </a>
         </div>
+        {/* the 3D film, in the first screen: a small video tile (wide screens: bottom right, level with
+            the buttons; phones and tablets: a slim bar under them) */}
+        <a className="ld-herofilm ld-rise" style={d(0.7)} href={FILM_URL} {...pre} aria-label="Watch the 3D film, Ground Truth (about three minutes)">
+          <span className="ld-herofilm__thumb" aria-hidden="true">
+            <Pic set={[["exp-frame-3-900", 900]]} sizes="160px" width={900} height={506} loading="lazy" />
+            <span className="ld-herofilm__play"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6l7.6-4.8z" /></svg></span>
+          </span>
+          <span className="ld-herofilm__body" aria-hidden="true">
+            <span className="ld-herofilm__k"><i />3D film · 3 min</span>
+            <span className="ld-herofilm__t">Ground Truth</span>
+            <span className="ld-herofilm__s">Watch how we measure <Arrow /></span>
+          </span>
+        </a>
       </div>
     </section>
   );
