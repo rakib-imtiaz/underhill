@@ -510,3 +510,351 @@ body.fly.is-day .site-head { background: rgba(255, 255, 255, 0.9); border-bottom
 /* the way out: the same solid Underhill-blue button as the film's */
 .fly-exit, body.fly.is-day .fly-exit { background: #0082ca; border-color: #0082ca; color: #fff; font-weight: 600; }
 @media (hover: hover) and (pointer: fine) { .fly-exit:hover, body.fly.is-day .fly-exit:hover { background: #006aa6; border-color: #006aa6; } }
+
+/* ============================================================ phones: a calm flight display (2026-10-14) */
+/* Phones (portrait, under 600 px: main.js PHONE_MQ sets body.is-phone and the sticks) get the film's phone
+   language instead of the site header and the dense flight display, as quiet as a camera app: one line
+   at the top (exit, one short status, settings), one line of numbers under it (altitude, speed, distance
+   home once away, battery: plain text on the picture; a tap shows the rest), and in the thumb zone one
+   solid Underhill-blue control before take-off (hold to take off), then small sticks, a round land button
+   between them and one round button group above them (photo, LiDAR, view, map, return home). The heading
+   tape, the minimap, the place tags, the payload chip and the mode chip go; the payload, day / night, the
+   view, quality and the guide live in the ⋯ sheet. Controls are 44 px rounds, translucent and blurred
+   (dark at night, white by day), 18 px corners. The HUD box is the small viewport (100svh), so nothing
+   sits under a browser's toolbar. Every rule is scoped to body.is-phone; every other layout is untouched. */
+.ptop, .ptele, .pscrim, .help .help__touch, .tog__tc, .more .more__p, .more .tog--p { display: none; }
+@media (max-width: 599.98px) and (orientation: portrait) {
+  body.fly.is-phone { --stick: 108px; --p-sb: max(14px, var(--sb)); }
+  body.fly.is-phone .site-head, body.fly.is-phone .mnav { display: none !important; }
+
+  /* the HUD: the bar, then the line of numbers and the centre column in flow; the rest in the thumb zone */
+  body.fly.is-phone .hud {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; bottom: auto; height: 100%; height: 100svh;
+    padding: calc(var(--st) + 52px) calc(12px + var(--sr)) 0 calc(12px + var(--sl)); box-sizing: border-box;
+  }
+  body.fly.is-phone .hud > * { flex: 0 0 auto; }
+  body.fly.is-phone .hud-top, body.fly.is-phone .mode-chip, body.fly.is-phone .minimap, body.fly.is-phone .payload-chip, body.fly.is-phone .fly-tags { display: none !important; }
+  body.fly.is-phone .fly-reticle { top: 46%; }
+
+  /* --- the bar: exit, one short status (a dot and a few words), settings; one line --- */
+  body.fly.is-phone .ptop {
+    display: flex; position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; height: calc(56px + var(--st));
+    padding: calc(6px + var(--st)) calc(12px + var(--sr)) 6px calc(12px + var(--sl));
+    align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .is-phone .pbtn {
+    pointer-events: auto; position: relative; flex: 0 0 44px; width: 44px; height: 44px; box-sizing: border-box; margin: 0; padding: 0;
+    display: grid; place-items: center; border-radius: 50%; color: #f2f6f9; text-decoration: none;
+    background: rgba(10, 18, 28, 0.28); border: 1px solid rgba(255, 255, 255, 0.12);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+    transition: background-color 0.2s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .is-phone .pbtn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+  .is-phone .ptop__more svg { fill: currentColor; stroke: currentColor; stroke-width: 0.6; }
+  .is-phone .pbtn:active { transform: scale(0.93); background: rgba(10, 18, 28, 0.5); }
+  .is-phone .ptop__st {
+    flex: 0 1 auto; min-width: 0; margin: 0; display: flex; align-items: center; gap: 7px; white-space: nowrap; overflow: hidden;
+    font: 500 12px/1 var(--sh-mono); letter-spacing: 0.08em; color: rgba(242, 246, 249, 0.92); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 0, 0, 0.45);
+  }
+  .is-phone .ptop__st span { overflow: hidden; text-overflow: ellipsis; }
+  /* (a very faint backing behind the two lines of text: they stay legible over a bright sky) */
+  body.fly.is-phone .ptop__st, body.fly.is-phone .pstrip {
+    height: 28px; padding: 0 12px; border-radius: 999px; background: rgba(10, 18, 28, 0.16);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  body.is-day.is-phone .ptop__st, body.is-day.is-phone .pstrip { background: rgba(10, 18, 28, 0.2); }
+  .is-phone .ptop__dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18); }
+  .is-phone .ptop__st[data-state='acquiring'] .ptop__dot { background: var(--red); animation: fly-blink 0.8s steps(2) infinite; }
+  .is-phone .ptop__st[data-state='float'] .ptop__dot { background: var(--amber); }
+  .is-phone .ptop__st[data-state='fix'] .ptop__dot { background: var(--green); }
+  .is-phone .ptop__st[data-state='busy'] .ptop__dot { background: var(--sky); }
+  .is-phone .ptop__st[data-state='auto'] .ptop__dot { background: var(--accent); }
+  body.fly.is-phone.is-booting .ptop { visibility: hidden; }
+
+  /* --- the numbers: one plain line on the picture (a soft shadow, no card); a tap opens the details --- */
+  body.fly.is-phone .ptele { display: block; width: 100%; max-width: 440px; pointer-events: auto; border-radius: 18px; }
+  .is-phone .pstrip {
+    all: unset; box-sizing: border-box; display: flex; justify-content: center; align-items: center; width: max-content; max-width: 100%; margin: 0 auto; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; position: relative;
+  }
+  .is-phone .pstrip::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }   /* a 44 px tall target */
+  .is-phone .pstrip:focus-visible { outline: 2px solid var(--sky); outline-offset: 0; border-radius: 999px; }
+  .is-phone .pstrip__c { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65), 0 0 12px rgba(0, 0, 0, 0.45); }
+  .is-phone .pstrip__c + .pstrip__c::before { content: '·'; margin: 0 11px 0 8px; color: rgba(242, 246, 249, 0.42); font: 500 13px/1 var(--sh-mono); }
+  .is-phone .pstrip__c[hidden] { display: none; }
+  .is-phone .pstrip__c b { font: 500 13px/1 var(--sh-mono); font-variant-numeric: tabular-nums; color: #f2f6f9; }
+  .is-phone .pstrip__c i { font: 500 10px/1 var(--sh-mono); font-style: normal; color: rgba(242, 246, 249, 0.66); }
+  .is-phone .pstrip__batt.is-low b, .is-phone .pstrip__batt.is-low i { color: var(--amber); }
+  .is-phone .pstrip__batt.is-crit b, .is-phone .pstrip__batt.is-crit i { color: var(--red); }
+  .is-phone .pstrip[aria-expanded='true'] + .pdet { margin-top: 2px; }
+  .is-phone .pdet {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 0; padding: 12px 14px 13px; border-radius: 18px;
+    background: rgba(10, 18, 28, 0.5); border: 1px solid rgba(255, 255, 255, 0.1);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  }
+  .is-phone .pdet > div { min-width: 0; }
+  .is-phone .pdet .pdet__w { grid-column: 1 / -1; }
+  .is-phone .pdet dt { font: 500 9.5px/1 var(--sh-mono); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(238, 244, 248, 0.5); margin-bottom: 4px; }
+  .is-phone .pdet dd { margin: 0; font: 500 12.5px/1.2 var(--sh-mono); font-variant-numeric: tabular-nums; color: #eef4f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* --- the centre column: a warning, the latest message, the pre-flight check, the range card; small --- */
+  body.fly.is-phone .hud-c { width: 100%; max-width: 440px; gap: 6px; }
+  .is-phone .warn, .is-phone .toast, .is-phone .hud-c .readout {
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px;
+    -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  }
+  .is-phone .warn { padding: 7px 13px; font: 600 12.5px/1.3 var(--uh-font-body); letter-spacing: 0.01em; }
+  .is-phone .warn[data-level='crit'] { border-color: transparent; }
+  .is-phone .toast {
+    display: flex; align-items: center; gap: 8px; max-width: 100%; box-sizing: border-box; padding: 6px 12px 6px 10px;
+    font: 500 12px/1.35 var(--uh-font-body); color: #eef4f8; background: rgba(10, 18, 28, 0.4); border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .is-phone .toast::before { content: ''; flex: 0 0 auto; width: 5px; height: 5px; border-radius: 50%; background: var(--sky); }
+  .is-phone .toast--ok::before { background: var(--green); }
+  .is-phone .toast--warn::before { background: var(--amber); }
+  .is-phone .toast--crit::before { background: var(--red); }
+  .is-phone .toasts .toast:not(:last-child) { display: none; }
+  .is-phone .hud-c .readout { white-space: normal; padding: 9px 12px 10px; background: rgba(10, 18, 28, 0.4); }
+  .is-phone .hud-c .readout__k { font: 500 9.5px/1 var(--sh-mono); letter-spacing: 0.14em; color: rgba(238, 244, 248, 0.55); }
+  .is-phone .checklist { width: 100%; max-width: 290px; box-sizing: border-box; }
+  .is-phone .checklist ul { grid-template-columns: 1fr 1fr; gap: 7px 14px; margin-top: 8px; }
+  .is-phone .checklist li { flex-direction: column; justify-content: flex-start; gap: 2px; min-width: 0; font: 500 11.5px/1.2 var(--uh-font-body); color: rgba(238, 244, 248, 0.7); }
+  .is-phone .checklist li b { font: 500 11px/1.2 var(--sh-mono); color: rgba(238, 244, 248, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .is-phone .checklist li.is-ok b { color: var(--green); }
+  .is-phone .range-card .readout__v { font-size: 15px; }
+
+  /* --- the gimbal view's tools (zoom, thermal) on the left edge, the gimbal on the right; slim --- */
+  body.fly.is-phone .hud-l { position: absolute; left: calc(12px + var(--sl)); top: 50%; translate: 0 -50%; }
+  .is-phone .subbar { gap: 8px; }
+  .is-phone .zoom, .is-phone .thermal-chip {
+    border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(10, 18, 28, 0.44);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+  }
+  .is-phone .zoom { flex-direction: column; gap: 0; padding: 2px 0; }
+  .is-phone .zoom b { font-size: 11.5px; min-width: 0; }
+  .is-phone .thermal-chip { padding: 3px 14px; border-left: 1px solid rgba(255, 154, 58, 0.6); }
+  body.fly.is-phone .gimbal { display: none; position: absolute; right: calc(6px + var(--sr)); top: 50%; translate: 0 -50%; padding: 0; gap: 6px; }
+  body.fly.is-phone.view-gimbal .gimbal { display: flex; }
+  .is-phone .gimbal__k { display: none; }
+  .is-phone .gimbal__track { height: 132px; }
+  .is-phone .gimbal__track::before { width: 2px; border: 0; border-radius: 1px; background: rgba(255, 255, 255, 0.4); box-shadow: 0 0 4px rgba(0, 0, 0, 0.4); }
+  .is-phone .gimbal__zero { left: 16px; right: 16px; background: rgba(255, 255, 255, 0.5); }
+  .is-phone .gimbal__thumb { width: 16px; height: 16px; border-radius: 50%; background: #f2f6f9; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45); }
+  .is-phone .gimbal__v { border-radius: 999px; padding: 3px 7px; background: rgba(10, 18, 28, 0.44); font-size: 10.5px; }
+
+  /* --- the thumb zone --- */
+  /* the sticks: small, thin rings in the corners once flying, no labels (the tips name them once); the HUD
+     box is the small viewport, so they never sit under a toolbar */
+  body.fly.is-phone .hud .stick--l, body.fly.is-phone .hud .stick--r { position: absolute; bottom: var(--p-sb); }
+  body.fly.is-phone .hud .stick--l { left: calc(14px + var(--sl)); }
+  body.fly.is-phone .hud .stick--r { right: calc(14px + var(--sr)); }
+  body.fly.is-phone:not(.is-flying) .hud .stick { display: none; }
+  .is-phone .stick { background: radial-gradient(circle, rgba(10, 18, 28, 0.06) 0, rgba(10, 18, 28, 0.2) 72%); border: 1px solid rgba(255, 255, 255, 0.25); transition: border-color 0.2s ease; }
+  .is-phone .stick::before, .is-phone .stick::after { background: rgba(255, 255, 255, 0.1); }
+  .is-phone .stick__lab { display: none; }
+  .is-phone .stick__knob { width: 40px; height: 40px; margin: -20px 0 0 -20px; background: rgba(242, 246, 249, 0.62); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3); }
+  .is-phone .stick.is-active { border-color: rgba(255, 255, 255, 0.5); }
+  .is-phone .stick.is-active .stick__knob { background: rgba(255, 255, 255, 0.92); }
+
+  /* the hold button: before take-off THE control (a blue pill, centred in the thumb zone); once flying a
+     small round land button between the sticks, the hold shown on its ring, a plain label under it */
+  body.fly.is-phone .hud .hold {
+    position: absolute; left: 50%; translate: -50% 0; bottom: calc(var(--p-sb) + 22px); z-index: 1;
+    flex-direction: row; justify-content: center; gap: 9px; height: 52px; min-width: 216px; padding: 0 26px; box-sizing: border-box;
+    border-radius: 999px; overflow: hidden; background: #0082ca; color: #fff; isolation: isolate;
+    box-shadow: 0 8px 24px rgba(0, 130, 202, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  body.fly.is-phone .hud .hold::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(255, 255, 255, 0.24);
+    transform-origin: 0 50%; transform: scaleX(var(--p, 0));
+  }
+  body.fly.is-phone .hud .hold .hold__ring { display: none; }
+  body.fly.is-phone .hud .hold .hold__ic { position: static; translate: none; width: 18px; height: 18px; stroke-width: 2; }
+  body.fly.is-phone .hud .hold .hold__t {
+    background: none; padding: 0; max-width: none; white-space: nowrap; color: inherit;
+    font: 600 15px/1 var(--uh-font-body); letter-spacing: 0.01em; text-transform: none;
+  }
+  body.fly.is-phone .hud .hold:active { transform: scale(0.97); }
+  body.fly.is-phone .hud .hold.is-wait {
+    opacity: 1; background: rgba(10, 18, 28, 0.42); color: rgba(238, 244, 248, 0.8); box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.12); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  }
+  body.fly.is-phone .hud .hold.is-wait .hold__ic { opacity: 0.5; }
+  body.fly.is-phone.is-flying .hud .hold {
+    flex-direction: column; gap: 4px; height: auto; min-width: 0; padding: 0; overflow: visible; background: none; box-shadow: none; border: 0;
+    bottom: calc(var(--p-sb) + var(--stick) / 2 - 37px); -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  body.fly.is-phone.is-flying .hud .hold::before { content: none; }
+  body.fly.is-phone.is-flying .hud .hold .hold__ring { display: block; width: 44px; height: 44px; }
+  .is-phone .hold__ring circle:first-child { fill: rgba(10, 18, 28, 0.36); stroke: rgba(255, 255, 255, 0.28); stroke-width: 1.5; }
+  body.fly.is-phone.is-flying .hud .hold .hold__ic { position: absolute; top: 12px; left: 50%; translate: -50% 0; width: 20px; height: 20px; stroke-width: 1.8; }
+  body.fly.is-phone.is-flying .hud .hold .hold__t { font: 500 11px/1 var(--uh-font-body); color: rgba(242, 246, 249, 0.8); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 0, 0, 0.4); }
+
+  /* the button group: one quiet pill above the sticks, the film dock's language; RTH in the accent */
+  body.fly.is-phone .actions {
+    position: absolute; left: 50%; translate: -50% 0; bottom: calc(var(--p-sb) + var(--stick) + 14px);
+    flex-direction: row; gap: 0; padding: 2px; border-radius: 999px; pointer-events: auto;
+    background: rgba(10, 18, 28, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  }
+  body.fly.is-phone:not(.is-flying).view-chase .actions { display: none; }
+  body.fly.is-phone .act {
+    width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: #f2f6f9;
+    -webkit-backdrop-filter: none; backdrop-filter: none; transition: background-color 0.2s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  body.fly.is-phone .act svg { width: 19px; height: 19px; stroke-width: 1.7; }
+  body.fly.is-phone .act:active { background: rgba(255, 255, 255, 0.12); transform: scale(0.92); }
+  body.fly.is-phone .act[aria-pressed='true'] { background: rgba(125, 255, 196, 0.16); color: var(--green); }
+  body.fly.is-phone #btn-rth { color: var(--accent); }
+  body.fly.is-phone.is-rth #btn-rth { background: rgba(255, 138, 61, 0.24); }
+  /* the last photo: a small rounded thumbnail at the group's left, once there is one */
+  body.fly.is-phone .last-photo {
+    position: absolute; left: calc(14px + var(--sl)); bottom: calc(var(--p-sb) + var(--stick) + 16px); width: 44px; height: 44px; pointer-events: auto;
+    border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  body.fly.is-phone:not(.is-flying) .last-photo { visibility: hidden; }
+  .is-phone .last-photo span { right: 4px; bottom: 3px; font: 600 10px/1 var(--sh-mono); }
+
+  /* --- the map view: its tools in a rounded sheet above the button group (or the hold button) --- */
+  body.fly.is-phone .map-sheet {
+    left: calc(12px + var(--sl)); right: calc(12px + var(--sr)); bottom: calc(var(--p-sb) + var(--stick) + 74px);
+    bottom: calc(100% - 100svh + var(--p-sb) + var(--stick) + 74px); max-height: 32vh; max-height: 32svh;
+    border-radius: 18px; border-color: rgba(255, 255, 255, 0.12); background: rgba(9, 16, 26, 0.86); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+  }
+  .is-phone .map-sheet .sheet__head { border-bottom-color: rgba(255, 255, 255, 0.08); padding-left: 16px; }
+  .is-phone .map-sheet .chip { border-radius: 12px; }
+  .is-phone .map-sheet .seg { border-radius: 12px; overflow: hidden; }
+  .is-phone .map-sheet .btn.small { border-radius: 999px; font: 600 14px/1 var(--uh-font-body); letter-spacing: 0.01em; text-transform: none; }
+  .is-phone .map-sheet .btn.small::before { border-radius: 999px; }
+  .is-phone .map-sheet .btn.ghost { border-color: rgba(255, 255, 255, 0.22); }
+
+  /* --- the sheets (⋯ settings, the photo roll): bottom sheets over a scrim --- */
+  body.fly.is-phone .pscrim:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 39; background: rgba(2, 6, 12, 0.5); touch-action: none; }
+  body.fly.is-phone .sheet.more, body.fly.is-phone .sheet.roll {
+    left: 0; right: 0; top: auto; width: auto; bottom: 0; bottom: calc(100% - 100svh);
+    max-height: calc(100% - 56px - var(--st)); max-height: calc(100svh - 56px - var(--st)); box-sizing: border-box;
+    padding: 4px calc(16px + var(--sr)) calc(18px + var(--sb)) calc(16px + var(--sl));
+    border: 0; border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 22px 22px 0 0; background: rgba(9, 16, 26, 0.95);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4); font-family: var(--uh-font-body);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3);
+  }
+  .is-phone .sheet.more .sheet__head, .is-phone .sheet.roll .sheet__head { border-bottom: 0; padding: 6px 0 4px 2px; }
+  .is-phone .sheet .sheet__head .readout__k { font: 500 12px/1 var(--sh-mono); letter-spacing: 0.16em; color: rgba(238, 244, 248, 0.6); }
+  .is-phone .sheet .sheet__head .ib { border-radius: 50%; }
+  .is-phone .more__grid { gap: 6px; background: none; }
+  .is-phone .more .more__p { display: grid; gap: 8px; padding: 2px 0 8px; }
+  .is-phone .more__pk, .is-phone .tog--seg > span { font: 500 10.5px/1 var(--sh-mono); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(238, 244, 248, 0.55); }
+  .is-phone .pseg, .is-phone .tog--seg .seg { display: flex; gap: 4px; margin: 0; padding: 4px; border: 0; border-radius: 16px; background: rgba(255, 255, 255, 0.06); }
+  .is-phone .pseg__b, .is-phone .tog--seg .seg button {
+    flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 8px; margin: 0; border: 0; border-radius: 12px; background: transparent;
+    color: rgba(238, 244, 248, 0.78); font: 600 14px/1 var(--uh-font-body); transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .is-phone .pseg__b[aria-pressed='true'], .is-phone .tog--seg .seg button[aria-pressed='true'] { background: rgba(255, 255, 255, 0.14); color: #fff; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset; }
+  .is-phone .more .tog--p { display: flex; }
+  .is-phone .more .tog--p[hidden] { display: none; }
+  .is-phone .tog { min-height: 50px; padding: 0 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); font: 600 14px/1.2 var(--uh-font-body); color: #eef4f8; }
+  .is-phone .tog b { font: 500 12.5px/1 var(--sh-mono); color: rgba(238, 244, 248, 0.62); }
+  .is-phone .tog:active { background: rgba(255, 255, 255, 0.1); }
+  .is-phone .tog--seg { flex-direction: column; align-items: stretch; gap: 8px; min-height: 0; padding: 10px 0 4px; background: none; border-radius: 0; }
+  .is-phone .tog__kb { display: none; }
+  .is-phone .tog__tc { display: inline; }
+  .is-phone .more__q { margin: 10px 2px 0; font: 12px/1.4 var(--uh-font-body); color: rgba(238, 244, 248, 0.5); }
+  .is-phone .roll__thumb { border-radius: 10px; overflow: hidden; }
+  .is-phone .roll .btn.small, .is-phone .help .btn.small { border-radius: 999px; font: 600 13px/1 var(--uh-font-body); letter-spacing: 0.01em; text-transform: none; }
+  .is-phone .roll .btn.small::before { border-radius: 999px; }
+  .is-phone .sheet { scrollbar-width: none; }
+  .is-phone .sheet::-webkit-scrollbar { display: none; }
+  .is-phone .roll__empty { font: 13px/1.4 var(--uh-font-body); }
+
+  /* --- the guide: the touch controls, on a rounded card --- */
+  .is-phone .help { background: rgba(2, 6, 12, 0.5); align-items: end; padding: 16px 12px calc(16px + var(--sb)); }
+  .is-phone .help__card { border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(9, 16, 26, 0.95); padding: 4px 0 14px; max-height: 80svh; }
+  .is-phone .help .sheet__head { border-bottom: 0; padding-left: 18px; }
+  .is-phone .help dl { display: none; }
+  .is-phone .help .help__touch { display: grid; grid-template-columns: max-content 1fr; gap: 10px 14px; margin: 6px 18px 4px; }
+  .is-phone .help__touch dt { font: 600 13px/1.35 var(--uh-font-body); color: #5cc0f5; }
+  .is-phone .help__touch dd { margin: 0; font: 13px/1.35 var(--uh-font-body); color: rgba(238, 244, 248, 0.8); }
+
+  /* --- the tips: a small bubble above what it describes, its arrow on it (main.js places both), a thin
+     ring round the control --- */
+  body.fly.is-phone .coach { background: none; pointer-events: none; }
+  body.fly.is-phone .coach__card {
+    --ax: 50%; pointer-events: auto; left: 12px; translate: none; top: 50%; width: min(calc(100% - 24px), 252px); box-sizing: border-box; overflow: visible;
+    padding: 11px 12px 10px 14px; gap: 6px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 18px; background: rgba(9, 16, 26, 0.88);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+  }
+  body.fly.is-phone .coach__card::after {
+    content: ''; position: absolute; left: var(--ax); bottom: -6px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg);
+    background: inherit; border: inherit; border-top: 0; border-left: 0; border-radius: 0 0 3px 0;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .is-phone #coach-step { font: 500 10px/1 var(--sh-mono); letter-spacing: 0.14em; color: #5cc0f5; }
+  .is-phone .coach__t { font: 600 14px/1.35 var(--uh-font-body); letter-spacing: 0; color: #f2f6f9; text-wrap: balance; }
+  .is-phone .coach__btns { gap: 6px; margin-top: 2px; }
+  .is-phone .coach__btns .btn {
+    position: relative; overflow: visible; min-height: 34px; height: 34px; padding: 0 15px; border-radius: 999px;
+    font: 600 13px/1 var(--uh-font-body); letter-spacing: 0.01em; text-transform: none; box-shadow: none;
+  }
+  .is-phone .coach__btns .btn::before { content: ''; position: absolute; inset: -5px -3px; z-index: 0; background: none; transform: none; }   /* a 44 px tall target */
+  .is-phone .coach__btns .btn.ghost { background: transparent; border: 0; color: rgba(238, 244, 248, 0.7); padding: 0 10px; }
+  .is-phone .coach__ring { border-radius: 999px; border: 1.5px solid rgba(92, 192, 245, 0.85); box-shadow: none; }
+  /* (while a stick's tip is up, the button group above the sticks steps aside: its own tip comes next) */
+  body.fly.is-phone:has(#coach:not([hidden])[data-at^='stick']) .actions,
+  body.fly.is-phone:has(#coach:not([hidden])[data-at^='stick']) .last-photo { visibility: hidden; }
+
+  /* --- daylight: white translucent controls, navy marks, paper sheets (the two lines of text on the
+     picture stay white with a soft shadow: they read over sky, field and trees alike) --- */
+  body.is-day.is-phone .pbtn, body.is-day.is-phone .pdet, body.is-day.is-phone .actions, body.is-day.is-phone .zoom, body.is-day.is-phone .thermal-chip {
+    background: rgba(255, 255, 255, 0.64); border-color: rgba(20, 32, 46, 0.1); color: #14202e; box-shadow: 0 6px 22px rgba(20, 32, 46, 0.12);
+  }
+  body.is-day.is-phone .pbtn:active { background: rgba(255, 255, 255, 0.85); }
+  body.is-day.is-phone .pdet dt { color: rgba(20, 32, 46, 0.56); }
+  body.is-day.is-phone .pdet dd { color: #0a1b2e; }
+  body.is-day.is-phone .toast, body.is-day.is-phone .hud-c .readout { background: rgba(255, 255, 255, 0.72); border-color: rgba(20, 32, 46, 0.08); color: #14202e; box-shadow: 0 6px 20px rgba(20, 32, 46, 0.12); }
+  body.is-day.is-phone .hud-c .readout__k { color: rgba(20, 32, 46, 0.58); }
+  body.is-day.is-phone .checklist li { color: rgba(20, 32, 46, 0.78); }
+  body.is-day.is-phone .checklist li b { color: rgba(20, 32, 46, 0.55); }
+  body.is-day.is-phone .checklist li.is-ok b, body.is-day.is-phone .toast--ok::before { color: #12a36b; }
+  body.is-day.is-phone .toast--ok::before { background: #12a36b; }
+  body.is-day.is-phone .act { color: #14202e; }
+  body.is-day.is-phone .act:active { background: rgba(20, 32, 46, 0.08); }
+  body.is-day.is-phone .act[aria-pressed='true'] { background: rgba(18, 163, 107, 0.14); color: #0d7f53; }
+  body.is-day.is-phone #btn-rth { color: #d7621c; }
+  body.is-day.is-phone .hud .hold.is-wait { background: rgba(255, 255, 255, 0.7); color: #14202e; border-color: rgba(20, 32, 46, 0.1); box-shadow: 0 6px 20px rgba(20, 32, 46, 0.12); }
+  body.is-day.is-phone .hold__ring circle:first-child { fill: rgba(255, 255, 255, 0.66); stroke: rgba(20, 32, 46, 0.18); }
+  body.is-day.is-phone.is-flying .hud .hold .hold__ic { color: #14202e; }
+  body.is-day.is-phone .stick { background: radial-gradient(circle, rgba(255, 255, 255, 0.02) 0, rgba(255, 255, 255, 0.12) 72%); border-color: rgba(255, 255, 255, 0.5); }
+  body.is-day.is-phone .stick::before, body.is-day.is-phone .stick::after { background: rgba(255, 255, 255, 0.25); }
+  body.is-day.is-phone .stick__knob { background: rgba(255, 255, 255, 0.78); box-shadow: 0 1px 6px rgba(20, 32, 46, 0.25); }
+  body.is-day.is-phone .gimbal__v { background: rgba(255, 255, 255, 0.7); color: #14202e; }
+  body.is-day.is-phone .pscrim:not([hidden]), body.is-day.is-phone .help { background: rgba(20, 32, 46, 0.28); }
+  body.is-day.is-phone .sheet.more, body.is-day.is-phone .sheet.roll, body.is-day.is-phone .map-sheet, body.is-day.is-phone .help__card, body.is-day.is-phone .coach__card {
+    background: rgba(255, 255, 255, 0.95); color: #14202e; border-color: rgba(20, 32, 46, 0.08); box-shadow: 0 -8px 36px rgba(20, 32, 46, 0.16);
+  }
+  body.is-day.is-phone .sheet .readout__k, body.is-day.is-phone .more__pk, body.is-day.is-phone .tog--seg > span, body.is-day.is-phone .more__q { color: rgba(20, 32, 46, 0.6); }
+  body.is-day.is-phone .sheet .ib, body.is-day.is-phone .help .ib { color: #14202e; }
+  body.is-day.is-phone .pseg, body.is-day.is-phone .tog--seg .seg, body.is-day.is-phone .tog { background: rgba(20, 32, 46, 0.05); }
+  body.is-day.is-phone .tog--seg { background: none; }
+  body.is-day.is-phone .tog { color: #14202e; }
+  body.is-day.is-phone .tog b { color: rgba(20, 32, 46, 0.6); }
+  body.is-day.is-phone .tog[aria-pressed='true'] b { color: #0d7f53; }
+  body.is-day.is-phone .pseg__b, body.is-day.is-phone .tog--seg .seg button { color: rgba(20, 32, 46, 0.72); }
+  body.is-day.is-phone .pseg__b[aria-pressed='true'], body.is-day.is-phone .tog--seg .seg button[aria-pressed='true'] { background: #fff; color: #0a1b2e; box-shadow: 0 1px 4px rgba(20, 32, 46, 0.14); }
+  body.is-day.is-phone .map-sheet .chip, body.is-day.is-phone .roll__meta b { color: #14202e; }
+  body.is-day.is-phone .map-sheet .chip { background: rgba(20, 32, 46, 0.05); border-color: rgba(20, 32, 46, 0.1); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.is-day.is-phone .map-sheet .seg button { color: rgba(20, 32, 46, 0.72); }
+  body.is-day.is-phone .map-sheet .sheet__head { border-bottom-color: rgba(20, 32, 46, 0.08); }
+  body.is-day.is-phone .roll__meta, body.is-day.is-phone .chip__k { color: rgba(20, 32, 46, 0.6); }
+  body.is-day.is-phone .help__touch dt, body.is-day.is-phone #coach-step { color: #0069a3; }
+  body.is-day.is-phone .help__touch dd { color: rgba(20, 32, 46, 0.8); }
+  body.is-day.is-phone .coach__t { color: #0a1b2e; }
+  body.is-day.is-phone .coach__btns .btn.ghost { border-color: rgba(20, 32, 46, 0.2); color: #14202e; }
+}
+@media (max-width: 599.98px) and (orientation: portrait) and (max-width: 374px) {
+  body.fly.is-phone { --stick: 100px; }
+}
+@media (max-width: 599.98px) and (orientation: portrait) and (prefers-reduced-motion: reduce) {
+  .is-phone .pbtn, .is-phone .act, body.fly.is-phone .hud .hold { transition: none; }
+}

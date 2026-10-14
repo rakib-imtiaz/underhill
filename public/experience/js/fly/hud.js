@@ -14,7 +14,10 @@ export class Hud {
     this.el = {};
     for (const id of ['t-agl', 't-asl', 't-hs', 't-vs', 't-dist', 't-ft', 't-pos1', 't-pos2', 't-hdg', 'compass-tape', 'compass-home',
       't-batt', 'batt-fill', 't-rem', 't-rtk', 't-rtkp', 't-sats', 't-wind', 'rtk', 'batt', 'mode-chip', 'warn', 'toasts', 'checklist',
-      'tags', 'roll-list', 'roll-count', 'btn-roll', 'lidar-stats', 'mission-chip', 'zoom-v', 'range-card']) this.el[id] = $(id);
+      'tags', 'roll-list', 'roll-count', 'btn-roll', 'lidar-stats', 'mission-chip', 'zoom-v', 'range-card',
+      // phones: the bar and the strip (fly.html .ptop / .ptele); absent elements are simply skipped
+      'p-mode', 'p-st', 'ptop-st', 'p-agl', 'p-hs', 'p-dist', 'p-homec', 'p-batt', 'p-battc', 'p-asl', 'p-vs', 'p-ft', 'p-hdg', 'p-rem', 'p-wind',
+      'p-gnss', 'p-pos', 'roll-count-p']) this.el[id] = $(id);
     this.posMode = 0;
     $('t-pos')?.addEventListener('click', () => { this.posMode = 1 - this.posMode; this.last = null; });
     this.onTag = onTag;
@@ -44,6 +47,7 @@ export class Hud {
     const t = this.el['compass-tape'];
     if (t) t.style.transform = `translateX(${(-(heading + 180) * 4).toFixed(1)}px)`;
     this.set('t-hdg', `${String(Math.round(heading) % 360).padStart(3, '0')}°`);
+    this.set('p-hdg', `${this.cache['t-hdg']} ${cardinal(heading)}`);
     const hm = this.el['compass-home'];
     if (hm) {
       let rel = ((homeBearing - heading + 540) % 360) - 180;
@@ -90,6 +94,28 @@ export class Hud {
     if (this.el.rtk) this.el.rtk.dataset.state = k.state;
     this.set('t-wind', `Wind ${sim.windSpeed.toFixed(1)} m/s ${cardinal(sim.windFrom)}`);
     this.set('mode-chip', o.modeText);
+    // phones: the bar says one short thing (an automatic flight while there is one, else the positioning);
+    // the line under it: altitude, speed, distance home (once away), battery; the rest on a tap
+    const auto = { rth: 'Returning home', landing: 'Landing', takeoff: 'Taking off', goto: 'Flying to the point', preflight: 'Pre-flight check' }[sim.mode]
+      || (sim.mode === 'mission' ? `Mission ${Math.round((sim.auto?.progress || 0) * 100)}%` : '');
+    this.set('p-st', auto || (k.state === 'acquiring' ? 'GNSS · searching' : st));
+    const ps = auto ? (sim.mode === 'rth' || sim.mode === 'landing' ? 'auto' : 'busy') : k.state;
+    if (this.el['ptop-st'] && this.el['ptop-st'].dataset.state !== ps) this.el['ptop-st'].dataset.state = ps;
+    this.set('p-mode', o.modeText);
+    this.set('p-agl', this.cache['t-agl']);
+    this.set('p-hs', this.cache['t-hs']);
+    this.set('p-dist', this.cache['t-dist']);
+    if (this.el['p-homec']) { const away = sim.distHome >= 1; if (this.el['p-homec'].hidden === away) this.el['p-homec'].hidden = !away; }
+    this.set('p-batt', String(Math.ceil(b)));
+    this.el['p-battc']?.classList.toggle('is-low', b <= 25);
+    this.el['p-battc']?.classList.toggle('is-crit', b <= 15);
+    this.set('p-asl', `${this.cache['t-asl']} m`);
+    this.set('p-vs', `${this.cache['t-vs']} m/s`);
+    this.set('p-ft', this.cache['t-ft']);
+    this.set('p-rem', this.cache['t-rem']);
+    this.set('p-wind', `${sim.windSpeed.toFixed(1)} m/s ${cardinal(sim.windFrom)}`);
+    this.set('p-gnss', k.state === 'off' ? '—' : `${st} · ${k.sats} sats${this.cache['t-rtkp'] ? ` · ${this.cache['t-rtkp']}` : ''}`);
+    this.set('p-pos', `${this.cache['t-pos1']} · ${this.cache['t-pos2']}`);
   }
 
   /** Warnings, most urgent first: [{ key, text, level: 'warn' | 'crit' }]. */
@@ -172,5 +198,6 @@ export class Hud {
     li.querySelector('.roll__dl').addEventListener('click', dl);
     li.querySelector('.roll__thumb').addEventListener('click', dl);
     this.set('roll-count', String(list.children.length));
+    this.set('roll-count-p', String(list.children.length));
   }
 }

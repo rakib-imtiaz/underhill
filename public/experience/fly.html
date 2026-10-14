@@ -46,6 +46,34 @@
     <div class="fly-reticle" id="reticle" aria-hidden="true"><i></i></div>
 
     <section class="hud" id="hud" aria-label="Flight display">
+      <!-- phones (portrait, under 600 px): the site header gives way to a quiet one-line bar (exit, the
+           positioning or flight state, settings) and the telemetry to one line of the numbers that matter in
+           flight (a tap shows the rest). Hidden on every other layout (fly.css "phones: a calm flight display"). -->
+      <div class="ptop" id="ptop">
+        <a class="pbtn ptop__close" id="ptop-close" href="/" aria-label="Exit fly mode, back to the Underhill site"><svg aria-hidden="true"><use href="#i-close"/></svg></a>
+        <p class="ptop__st" id="ptop-st" data-state="off" aria-live="polite"><i class="ptop__dot" aria-hidden="true"></i><span id="p-st">RTK —</span></p>
+        <button type="button" class="pbtn ptop__more" id="ptop-more" aria-haspopup="dialog" aria-expanded="false" aria-controls="more-sheet" aria-label="Settings, payload and views"><svg aria-hidden="true"><use href="#i-more"/></svg></button>
+      </div>
+      <div class="ptele" id="ptele">
+        <!-- one quiet line: altitude · speed · (distance home, once away) · battery; a tap shows the rest -->
+        <button type="button" class="pstrip" id="pstrip" aria-expanded="false" aria-controls="pdet" aria-label="Telemetry: altitude, speed, distance home, battery (tap for details)">
+          <span class="pstrip__c"><b id="p-agl">0.0</b><i>m</i></span>
+          <span class="pstrip__c"><b id="p-hs">0.0</b><i>m/s</i></span>
+          <span class="pstrip__c pstrip__home" id="p-homec" hidden><b id="p-dist">0</b><i>m home</i></span>
+          <span class="pstrip__c pstrip__batt" id="p-battc"><b id="p-batt">100</b><i>%</i></span>
+        </button>
+        <dl class="pdet" id="pdet" hidden>
+          <div><dt>ASL</dt><dd id="p-asl">412.0 m</dd></div>
+          <div><dt>Climb</dt><dd id="p-vs">0.0 m/s</dd></div>
+          <div><dt>Time</dt><dd id="p-ft">00:00</dd></div>
+          <div><dt>Heading</dt><dd id="p-hdg">000° N</dd></div>
+          <div><dt>Left</dt><dd id="p-rem">12:00</dd></div>
+          <div><dt>Wind</dt><dd id="p-wind">—</dd></div>
+          <div class="pdet__w"><dt>Mode</dt><dd id="p-mode">—</dd></div>
+          <div class="pdet__w"><dt>GNSS</dt><dd id="p-gnss">—</dd></div>
+          <div class="pdet__w"><dt>Position</dt><dd id="p-pos">—</dd></div>
+        </dl>
+      </div>
       <div class="hud-top">
         <div class="tele" role="group" aria-label="Telemetry">
           <div class="tele__row"><span class="k">AGL</span><b id="t-agl">0.0</b><i>m</i><span class="k">ASL</span><b id="t-asl">412.0</b><i>m</i></div>
@@ -139,18 +167,25 @@
     <aside class="sheet roll" id="roll" aria-label="Photo roll" hidden>
       <div class="sheet__head"><span class="readout__k">Photo roll</span><button type="button" class="ib" id="roll-close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
       <ul class="roll__list" id="roll-list"></ul>
-      <p class="roll__empty">No photos yet. Press <b>Photo</b> (or C).</p>
+      <p class="roll__empty">No photos yet. Press <b>Photo</b><span class="tog__kb"> (or C)</span>.</p>
     </aside>
 
+    <div class="pscrim" id="pscrim" hidden></div>
     <aside class="sheet more" id="more-sheet" aria-label="Settings" hidden>
       <div class="sheet__head"><span class="readout__k">Settings</span><button type="button" class="ib" id="more-close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
       <div class="more__grid">
+        <!-- phones only: day / night, the payload and the view as segmented rows (fly.css hides them elsewhere) -->
+        <div class="more__p" role="group" aria-label="Look"><span class="more__pk">Look</span><div class="pseg" id="pseg-look"><button type="button" class="pseg__b" data-day="1" aria-pressed="false">Day</button><button type="button" class="pseg__b" data-day="0" aria-pressed="true">Night</button></div></div>
+        <div class="more__p" role="group" aria-label="Payload"><span class="more__pk">Payload</span><div class="pseg" id="pseg-payload"></div></div>
+        <div class="more__p" role="group" aria-label="View"><span class="more__pk">View</span><div class="pseg" id="pseg-view"><button type="button" class="pseg__b" data-v="chase" aria-pressed="true">Chase</button><button type="button" class="pseg__b" data-v="gimbal" aria-pressed="false">Gimbal</button><button type="button" class="pseg__b" data-v="map" aria-pressed="false">Map</button></div></div>
+        <button type="button" class="tog tog--p" id="tog-roll"><span>Photo roll</span><b id="roll-count-p">0</b></button>
+        <button type="button" class="tog tog--p" id="tog-fs" aria-pressed="false" hidden><span>Full screen</span><b>Off</b></button>
         <button type="button" class="tog" id="tog-sport" aria-pressed="false"><span>Sport mode</span><b>21 m/s</b></button>
         <button type="button" class="tog" id="tog-sound" aria-pressed="true"><span>Sound</span><b>On</b></button>
         <button type="button" class="tog" id="tog-lidar-mode"><span>LiDAR colours</span><b id="lidar-mode-name">Elevation</b></button>
         <button type="button" class="tog" id="tog-world" hidden><span>World</span><b id="world-name">Site</b></button>
         <div class="tog tog--seg"><span>Quality</span><div class="seg" id="seg-quality"></div></div>
-        <button type="button" class="tog" id="tog-help"><span>Keys and controls</span><b>?</b></button>
+        <button type="button" class="tog" id="tog-help"><span class="tog__kb">Keys and controls</span><span class="tog__tc">How to fly</span><b>?</b></button>
         <button type="button" class="tog" id="tog-coach"><span>Show the tips again</span><b>↺</b></button>
       </div>
       <p class="more__q" id="quality-note"></p>
@@ -158,7 +193,7 @@
 
     <div class="help" id="help" hidden role="dialog" aria-label="Keys and controls">
       <div class="help__card readout">
-        <div class="sheet__head"><span class="readout__k">Keys and controls</span><button type="button" class="ib" id="help-close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
+        <div class="sheet__head"><span class="readout__k"><span class="tog__kb">Keys and controls</span><span class="tog__tc">How to fly</span></span><button type="button" class="ib" id="help-close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
         <dl>
           <dt>W S / A D</dt><dd>Forward, back / slide left, right</dd>
           <dt>Q E</dt><dd>Turn left, right</dd>
@@ -172,6 +207,17 @@
           <dt>O · ?</dt><dd>Photo roll · this help</dd>
           <dt>Mouse</dt><dd>Drag to look around, double-click the ground to fly there</dd>
           <dt>Gamepad</dt><dd>Sticks (Mode 2), RT / LT gimbal, RB / LB zoom, A photo, B home, X LiDAR, Y view, Start (hold) take off</dd>
+        </dl>
+        <!-- phones: the same guide for touch (fly.css shows this one and hides the keys there) -->
+        <dl class="help__touch">
+          <dt>Blue button</dt><dd>Press and hold to take off, and again to land</dd>
+          <dt>Left stick</dt><dd>Up and down to climb and descend, left and right to turn</dd>
+          <dt>Right stick</dt><dd>Fly forward, back and sideways</dd>
+          <dt>Double-tap</dt><dd>A spot on the ground: fly there</dd>
+          <dt>Drag · pinch</dt><dd>Look around (gimbal view: aim the camera) · zoom</dd>
+          <dt>Buttons</dt><dd>Photo · LiDAR scan · camera view · map · return home</dd>
+          <dt>Map</dt><dd>Tap a place to fly there, or plan a mapping mission</dd>
+          <dt>⋯</dt><dd>Payload, day or night, quality, these tips</dd>
         </dl>
       </div>
     </div>

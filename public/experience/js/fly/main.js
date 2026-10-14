@@ -55,6 +55,13 @@ if (REDUCED) document.body.classList.add('is-reduced');
 // iOS Safari pinch-zooms the page despite touch-action: none unless its gesture events are cancelled
 for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
 document.body.classList.toggle('has-sticks', TOUCH);
+// Phones (portrait, under 600 px) get a calm flight display (2026-10-14): a quiet bar (exit, the flight
+// state, settings) instead of the site header, one telemetry strip, the hold button as the one solid
+// control before take-off, the sticks and one round button group once flying, everything else under ⋯.
+// The sticks are on there whatever the pointer says (a phone is flown with its thumbs). body.is-phone
+// scopes every rule (fly.css "phones: a calm flight display"); every other layout is untouched.
+const PHONE_MQ = matchMedia('(max-width: 599.98px) and (orientation: portrait)');
+const isPhone = () => document.body.classList.contains('is-phone');
 
 /* ------------------------------------------------------------------------------ header */
 const header = mountHeader($('uh-header'), { home: '/', join: false, progress: false, foot: 'Fly mode · Underhill Geomatics' });
@@ -108,6 +115,8 @@ const pipRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, dep
 pipRT.texture.generateMipmaps = false;
 
 const hud = new Hud({ onTag: (id) => (id === 'home' ? sim?.rth('user') : flyToViewpoint(id)), onRollOpen: null });
+// phones: no keyboard hints in the messages ("(or T)", "(P)")
+{ const toast = hud.toast.bind(hud); hud.toast = (text, o) => toast(isPhone() ? text.replace(/ \((?:or )?[A-Z?]\)/g, '') : text, o); }
 const sfx = new Sfx();
 const lidar = new Lidar(scene, query, Q);
 const photos = new PhotoSystem({ renderer, scene, passes });
@@ -165,13 +174,15 @@ function layout() {
   S.pip = view.w >= 900 && !TOUCH ? { w: pw, h: ph } : null;
   if (S.pip) { const d = renderer.getPixelRatio(); pipRT.setSize(Math.round(pw * d), Math.round(ph * d)); }
   document.body.classList.toggle('is-compact', matchMedia('(max-width: 699px), (orientation: landscape) and (max-height: 520px)').matches);
+  document.body.classList.toggle('is-phone', PHONE_MQ.matches);
+  document.body.classList.toggle('has-sticks', TOUCH || PHONE_MQ.matches);
   sizeMinimap();
   const d = Math.min(2, devicePixelRatio || 1);
   const ov = $('map-overlay');
   ov.width = Math.round(view.w * d); ov.height = Math.round(view.h * d);
   S.mapAt = 0;
   S.mapOff = mapOffPx();
-  const ht = document.querySelector('.hud-top');
+  const ht = document.querySelector(isPhone() ? '.ptele' : '.hud-top');
   S.hudTopBottom = ht ? ht.getBoundingClientRect().bottom : 0;
 }
 addEventListener('resize', () => layout());
@@ -665,6 +676,13 @@ function frame(dt) {
 }
 
 function updateHud() {
+  // phones: the sticks and the button group show once the drone is in the air (fly.css)
+  const flying = sim.airborne || sim.mode === 'takeoff';
+  if (document.body.classList.contains('is-flying') !== flying) {
+    document.body.classList.toggle('is-flying', flying);
+    if (isPhone()) { S.hudTopBottom = $('ptele').getBoundingClientRect().bottom; if (flying) coachResume(); }
+  }
+  document.body.classList.toggle('is-rth', sim.mode === 'rth');
   const homeB = sim.distHome > 2 ? headingOf(sim.home.x - sim.pos.x, sim.home.z - sim.pos.z) : null;
   hud.compass(sim.heading, homeB);
   hud.update(sim, { modeText: modeText(), real: real ? real.hudPosition(sim.pos) : null, elev0: real ? real.elevation(sim.pos.y) : undefined });
@@ -724,6 +742,8 @@ function updateTags() {
   // …and off the side columns (minimap, buttons), where a half-cut tag reads badly
   const side = Math.max(70, view.w * 0.1);
   for (const it of items) if (it.on && (it.y < topY + 64 || it.x < side || it.x > view.w - side)) it.on = false;
+  // phones: no place tags at all (the picture comes first; the map view names the places, and flies there)
+  if (isPhone()) for (const it of items) it.on = false;
   const vis = items.filter((it) => it.on).sort((a, b) => a.d - b.d);
   for (let i = 0; i < vis.length; i++) for (let j = 0; j < i; j++) if (vis[j].on && Math.abs(vis[i].x - vis[j].x) < 90 && Math.abs(vis[i].y - vis[j].y) < 40) { vis[i].on = false; break; }
   hud.tags(items);
@@ -962,6 +982,66 @@ function wireUi() {
   });
   tap('btn-payload-c', () => cyclePayload());
   syncToggles();
+  wirePhone();
+}
+
+/* ------------------------------------------------------- phones: the bar, the strip, the sheet */
+// (2026-10-14) The bar's ⋯ opens the same settings sheet as the header's (drawn as a bottom sheet over a
+// scrim there), with the day / night, payload and view rows on top. The strip opens its details in place.
+function wirePhone() {
+  const more = $('more-sheet'), roll = $('roll'), scrim = $('pscrim'), pm = $('ptop-more');
+  const tap = (id, fn) => $(id).addEventListener('click', (e) => { fn(e); e.currentTarget.blur?.(); });
+  // every way a sheet opens or closes (⋯, ✕, Esc, the help) goes through `hidden`: the scrim follows it
+  const syncScrim = () => {
+    scrim.hidden = more.hidden && roll.hidden;
+    pm.setAttribute('aria-expanded', String(!more.hidden));
+    if (!more.hidden) syncPhoneSheet();
+  };
+  for (const el of [more, roll]) new MutationObserver(syncScrim).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+  tap('ptop-more', () => { more.hidden = !more.hidden; roll.hidden = true; });
+  scrim.addEventListener('click', () => { more.hidden = true; roll.hidden = true; });
+  // the strip: altitude, speed, home, battery; a tap shows the rest under it
+  tap('pstrip', () => {
+    const det = $('pdet'), on = det.hidden;
+    det.hidden = !on;
+    $('pstrip').setAttribute('aria-expanded', String(on));
+    S.hudTopBottom = $('ptele').getBoundingClientRect().bottom;
+  });
+  // the sheet's rows: day / night (the header's own switch does the work), payload, view
+  for (const b of $('pseg-look').children) {
+    b.addEventListener('click', () => { if (document.body.classList.contains('is-day') !== (b.dataset.day === '1')) header.daylight?.click(); syncPhoneSheet(); });
+  }
+  // (the switch may cross-fade the page: the rows follow the switch itself, not the click)
+  if (header.daylight) new MutationObserver(syncPhoneSheet).observe(header.daylight, { attributes: true, attributeFilter: ['aria-pressed'] });
+  const ps = $('pseg-payload');
+  for (const id of PAYLOAD_ORDER) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pseg__b'; b.dataset.p = id; b.textContent = PAYLOADS[id].short;
+    b.addEventListener('click', () => { setPayload(id); syncPhoneSheet(); });
+    ps.appendChild(b);
+  }
+  for (const b of $('pseg-view').children) b.addEventListener('click', () => { setView(b.dataset.v); more.hidden = true; });
+  tap('tog-roll', () => { more.hidden = true; roll.hidden = false; });
+  // full screen, where the browser has it (not iPhone Safari)
+  const root = document.documentElement, fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  if ((document.fullscreenEnabled || document.webkitFullscreenEnabled) && (root.requestFullscreen || root.webkitRequestFullscreen)) {
+    const fs = $('tog-fs');
+    fs.hidden = false;
+    tap('tog-fs', () => {
+      if (fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {});
+      else (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' })?.catch?.(() => {});
+    });
+    const sync = () => { const on = !!fsEl(); fs.setAttribute('aria-pressed', String(on)); fs.querySelector('b').textContent = on ? 'On' : 'Off'; };
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+  }
+  // turning into or out of the phone layout: the strip folds
+  PHONE_MQ.addEventListener?.('change', () => { $('pdet').hidden = true; $('pstrip').setAttribute('aria-expanded', 'false'); });
+}
+function syncPhoneSheet() {
+  const day = document.body.classList.contains('is-day');
+  for (const b of $('pseg-look').children) b.setAttribute('aria-pressed', String((b.dataset.day === '1') === day));
+  for (const b of $('pseg-payload').children) b.setAttribute('aria-pressed', String(b.dataset.p === drone?.payload));
+  for (const b of $('pseg-view').children) b.setAttribute('aria-pressed', String(b.dataset.v === S.view));
 }
 
 function toggleSport() { sim.sport = !sim.sport; syncToggles(); hud.toast(sim.sport ? 'Sport mode · 21 m/s, obstacle sensing still on' : 'Normal mode · 15 m/s'); }
@@ -1056,6 +1136,7 @@ function coach(force = false) {
   let seen = null;
   try { seen = localStorage.getItem('uh-fly-coach'); } catch (e) { /* fine */ }
   if (!force && (seen || qs.get('coach') === '0') && qs.get('coach') !== '1') return;
+  if (isPhone()) { phoneCoach(); return; }
   const steps = TOUCH ? [
     ['Left stick: climb and turn', 'stick-l'],
     ['Right stick: move', 'stick-r'],
@@ -1081,6 +1162,61 @@ function coach(force = false) {
   $('coach-skip').onclick = done;
   el.hidden = false;
   show();
+}
+
+// Phones: the touch controls, each where it is (the card stands clear of what it describes, a ring
+// around it). Before take-off only the hold button is there, so the tips for the sticks and the buttons
+// wait for the take-off (coachResume, from updateHud) and pick up from there.
+const PHONE_COACH = [
+  ['When it turns blue, hold the button to take off', 'btn-hold', false],
+  ['Left stick: climb and turn', 'stick-l', true],
+  ['Right stick: fly forward, back and sideways', 'stick-r', true],
+  ['Photo, LiDAR, view, map and return home', 'actions', true],
+];
+const coachState = { i: -1, steps: PHONE_COACH };
+function phoneCoach() {
+  const steps = sim?.airborne ? PHONE_COACH.slice(1) : PHONE_COACH;
+  coachState.steps = steps; coachState.i = 0;
+  $('coach').classList.add('is-phone-coach');
+  $('coach-next').onclick = () => { if (++coachState.i >= steps.length) coachDone(); else coachShow(); };
+  $('coach-skip').onclick = coachDone;
+  coachShow();
+}
+function coachDone() {
+  coachState.i = -1;
+  $('coach').hidden = true;
+  try { localStorage.setItem('uh-fly-coach', '1'); } catch (e) { /* fine */ }
+}
+function coachResume() {
+  if (coachState.i < 0) return;
+  // (taken off with the hold tip still up: that one is done)
+  if (!coachState.steps[coachState.i][2] && ++coachState.i >= coachState.steps.length) { coachDone(); return; }
+  setTimeout(coachShow, 60);   // (once the sticks are laid out)
+}
+function coachShow() {
+  const { steps, i } = coachState;
+  if (i < 0) return;
+  const el = $('coach'), ring = $('coach-ring'), card = el.querySelector('.coach__card');
+  const [text, target, air] = steps[i];
+  // a tip for the sticks or the buttons, on the ground: it waits for the take-off
+  if (air && !sim.airborne) { el.hidden = true; return; }
+  $('coach-step').textContent = `${i + 1} / ${steps.length}`;
+  $('coach-text').textContent = text;
+  const next = steps[i + 1];
+  $('coach-next').textContent = i === steps.length - 1 ? 'Fly' : next && next[2] && !sim.airborne ? 'Got it' : 'Next';
+  el.hidden = false;
+  // a bubble above what it describes (all of it is in the thumb zone), its arrow on that thing's centre;
+  // never over the line under the bar. A thin ring marks the control.
+  const r = $(target).getBoundingClientRect(), ch = card.offsetHeight, cw = card.offsetWidth;
+  ring.hidden = false;
+  ring.style.cssText = `left:${r.left - 4}px;top:${r.top - 4}px;width:${r.width + 8}px;height:${r.height + 8}px`;
+  const cx = r.left + r.width / 2, left = clamp(cx - cw / 2, 12, view.w - 12 - cw);
+  card.style.left = `${Math.round(left)}px`;
+  // (held by its bottom edge, so a late web font that makes it taller grows it upwards, off the target)
+  if (r.top - 18 - ch >= S.hudTopBottom + 12) { card.style.top = 'auto'; card.style.bottom = `${Math.round(view.h - r.top + 18)}px`; }
+  else { card.style.bottom = 'auto'; card.style.top = `${Math.round(S.hudTopBottom + 12)}px`; }
+  card.style.setProperty('--ax', `${Math.round(clamp(cx - left, 22, cw - 22))}px`);
+  el.dataset.at = target;
 }
 
 /* --------------------------------------------------------------------------- real world */

@@ -773,12 +773,9 @@ body.ld-body .ld-filmpill:focus-visible { outline: 2px solid #5cc0f5; outline-of
   body.ld-body .site-head .daylight { margin-left: 8px; }
 }
 @media (max-width: 600px) {
-  /* the play mark alone: a 40 px blue round (its ::before makes the target 44 px) */
-  body.ld-body .ld-filmpill { width: 40px; height: 40px; padding: 0; justify-content: center; overflow: visible; }
-  body.ld-body .ld-filmpill::before { content: ""; position: absolute; inset: -2px; }
-  body.ld-body .ld-filmpill__t { display: none; }
-  body.ld-body .ld-filmpill__ico { background: none; width: 40px; height: 40px; }
-  body.ld-body .ld-filmpill__ico svg { width: 13px; height: 13px; }
+  /* phones: no pill in the bar (the hero's film tile is the way in); the toggle takes the right edge again */
+  body.ld-body .ld-filmpill { display: none; }
+  body.ld-body .site-head .daylight { margin-left: auto; }
 }
 body.ld-body .site-head.menu-open .ld-filmpill { visibility: hidden; }
 
@@ -827,4 +824,3 @@ body.ld-body .site-head.menu-open .ld-filmpill { visibility: hidden; }
 body.ld-body .ld-filmpill::after { animation-delay: 1.6s; border-radius: inherit; }
 @keyframes ld-shine { 0%, 62% { transform: translateX(-120%) skewX(-18deg); } 100% { transform: translateX(340%) skewX(-18deg); } }
 @media (prefers-reduced-motion: reduce) { .ld .ld-btn.is-shiny::after, body.ld-body .ld-filmpill::after { animation: none; display: none; } }
-@media (max-width: 600px) { body.ld-body .ld-filmpill::after { display: none; } }
